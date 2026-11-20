@@ -88,12 +88,12 @@ export const TopNavLinks: React.FC<TopNavLinksProps> = ({ currentPath, onNavigat
           type="button"
           onClick={() => {
             play('tab');
-            onNavigate('/usuarios?tab=profile');
+            onNavigate('/perfil');
           }}
           title="Ajustes de Perfil"
           className={cn(
             'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer group',
-            basePath === '/usuarios' && currentPath.includes('tab=profile')
+            basePath === '/perfil'
               ? 'bg-primary text-primary-foreground font-semibold'
               : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
           )}

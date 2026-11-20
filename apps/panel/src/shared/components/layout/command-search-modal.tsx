@@ -213,7 +213,7 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
         category: 'Acciones',
         icon: User,
         perform: () => {
-          onNavigate('/usuarios?tab=profile');
+          onNavigate('/perfil');
           onClose();
         },
       },

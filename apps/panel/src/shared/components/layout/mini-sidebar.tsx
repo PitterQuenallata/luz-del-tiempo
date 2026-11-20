@@ -124,12 +124,12 @@ export const MiniSidebar: React.FC<MiniSidebarProps> = ({ currentPath, onNavigat
             type="button"
             onClick={() => {
               play('tab');
-              onNavigate('/usuarios?tab=profile');
+              onNavigate('/perfil');
             }}
             title="Mi Perfil"
             className={cn(
               'h-9 w-9 rounded-xl flex items-center justify-center transition-all cursor-pointer group',
-              basePath === '/usuarios' && currentPath.includes('tab=profile')
+              basePath === '/perfil'
                 ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                 : 'bg-primary/10 text-primary border border-primary/20 hover:scale-105'
             )}

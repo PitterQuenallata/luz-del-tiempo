@@ -54,9 +54,15 @@ const json = (body: unknown) => JSON.stringify(body);
 export interface SessionUser {
   id: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string;
+  phoneCode: string | null;
   phone: string | null;
+  fotoUrl: string | null;
   isActive: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
   roleKey: string | null;
   roleName: string | null;
   roleScope: 'global' | 'station' | null;
@@ -65,12 +71,39 @@ export interface SessionUser {
 export interface ApiUsuario {
   id: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string;
+  phoneCode: string | null;
   phone: string | null;
+  fotoUrl: string | null;
   isActive: boolean;
+  deletedAt: string | null;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
   createdAt: string;
   roleKey: string | null;
   roleName: string | null;
+}
+
+export interface Pais {
+  codigo: string;
+  iso: string;
+  nombre: string;
+  digitosMin: number;
+  digitosMax: number;
+}
+
+export interface EventoLog {
+  id: string;
+  fecha: string;
+  accion: string;
+  entidad: string;
+  entidadId: string | null;
+  detalle: string | null;
+  cambios: Record<string, unknown> | null;
+  usuarioNombre: string | null;
+  usuarioEmail: string | null;
 }
 
 export interface ApiRole {
@@ -91,11 +124,21 @@ export interface ApiPermiso {
 }
 
 export interface NuevoUsuarioInput {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  password: string;
-  phone?: string;
+  phoneCode: string;
+  phone: string;
   roleKey: string;
+}
+
+export interface EditarUsuarioInput {
+  firstName?: string;
+  lastName?: string;
+  phoneCode?: string;
+  phone?: string | null;
+  roleKey?: string;
+  isActive?: boolean;
 }
 
 export interface NuevoRolInput {
@@ -132,17 +175,51 @@ export const luzApi = {
     return data.user;
   },
 
-  async listUsuarios(): Promise<ApiUsuario[]> {
-    const data = await request<{ usuarios: ApiUsuario[] }>('/api/v1/usuarios');
+  async listUsuarios(estado: 'vigentes' | 'eliminados' | 'todos' = 'vigentes'): Promise<ApiUsuario[]> {
+    const data = await request<{ usuarios: ApiUsuario[] }>(`/api/v1/usuarios?estado=${estado}`);
     return data.usuarios;
   },
 
-  createUsuario(input: NuevoUsuarioInput) {
-    return request('/api/v1/usuarios', { method: 'POST', body: json(input) });
+  async listPaises(): Promise<{ paises: Pais[]; predeterminado: string }> {
+    return request('/api/v1/usuarios/paises');
   },
 
-  updateUsuario(id: string, patch: { name?: string; phone?: string | null; roleKey?: string; isActive?: boolean }) {
+  createUsuario(input: NuevoUsuarioInput) {
+    return request<{ usuario: { id: string; name: string; email: string }; contrasenaInicial: string }>(
+      '/api/v1/usuarios',
+      { method: 'POST', body: json(input) }
+    );
+  },
+
+  updateUsuario(id: string, patch: EditarUsuarioInput) {
     return request(`/api/v1/usuarios/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  deleteUsuario(id: string) {
+    return request<{ ok: boolean; tipo: 'limpia' | 'logica' }>(`/api/v1/usuarios/${id}`, { method: 'DELETE' });
+  },
+
+  async subirFoto(id: string, archivo: File) {
+    const cuerpo = new FormData();
+    cuerpo.append('foto', archivo);
+    const res = await fetch(`${API_URL}/api/v1/usuarios/${id}/foto`, { method: 'POST', body: cuerpo, credentials: 'include' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiRequestError(data?.message ?? `Error ${res.status}`, res.status);
+    return data;
+  },
+
+  updateMe(patch: { firstName?: string; lastName?: string; phoneCode?: string; phone?: string | null }) {
+    return request('/api/v1/me', { method: 'PATCH', body: json(patch) });
+  },
+
+  changePassword(currentPassword: string, newPassword: string) {
+    return request('/api/auth/change-password', { method: 'POST', body: json({ currentPassword, newPassword, revokeOtherSessions: false }) });
+  },
+
+  async listLogs(accion?: string): Promise<EventoLog[]> {
+    const q = accion ? `&accion=${encodeURIComponent(accion)}` : '';
+    const data = await request<{ eventos: EventoLog[] }>(`/api/v1/logs?limite=200${q}`);
+    return data.eventos;
   },
 
   async listRoles(): Promise<ApiRole[]> {

@@ -112,7 +112,7 @@ export const BlakorShell: React.FC<BlakorShellProps> = ({
         <ActionFab
           onQuickAction={(actionId) => {
             if (actionId === 'open-sidebar') setIsDrawerOpen(true);
-            if (actionId === 'profile') onNavigate('/usuarios?tab=profile');
+            if (actionId === 'profile') onNavigate('/perfil');
             if (actionId === 'new-user') onNavigate('/usuarios');
           }}
         />

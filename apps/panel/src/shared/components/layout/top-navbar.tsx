@@ -249,7 +249,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
                     <button
                       type="button"
                       className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-foreground transition-colors cursor-pointer group"
-                      onClick={() => handleNavigate('/usuarios?tab=profile')}
+                      onClick={() => handleNavigate('/perfil')}
                     >
                       <UserIcon size={16} className="text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
                       <span>Mi Perfil</span>

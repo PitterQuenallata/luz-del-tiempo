@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useUsuarios, useCreateUsuario, useDeleteUsuario, useUpdateUsuario } from '../hooks/use-usuarios';
 import { UsuariosDirectoryTab } from '../components/usuarios-directory-tab';
 import { RolesPermisosTab } from '../components/roles-permisos-tab';
-import { NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { cn } from '../../../shared/lib/utils';
 
 type Pestana = 'directorio' | 'roles';
@@ -10,10 +8,6 @@ type Pestana = 'directorio' | 'roles';
 const pestanaInicial = (): Pestana => (window.location.hash.includes('tab=roles') ? 'roles' : 'directorio');
 
 export const UsuariosPage: React.FC = () => {
-  const { data: usuarios = [], isError } = useUsuarios();
-  const createMutation = useCreateUsuario();
-  const deleteMutation = useDeleteUsuario();
-  const updateMutation = useUpdateUsuario();
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
 
   const cambiar = (p: Pestana) => {
@@ -50,16 +44,8 @@ export const UsuariosPage: React.FC = () => {
         ))}
       </div>
 
-      {isError && <p className="text-xs text-red-400">No se pudieron cargar los usuarios. Revisa tu sesión.</p>}
 
-      {pestana === 'directorio' && (
-        <UsuariosDirectoryTab
-          usuarios={usuarios}
-          onAddUsuario={(input: NuevoUsuarioInput) => createMutation.mutate(input)}
-          onDeleteUsuario={(id: string) => deleteMutation.mutate(id)}
-          onActivateUsuario={(id: string) => updateMutation.mutate({ id, patch: { isActive: true } })}
-        />
-      )}
+      {pestana === 'directorio' && <UsuariosDirectoryTab />}
 
       {pestana === 'roles' && <RolesPermisosTab />}
     </div>

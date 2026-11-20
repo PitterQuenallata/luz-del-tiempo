@@ -86,7 +86,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
           <div
             onClick={() => {
               play('tab');
-              onNavigate('/usuarios?tab=profile');
+              onNavigate('/perfil');
             }}
             className="flex items-center gap-2.5 cursor-pointer group mb-2.5"
             title="Ver mi perfil"
@@ -119,7 +119,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
               type="button"
               onClick={() => {
                 play('tab');
-                onNavigate('/usuarios?tab=profile');
+                onNavigate('/perfil');
               }}
               title="Ajustes de Perfil"
               className={cn(

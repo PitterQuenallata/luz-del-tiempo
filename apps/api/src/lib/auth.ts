@@ -19,6 +19,16 @@ export const auth = betterAuth({
   // Las cuentas las crea un administrador: no se inicia sesión al crearlas (no cuenta como actividad).
   emailAndPassword: { enabled: true, minPasswordLength: 4, autoSignIn: false },
   databaseHooks: {
+    account: {
+      update: {
+        // Al cambiar la contraseña, deja de ser la inicial
+        after: async (account) => {
+          if (account.providerId !== 'credential') return;
+          await db.update(schema.users).set({ mustChangePassword: false }).where(eq(schema.users.id, account.userId));
+          await registrarAuditoria({ userId: account.userId, accion: 'perfil.contrasena', entidad: 'usuario', entidadId: account.userId });
+        },
+      },
+    },
     session: {
       create: {
         after: async (session) => {

@@ -38,6 +38,8 @@ const withSuspense = (LazyComponent: React.LazyExoticComponent<React.ComponentTy
 const DashboardPage = withSuspense(lazy(() => import('../../modules/dashboard/pages/dashboard-page').then((m) => ({ default: m.DashboardPage }))));
 const UsuariosPage = withSuspense(lazy(() => import('../../modules/usuarios/pages/usuarios-page').then((m) => ({ default: m.UsuariosPage }))));
 const AuthCardFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-card-fullscreen-page').then((m) => ({ default: m.AuthCardFullscreenPage }))));
+const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
+const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-page').then((m) => ({ default: m.LogsPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
 
 // 1. Root Route with Shell Layout
@@ -137,6 +139,18 @@ const auth500Route = createRoute({
   component: () => <AuthErrorFullscreenPage forcedCode="500" />,
 });
 
+const perfilRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/perfil',
+  component: PerfilPage,
+});
+
+const logsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/logs',
+  component: LogsPage,
+});
+
 const direct404Route = createRoute({
   getParentRoute: () => rootRoute,
   path: '/404',
@@ -160,6 +174,8 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   usuariosRoute,
+  perfilRoute,
+  logsRoute,
   authCardRoute,
   auth404Route,
   auth505Route,

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, ScrollText, LucideIcon } from 'lucide-react';
 
 export type NavigationCategoryKey = 'principal' | 'administracion';
 
@@ -25,4 +25,5 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { id: 'dashboard', title: 'Inicio', path: '/dashboard', icon: LayoutDashboard, category: 'principal' },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion' },
+  { id: 'logs', title: 'Logs', path: '/logs', icon: ScrollText, category: 'administracion' },
 ];

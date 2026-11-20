@@ -87,14 +87,14 @@ export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate 
           {/* Profile Shortcut */}
           <DockItem
             {...dockProfileHover.triggerProps}
-            active={basePath === '/usuarios' && currentPath.includes('tab=profile')}
+            active={basePath === '/perfil'}
             onClick={() => {
               play('tab');
-              onNavigate('/usuarios?tab=profile');
+              onNavigate('/perfil');
             }}
             className={cn(
               'aspect-square rounded-full transition-colors flex items-center justify-center group',
-              basePath === '/usuarios' && currentPath.includes('tab=profile')
+              basePath === '/perfil'
                 ? 'bg-primary text-primary-foreground shadow-xs'
                 : 'bg-[#E5E7EB] dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-[#D1D5DB] dark:hover:bg-neutral-700'
             )}
@@ -106,7 +106,7 @@ export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate 
                 size={22}
                 className={cn(
                   'transition-transform duration-200 group-hover:scale-115',
-                  basePath === '/usuarios' && currentPath.includes('tab=profile')
+                  basePath === '/perfil'
                     ? 'text-primary-foreground'
                     : 'text-neutral-700 dark:text-neutral-200'
                 )}
