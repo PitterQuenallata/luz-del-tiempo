@@ -34,7 +34,7 @@ const exigirPermiso = (permiso?: string) => async ({ context }: { context: Route
   } catch {
     throw redirect({ to: '/login' });
   }
-  if (yo.mustChangePassword) throw redirect({ to: '/new-password' });
+  // El cambio de contraseña inicial lo cubre el layout raíz (y el login); aquí solo permisos.
   if (permiso && !yo.permisos.includes(permiso)) throw redirect({ to: '/403' });
 };
 
