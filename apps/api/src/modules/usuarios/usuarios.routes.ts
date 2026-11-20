@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { auth } from '../../lib/auth.js';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
-import { PAISES, PAIS_PREDETERMINADO, contrasenaInicial, validarTelefono } from '../../lib/telefono.js';
-import { validarEmail, validarNombre } from '../../lib/validaciones.js';
+import { PAISES, PAIS_PREDETERMINADO, contrasenaInicial, separarTelefonoLegado, validarTelefono } from '../../lib/telefono.js';
+import { separarNombreLegado, validarEmail, validarNombre } from '../../lib/validaciones.js';
 import { db } from '../../db/index.js';
 import { auditLog, roles, users } from '../../db/schema.js';
 
@@ -100,7 +100,13 @@ usuariosRoutes.get('/', requirePermission('usuarios:gestionar'), async (c) => {
     .where(filtro)
     .orderBy(desc(users.createdAt));
 
-  return c.json({ usuarios: rows.map((r) => ({ ...r, fotoUrl: fotoUrl(r) })) });
+  return c.json({
+    usuarios: rows.map((r) => {
+      const nombres = separarNombreLegado(r.name, r.firstName, r.lastName);
+      const tel = separarTelefonoLegado(r.phone, r.phoneCode);
+      return { ...r, ...nombres, phoneCode: tel.codigo, phone: tel.numero, fotoUrl: fotoUrl(r) };
+    }),
+  });
 });
 
 usuariosRoutes.post('/', requirePermission('usuarios:gestionar'), async (c) => {

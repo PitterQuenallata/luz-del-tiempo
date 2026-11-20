@@ -46,3 +46,12 @@ export function contrasenaInicial(apellidos: string): string {
   const minus = primero.toLocaleLowerCase('es');
   return (minus.charAt(0).toLocaleUpperCase('es') + minus.slice(1)) + '*.';
 }
+
+// Cuentas creadas antes de separar los campos: el teléfono venía como "+591 70000001" en un solo campo.
+export function separarTelefonoLegado(telefono: string | null, codigo: string | null): { codigo: string | null; numero: string | null } {
+  if (codigo || !telefono || !telefono.trim().startsWith('+')) return { codigo, numero: telefono };
+  const limpio = telefono.trim();
+  const pais = [...PAISES].sort((a, b) => b.codigo.length - a.codigo.length).find((p) => limpio.startsWith(p.codigo));
+  if (!pais) return { codigo, numero: telefono };
+  return { codigo: pais.codigo, numero: limpio.slice(pais.codigo.length).replace(/\D/g, '') || null };
+}

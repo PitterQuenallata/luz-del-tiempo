@@ -9,6 +9,7 @@ import { useEliminarUsuario, useRoles, useUpdateUsuario } from '../hooks/use-usu
 import { useSession } from '../../auth/hooks/use-session';
 import { TelefonoInput, telefonoValido } from './telefono-input';
 import { FotoPerfil } from './foto-perfil';
+import { SelectField } from './select-field';
 import { formatoUltimoAcceso } from '../lib/usuario';
 import { confirmar } from '../../../shared/lib/confirm';
 import { errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
@@ -113,17 +114,16 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
           </div>
           <div className="space-y-1.5">
             <label htmlFor="det-rol" className="font-medium block">Rol</label>
-            <select
+            <SelectField
               id="det-rol"
               value={roleKey}
               disabled={!puedeEditarRol || eliminado}
               onChange={(e) => setRoleKey(e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs disabled:opacity-60"
             >
               {rolesAsignables.map((r) => (
                 <option key={r.key} value={r.key}>{r.name}</option>
               ))}
-            </select>
+            </SelectField>
             {!puedeEditarRol && <p className="text-[11px] text-muted-foreground">Solo el superadmin puede modificar esta cuenta.</p>}
           </div>
           {!eliminado && (

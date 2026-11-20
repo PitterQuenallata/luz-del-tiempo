@@ -3,6 +3,7 @@ import { X, Copy, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
+import { SelectField } from './select-field';
 import { luzApi } from '../../../shared/api/luz-api';
 import { copiarTexto } from '../../../shared/lib/clipboard';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
@@ -129,9 +130,9 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
 
           <div className="space-y-1.5">
             <label htmlFor="alta-rol" className="font-medium block">Rol *</label>
-            <select id="alta-rol" value={roleKey} onChange={(e) => setRoleKey(e.target.value)} className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs">
+            <SelectField id="alta-rol" value={roleKey} onChange={(e) => setRoleKey(e.target.value)}>
               {rolesAsignables.map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}
-            </select>
+            </SelectField>
             {intentado && <Error_ texto={errRol} />}
           </div>
 

@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { auth } from '../../lib/auth.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { validarTelefono } from '../../lib/telefono.js';
-import { validarNombre } from '../../lib/validaciones.js';
+import { separarNombreLegado, validarNombre } from '../../lib/validaciones.js';
+import { separarTelefonoLegado } from '../../lib/telefono.js';
 import { db } from '../../db/index.js';
 import { roles, users } from '../../db/schema.js';
 
@@ -41,7 +42,9 @@ async function cargarYo(headers: Headers) {
 meRoutes.get('/', async (c) => {
   const row = await cargarYo(c.req.raw.headers);
   if (!row) return c.json({ error: 'no_autenticado' }, 401);
-  return c.json({ user: { ...row, fotoUrl: fotoUrl(row) } });
+  const nombres = separarNombreLegado(row.name, row.firstName, row.lastName);
+  const tel = separarTelefonoLegado(row.phone, row.phoneCode);
+  return c.json({ user: { ...row, ...nombres, phoneCode: tel.codigo, phone: tel.numero, fotoUrl: fotoUrl(row) } });
 });
 
 // Editar mi perfil: nombres, apellidos y teléfono (no el rol ni el estado).

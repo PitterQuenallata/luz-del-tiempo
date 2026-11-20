@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { luzApi, Pais } from '../../../shared/api/luz-api';
 import { bandera } from '../lib/usuario';
+import { SelectField } from './select-field';
 
 interface TelefonoInputProps {
   codigo: string;
@@ -32,18 +33,18 @@ export const TelefonoInput: React.FC<TelefonoInputProps> = ({ codigo, numero, on
   return (
     <div className="space-y-1">
       <div className="flex gap-2">
-        <select
+        <SelectField
           aria-label="Código de país"
+          wrapperClassName="w-40 shrink-0"
           value={codigo}
           onChange={(e) => onChange(e.target.value, numero)}
-          className="h-9 w-36 px-2 rounded-xl border border-border bg-background text-xs"
         >
           {paises.map((p) => (
             <option key={p.codigo} value={p.codigo}>
               {bandera(p.iso)} {p.codigo} {p.nombre}
             </option>
           ))}
-        </select>
+        </SelectField>
         <input
           id={id}
           inputMode="numeric"

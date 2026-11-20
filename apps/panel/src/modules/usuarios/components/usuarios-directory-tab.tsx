@@ -5,6 +5,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { DataTable } from '../../../shared/components/data-table/data-table';
 import { usuariosColumns } from './usuarios-columns';
 import { UsuarioDetalleDialog } from './usuario-detalle-dialog';
+import { SelectField } from './select-field';
 import { AltaUsuarioDialog } from './alta-usuario-dialog';
 import { Usuario } from '../types/usuarios.types';
 import { confirmar } from '../../../shared/lib/confirm';
@@ -87,29 +88,29 @@ export const UsuariosDirectoryTab: React.FC = () => {
 
         <CardContent className="p-0">
           <div className="flex flex-wrap gap-2 p-4 border-b border-border/50">
-            <select
+            <SelectField
               aria-label="Filtrar por estado"
+              wrapperClassName="w-44"
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado)}
-              className="h-9 px-3 rounded-xl border border-border bg-background text-xs"
             >
               <option value="todos">Todos los estados</option>
               <option value="activos">Activos</option>
               <option value="inactivos">Inactivos</option>
               <option value="eliminados">Eliminados</option>
-            </select>
-            <select
+            </SelectField>
+            <SelectField
               aria-label="Filtrar por rol"
+              wrapperClassName="w-56"
               value={filtroRol}
               onChange={(e) => setFiltroRol(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-border bg-background text-xs"
             >
               <option value="todos">Todos los roles</option>
               <option value="sin_rol">Sin rol</option>
               {roles.map((r) => (
                 <option key={r.key} value={r.key}>{r.name}</option>
               ))}
-            </select>
+            </SelectField>
           </div>
 
           <div className="p-4">

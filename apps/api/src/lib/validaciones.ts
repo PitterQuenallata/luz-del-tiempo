@@ -40,3 +40,10 @@ export function validarTexto(texto: string | null | undefined, campo: string, mi
   if (valor.length > max) return fallo(campo, `${campo} no puede pasar de ${max} caracteres.`);
   return ok(valor);
 }
+
+// Cuentas creadas antes de separar nombres: se toma el primer nombre y el resto como apellidos.
+export function separarNombreLegado(name: string, firstName: string | null, lastName: string | null) {
+  if (firstName && lastName) return { firstName, lastName };
+  const partes = normalizarNombre(name).split(' ').filter(Boolean);
+  return { firstName: firstName ?? partes[0] ?? null, lastName: lastName ?? (partes.slice(1).join(' ') || null) };
+}
