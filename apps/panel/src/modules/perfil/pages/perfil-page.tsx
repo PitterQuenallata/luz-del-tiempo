@@ -11,6 +11,7 @@ import { useSession, SESSION_QUERY_KEY } from '../../auth/hooks/use-session';
 import { FotoPerfil } from '../../usuarios/components/foto-perfil';
 import { TelefonoInput, telefonoValido } from '../../usuarios/components/telefono-input';
 import { formatoUltimoAcceso } from '../../usuarios/lib/usuario';
+import { errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
 import { useQuery } from '@tanstack/react-query';
 
 // Ajustes de mi perfil: foto, datos personales, teléfono y contraseña.
@@ -42,12 +43,14 @@ export const PerfilPage: React.FC = () => {
   if (!yo) return <p className="text-xs text-muted-foreground">Cargando perfil…</p>;
 
   const telValido = telefonoValido(phoneCode, phone, paises);
-  const datosValidos = firstName.trim() && lastName.trim() && telValido;
+  const errNombres = errorNombre(firstName, 'Nombres');
+  const errApellidos = errorNombre(lastName, 'Apellidos');
+  const datosValidos = !errNombres && !errApellidos && telValido;
 
   const guardarDatos = async () => {
     setGuardando(true);
     try {
-      await luzApi.updateMe({ firstName: firstName.trim(), lastName: lastName.trim(), phoneCode, phone: phone || null });
+      await luzApi.updateMe({ firstName: normalizarNombre(firstName), lastName: normalizarNombre(lastName), phoneCode, phone: phone || null });
       await qc.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
       pillToast.success('Perfil guardado');
     } catch (err) {
@@ -101,11 +104,13 @@ export const PerfilPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label htmlFor="perfil-nombres" className="font-medium block">Nombres *</label>
-              <Input id="perfil-nombres" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="text-xs" />
+              <Input id="perfil-nombres" value={firstName} onChange={(e) => setFirstName(e.target.value)} onBlur={() => setFirstName(normalizarNombre(firstName))} className="text-xs" />
+              {errNombres && <p className="text-[11px] text-red-400">{errNombres}</p>}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="perfil-apellidos" className="font-medium block">Apellidos *</label>
-              <Input id="perfil-apellidos" value={lastName} onChange={(e) => setLastName(e.target.value)} className="text-xs" />
+              <Input id="perfil-apellidos" value={lastName} onChange={(e) => setLastName(e.target.value)} onBlur={() => setLastName(normalizarNombre(lastName))} className="text-xs" />
+              {errApellidos && <p className="text-[11px] text-red-400">{errApellidos}</p>}
             </div>
           </div>
           <div className="space-y-1.5">
@@ -128,6 +133,8 @@ export const PerfilPage: React.FC = () => {
         <CardContent className="space-y-3 text-xs">
           <Input type="password" placeholder="Contraseña actual" value={actual} onChange={(e) => setActual(e.target.value)} className="text-xs" aria-label="Contraseña actual" />
           <Input type="password" placeholder="Nueva contraseña" value={nueva} onChange={(e) => setNueva(e.target.value)} className="text-xs" aria-label="Nueva contraseña" />
+          {nueva && nueva.length < 4 && <p className="text-[11px] text-red-400">La contraseña debe tener al menos 4 caracteres.</p>}
+          {repetir && nueva !== repetir && <p className="text-[11px] text-red-400">Las contraseñas no coinciden.</p>}
           <Input type="password" placeholder="Repetir nueva contraseña" value={repetir} onChange={(e) => setRepetir(e.target.value)} className="text-xs" aria-label="Repetir nueva contraseña" />
           <div className="flex justify-end">
             <Button

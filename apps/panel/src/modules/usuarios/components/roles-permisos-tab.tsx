@@ -9,6 +9,7 @@ import { useRoles } from '../hooks/use-usuarios';
 import { usePermisos, useEliminarRol } from '../hooks/use-roles';
 import { MatrizPermisos } from './matriz-permisos';
 import { RolDialog } from './rol-dialog';
+import { confirmar } from '../../../shared/lib/confirm';
 
 // Roles en tabla compacta + matriz de permisos. Solo el superadmin cambia roles.
 export const RolesPermisosTab: React.FC = () => {
@@ -72,8 +73,14 @@ export const RolesPermisosTab: React.FC = () => {
                             variant="ghost"
                             size="iconSm"
                             title="Eliminar rol"
-                            onClick={() => {
-                              if (window.confirm(`¿Eliminar el rol "${rol.name}"?`)) eliminarRol.mutate(rol.id);
+                            onClick={async () => {
+                              const ok = await confirmar({
+                                type: 'danger',
+                                title: `¿Eliminar el rol "${rol.name}"?`,
+                                text: 'Solo se puede si ningún usuario tiene este rol.',
+                                confirmText: 'Eliminar',
+                              });
+                              if (ok) eliminarRol.mutate(rol.id);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />

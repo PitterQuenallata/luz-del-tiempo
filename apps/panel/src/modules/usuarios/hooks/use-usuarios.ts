@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { luzApi, ApiUsuario, EditarUsuarioInput, NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { iniciales } from '../../../shared/lib/utils';
+import { normalizarNombre } from '../../../shared/lib/validaciones';
 import { Usuario, EstadoUsuario } from '../types/usuarios.types';
 
 export const USUARIOS_KEY = ['usuarios'] as const;
@@ -15,14 +16,14 @@ const estadoDe = (u: ApiUsuario): EstadoUsuario => (u.deletedAt ? 'Eliminado' : 
 
 export const toUsuario = (u: ApiUsuario): Usuario => ({
   id: u.id,
-  name: u.name,
-  firstName: u.firstName,
-  lastName: u.lastName,
+  name: normalizarNombre(u.name),
+  firstName: u.firstName ? normalizarNombre(u.firstName) : null,
+  lastName: u.lastName ? normalizarNombre(u.lastName) : null,
   email: u.email,
   role: u.roleName ?? 'Sin rol',
   roleKey: u.roleKey ?? undefined,
   status: estadoDe(u),
-  avatarText: iniciales(u.name),
+  avatarText: iniciales(normalizarNombre(u.name)),
   fotoUrl: u.fotoUrl,
   phoneCode: u.phoneCode,
   phone: u.phone,

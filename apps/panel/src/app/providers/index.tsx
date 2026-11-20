@@ -1,4 +1,5 @@
 import React from 'react';
+import { ConfirmHost } from '../../shared/components/ui/confirm-host';
 import { AppQueryProvider } from './query-provider';
 import { ThemeProvider } from '../../shared/context/theme-context';
 import { SoundProvider } from '../../shared/context/sound-context';
@@ -9,7 +10,10 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
     <AppQueryProvider>
       <ThemeProvider>
         <SoundProvider>
-          <LayoutProvider>{children}</LayoutProvider>
+          <LayoutProvider>
+            {children}
+            <ConfirmHost />
+          </LayoutProvider>
         </SoundProvider>
       </ThemeProvider>
     </AppQueryProvider>

@@ -7,6 +7,7 @@ import { usuariosColumns } from './usuarios-columns';
 import { UsuarioDetalleDialog } from './usuario-detalle-dialog';
 import { AltaUsuarioDialog } from './alta-usuario-dialog';
 import { Usuario } from '../types/usuarios.types';
+import { confirmar } from '../../../shared/lib/confirm';
 import { useEliminarUsuario, useRoles, useUpdateUsuario, useUsuarios } from '../hooks/use-usuarios';
 
 type FiltroEstado = 'todos' | 'activos' | 'inactivos' | 'eliminados';
@@ -43,12 +44,26 @@ export const UsuariosDirectoryTab: React.FC = () => {
     () =>
       usuariosColumns({
         onEdit: (u) => setSeleccionado(u),
-        onToggleActivo: (u) => update.mutate({ id: u.id, patch: { isActive: u.status !== 'Activo' } }),
-        onEliminar: (u) => {
-          const aviso = u.lastLoginAt
-            ? 'Esta cuenta ya tuvo actividad: se marcará como eliminada y se conservará el historial.'
-            : 'Si la cuenta no tiene actividad se borrará definitivamente.';
-          if (window.confirm(`¿Eliminar a ${u.name}?\n\n${aviso}`)) eliminar.mutate(u.id);
+        onToggleActivo: async (u) => {
+          const activar = u.status !== 'Activo';
+          const ok = await confirmar({
+            type: activar ? 'info' : 'warning',
+            title: activar ? `¿Activar a ${u.name}?` : `¿Desactivar a ${u.name}?`,
+            text: activar ? 'Podrá volver a entrar al panel.' : 'No podrá entrar al panel hasta que se active de nuevo.',
+            confirmText: activar ? 'Activar' : 'Desactivar',
+          });
+          if (ok) update.mutate({ id: u.id, patch: { isActive: activar } });
+        },
+        onEliminar: async (u) => {
+          const ok = await confirmar({
+            type: 'danger',
+            title: `¿Eliminar a ${u.name}?`,
+            text: u.lastLoginAt
+              ? 'Esta cuenta ya tuvo actividad: se marcará como eliminada y se conservará el historial.'
+              : 'La cuenta no tiene actividad: se borrará definitivamente.',
+            confirmText: 'Eliminar',
+          });
+          if (ok) eliminar.mutate(u.id);
         },
       }),
     [update, eliminar]

@@ -10,6 +10,8 @@ import { useSession } from '../../auth/hooks/use-session';
 import { TelefonoInput, telefonoValido } from './telefono-input';
 import { FotoPerfil } from './foto-perfil';
 import { formatoUltimoAcceso } from '../lib/usuario';
+import { confirmar } from '../../../shared/lib/confirm';
+import { errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
 
 interface UsuarioDetalleDialogProps {
   usuario: Usuario;
@@ -49,20 +51,27 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
   if (roleKey && roleKey !== usuario.roleKey) patch.roleKey = roleKey;
   if (activo !== (usuario.status === 'Activo')) patch.isActive = activo;
   const hayCambios = Object.keys(patch).length > 0;
-  const valido = firstName.trim() && lastName.trim() && telValido;
+  const errNombres = errorNombre(firstName, 'Nombres');
+  const errApellidos = errorNombre(lastName, 'Apellidos');
+  const valido = !errNombres && !errApellidos && telValido;
 
   const guardar = async () => {
+    if (patch.firstName) patch.firstName = normalizarNombre(String(patch.firstName));
+    if (patch.lastName) patch.lastName = normalizarNombre(String(patch.lastName));
     await update.mutateAsync({ id: usuario.id, patch });
     onClose();
   };
 
-  const borrar = () => {
-    const aviso = usuario.lastLoginAt
-      ? 'Esta cuenta ya tuvo actividad: se marcará como eliminada y se conservará el historial.'
-      : 'Si la cuenta no tiene actividad se borrará definitivamente.';
-    if (window.confirm(`¿Eliminar a ${usuario.name}?\n\n${aviso}`)) {
-      eliminar.mutate(usuario.id, { onSuccess: onClose });
-    }
+  const borrar = async () => {
+    const ok = await confirmar({
+      type: 'danger',
+      title: `¿Eliminar a ${usuario.name}?`,
+      text: usuario.lastLoginAt
+        ? 'Esta cuenta ya tuvo actividad: se marcará como eliminada y se conservará el historial.'
+        : 'La cuenta no tiene actividad: se borrará definitivamente.',
+      confirmText: 'Eliminar',
+    });
+    if (ok) eliminar.mutate(usuario.id, { onSuccess: onClose });
   };
 
   return (
@@ -89,11 +98,13 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label htmlFor="det-nombres" className="font-medium block">Nombres</label>
-              <Input id="det-nombres" value={firstName} disabled={eliminado} onChange={(e) => setFirstName(e.target.value)} className="text-xs" />
+              <Input id="det-nombres" value={firstName} disabled={eliminado} onChange={(e) => setFirstName(e.target.value)} onBlur={() => setFirstName(normalizarNombre(firstName))} className="text-xs" />
+              {errNombres && <p className="text-[11px] text-red-400">{errNombres}</p>}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="det-apellidos" className="font-medium block">Apellidos</label>
-              <Input id="det-apellidos" value={lastName} disabled={eliminado} onChange={(e) => setLastName(e.target.value)} className="text-xs" />
+              <Input id="det-apellidos" value={lastName} disabled={eliminado} onChange={(e) => setLastName(e.target.value)} onBlur={() => setLastName(normalizarNombre(lastName))} className="text-xs" />
+              {errApellidos && <p className="text-[11px] text-red-400">{errApellidos}</p>}
             </div>
           </div>
           <div className="space-y-1.5">

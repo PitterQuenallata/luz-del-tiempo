@@ -1,6 +1,8 @@
 // Cliente de la API 1 (apps/api). La sesión viaja en una cookie de Better Auth.
 // Vacío = mismo origen: Vite reenvía /api a la API. En producción se define VITE_API_URL.
 
+import { normalizarNombre } from './../lib/validaciones';
+
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 const MENSAJES_ERROR: Record<string, string> = {
@@ -172,7 +174,13 @@ export const luzApi = {
 
   async me(): Promise<SessionUser> {
     const data = await request<{ user: SessionUser }>('/api/v1/me');
-    return data.user;
+    const u = data.user;
+    return {
+      ...u,
+      name: normalizarNombre(u.name),
+      firstName: u.firstName ? normalizarNombre(u.firstName) : null,
+      lastName: u.lastName ? normalizarNombre(u.lastName) : null,
+    };
   },
 
   async listUsuarios(estado: 'vigentes' | 'eliminados' | 'todos' = 'vigentes'): Promise<ApiUsuario[]> {

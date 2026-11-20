@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
-import { copiarTexto } from '../../../shared/lib/clipboard';
-import { pillToast } from '../../../shared/components/ui/pill-toast';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { luzApi } from '../../../shared/api/luz-api';
+import { copiarTexto } from '../../../shared/lib/clipboard';
+import { pillToast } from '../../../shared/components/ui/pill-toast';
+import { errorEmail, errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
 import { useRoles, useCreateUsuario } from '../hooks/use-usuarios';
 import { TelefonoInput, telefonoValido } from './telefono-input';
 import { contrasenaInicialPreview } from '../lib/usuario';
 import { useSession } from '../../auth/hooks/use-session';
-import { useQuery } from '@tanstack/react-query';
 
 interface AltaUsuarioDialogProps {
   onClose: () => void;
 }
 
-// Alta de usuario: nombres, apellidos, correo, teléfono, rol. La contraseña inicial es el apellido.
+const Error_: React.FC<{ texto: string | null }> = ({ texto }) => (texto ? <p className="text-[11px] text-red-400">{texto}</p> : null);
+
+// Alta de usuario: nombres, apellidos, correo, teléfono y rol. La contraseña inicial es Apellido*.
 export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose }) => {
   const roles = useRoles().data;
   const { data: sesion } = useSession();
@@ -26,31 +29,24 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneCode, setPhoneCode] = useState(paisesData?.predeterminado ?? '+591');
+  const [phoneCode, setPhoneCode] = useState('+591');
   const [phone, setPhone] = useState('');
   const [roleKey, setRoleKey] = useState('editor');
+  const [intentado, setIntentado] = useState(false);
   const [creado, setCreado] = useState<{ nombre: string; email: string; contrasena: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
 
   const rolesAsignables = roles.filter((r) => r.key !== 'superadmin' || sesion?.roleKey === 'superadmin');
-  const preview = contrasenaInicialPreview(lastName);
-  const valido =
-    firstName.trim() && lastName.trim() && email.trim() && roleKey && telefonoValido(phoneCode, phone, paises) && preview.length >= 4;
-
-  const guardar = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!valido) return;
-    crear.mutate(
-      { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phoneCode, phone, roleKey },
-      {
-        onSuccess: (res) => setCreado({ nombre: res.usuario.name, email: res.usuario.email, contrasena: res.contrasenaInicial }),
-      }
-    );
-  };
+  const errNombres = errorNombre(firstName, 'Nombres');
+  const errApellidos = errorNombre(lastName, 'Apellidos');
+  const errCorreo = errorEmail(email);
+  const errTelefono = telefonoValido(phoneCode, phone, paises) ? null : 'Número incompleto para el país elegido.';
+  const errRol = roleKey ? null : 'Elige un rol.';
+  const hayErrores = !!(errNombres || errApellidos || errCorreo || errTelefono || errRol);
+  const preview = contrasenaInicialPreview(normalizarNombre(lastName));
 
   const copiar = async (texto: string) => {
-    const ok = await copiarTexto(texto);
-    if (ok) {
+    if (await copiarTexto(texto)) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } else {
@@ -58,7 +54,16 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
     }
   };
 
-  // Pantalla de resultado: la contraseña inicial solo se muestra en este momento
+  const guardar = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIntentado(true);
+    if (hayErrores) return;
+    crear.mutate(
+      { firstName: normalizarNombre(firstName), lastName: normalizarNombre(lastName), email: email.trim().toLowerCase(), phoneCode, phone, roleKey },
+      { onSuccess: (res) => setCreado({ nombre: res.usuario.name, email: res.usuario.email, contrasena: res.contrasenaInicial }) }
+    );
+  };
+
   if (creado) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -88,13 +93,7 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <form
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={guardar}
-        className="w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground shadow-xl"
-      >
+      <form role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} onSubmit={guardar} noValidate className="w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground shadow-xl">
         <div className="flex items-center justify-between p-5 border-b border-border/60">
           <h3 className="text-sm font-semibold">Nuevo usuario</h3>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground cursor-pointer">
@@ -106,31 +105,34 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label htmlFor="alta-nombres" className="font-medium block">Nombres *</label>
-              <Input id="alta-nombres" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="text-xs" required />
+              <Input id="alta-nombres" value={firstName} onChange={(e) => setFirstName(e.target.value)} onBlur={() => setFirstName(normalizarNombre(firstName))} className="text-xs" />
+              {(intentado || firstName) && <Error_ texto={errNombres} />}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="alta-apellidos" className="font-medium block">Apellidos *</label>
-              <Input id="alta-apellidos" value={lastName} onChange={(e) => setLastName(e.target.value)} className="text-xs" required />
+              <Input id="alta-apellidos" value={lastName} onChange={(e) => setLastName(e.target.value)} onBlur={() => setLastName(normalizarNombre(lastName))} className="text-xs" />
+              {(intentado || lastName) && <Error_ texto={errApellidos} />}
             </div>
           </div>
 
           <div className="space-y-1.5">
             <label htmlFor="alta-correo" className="font-medium block">Correo *</label>
-            <Input id="alta-correo" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-xs font-mono" required />
+            <Input id="alta-correo" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-xs font-mono" />
+            {(intentado || email) && <Error_ texto={errCorreo} />}
           </div>
 
           <div className="space-y-1.5">
             <p className="font-medium">Teléfono</p>
             <TelefonoInput id="alta-tel" codigo={phoneCode} numero={phone} onChange={(c, n) => { setPhoneCode(c); setPhone(n); }} />
+            {(intentado || phone) && <Error_ texto={errTelefono} />}
           </div>
 
           <div className="space-y-1.5">
             <label htmlFor="alta-rol" className="font-medium block">Rol *</label>
             <select id="alta-rol" value={roleKey} onChange={(e) => setRoleKey(e.target.value)} className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs">
-              {rolesAsignables.map((r) => (
-                <option key={r.key} value={r.key}>{r.name}</option>
-              ))}
+              {rolesAsignables.map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}
             </select>
+            {intentado && <Error_ texto={errRol} />}
           </div>
 
           <div className="rounded-xl border border-border bg-secondary/30 p-3">
@@ -150,7 +152,7 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
 
         <div className="flex items-center justify-end gap-2 p-4 border-t border-border/60 bg-secondary/20">
           <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">Cancelar</Button>
-          <Button type="submit" variant="default" size="sm" disabled={!valido || crear.isPending} className="text-xs">
+          <Button type="submit" variant="default" size="sm" disabled={crear.isPending} className="text-xs">
             {crear.isPending ? 'Creando…' : 'Crear usuario'}
           </Button>
         </div>

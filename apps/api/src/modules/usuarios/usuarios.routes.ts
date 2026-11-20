@@ -6,6 +6,7 @@ import { auth } from '../../lib/auth.js';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { PAISES, PAIS_PREDETERMINADO, contrasenaInicial, validarTelefono } from '../../lib/telefono.js';
+import { validarEmail, validarNombre } from '../../lib/validaciones.js';
 import { db } from '../../db/index.js';
 import { auditLog, roles, users } from '../../db/schema.js';
 
@@ -108,21 +109,22 @@ usuariosRoutes.post('/', requirePermission('usuarios:gestionar'), async (c) => {
     firstName?: string; lastName?: string; email?: string; phoneCode?: string; phone?: string; roleKey?: string;
   }>();
 
-  const firstName = body.firstName?.trim() ?? '';
-  const lastName = body.lastName?.trim() ?? '';
-  const email = body.email?.trim().toLowerCase() ?? '';
+  const nombres = validarNombre(body.firstName, 'Nombres');
+  if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
+  const apellidos = validarNombre(body.lastName, 'Apellidos');
+  if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
+  const correo = validarEmail(body.email);
+  if (!correo.ok) return c.json({ error: 'validacion', campo: 'email', message: correo.mensaje }, 422);
+  const firstName = nombres.valor;
+  const lastName = apellidos.valor;
+  const email = correo.valor;
   const roleKey = body.roleKey ?? '';
+  if (!roleKey) return c.json({ error: 'validacion', campo: 'roleKey', message: 'Elige un rol.' }, 422);
 
-  if (!firstName || !lastName || !email) {
-    return c.json({ error: 'datos_invalidos', message: 'Nombres, apellidos y correo son obligatorios.' }, 422);
-  }
   const tel = validarTelefono(body.phoneCode, body.phone);
-  if (!tel.ok) return c.json({ error: 'telefono_invalido', message: tel.mensaje }, 422);
+  if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
 
   const password = contrasenaInicial(lastName);
-  if (password.length < 4) {
-    return c.json({ error: 'apellido_corto', message: 'El apellido es muy corto para la contraseña inicial (mínimo 4 letras).' }, 422);
-  }
 
   if (roleKey === 'superadmin' && caller?.roleKey !== 'superadmin') {
     return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede crear otro superadmin.' }, 403);
@@ -179,17 +181,18 @@ usuariosRoutes.patch('/:id', requirePermission('usuarios:gestionar'), async (c) 
   const cambios: Record<string, unknown> = {};
 
   if (body.firstName !== undefined || body.lastName !== undefined) {
-    const firstName = (body.firstName ?? target.firstName ?? '').trim();
-    const lastName = (body.lastName ?? target.lastName ?? '').trim();
-    if (!firstName || !lastName) return c.json({ error: 'datos_invalidos', message: 'Nombres y apellidos son obligatorios.' }, 422);
-    patch.firstName = firstName;
-    patch.lastName = lastName;
-    patch.name = nombreCompleto(firstName, lastName);
+    const nombres = validarNombre(body.firstName ?? target.firstName ?? '', 'Nombres');
+    if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
+    const apellidos = validarNombre(body.lastName ?? target.lastName ?? '', 'Apellidos');
+    if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
+    patch.firstName = nombres.valor;
+    patch.lastName = apellidos.valor;
+    patch.name = nombreCompleto(nombres.valor, apellidos.valor);
     cambios.nombre = { de: target.firstName && target.lastName ? nombreCompleto(target.firstName, target.lastName) : null, a: patch.name };
   }
   if (body.phone !== undefined || body.phoneCode !== undefined) {
     const tel = validarTelefono(body.phoneCode ?? target.phoneCode, body.phone === undefined ? target.phone : body.phone);
-    if (!tel.ok) return c.json({ error: 'telefono_invalido', message: tel.mensaje }, 422);
+    if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
     patch.phoneCode = tel.codigo;
     patch.phone = tel.numero;
     cambios.telefono = { a: tel.codigo && tel.numero ? `${tel.codigo} ${tel.numero}` : null };

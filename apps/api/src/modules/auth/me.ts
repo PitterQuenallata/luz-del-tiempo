@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { auth } from '../../lib/auth.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { validarTelefono } from '../../lib/telefono.js';
+import { validarNombre } from '../../lib/validaciones.js';
 import { db } from '../../db/index.js';
 import { roles, users } from '../../db/schema.js';
 
@@ -49,11 +50,14 @@ meRoutes.patch('/', async (c) => {
   if (!yo) return c.json({ error: 'no_autenticado' }, 401);
   const body = await c.req.json<{ firstName?: string; lastName?: string; phoneCode?: string; phone?: string | null }>();
 
-  const firstName = (body.firstName ?? yo.firstName ?? '').trim();
-  const lastName = (body.lastName ?? yo.lastName ?? '').trim();
-  if (!firstName || !lastName) return c.json({ error: 'datos_invalidos', message: 'Nombres y apellidos son obligatorios.' }, 422);
+  const nombres = validarNombre(body.firstName ?? yo.firstName ?? '', 'Nombres');
+  if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
+  const apellidos = validarNombre(body.lastName ?? yo.lastName ?? '', 'Apellidos');
+  if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
+  const firstName = nombres.valor;
+  const lastName = apellidos.valor;
   const tel = validarTelefono(body.phoneCode ?? yo.phoneCode, body.phone === undefined ? yo.phone : body.phone);
-  if (!tel.ok) return c.json({ error: 'telefono_invalido', message: tel.mensaje }, 422);
+  if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
 
   const name = `${firstName} ${lastName}`;
   await db

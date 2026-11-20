@@ -4,6 +4,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { ApiRole } from '../../../shared/api/luz-api';
 import { useCrearRol, useEditarRol } from '../hooks/use-roles';
+import { errorNombre, errorTexto, normalizarNombre } from '../../../shared/lib/validaciones';
 
 interface RolDialogProps {
   rol: ApiRole | null; // null = crear
@@ -21,13 +22,15 @@ export const RolDialog: React.FC<RolDialogProps> = ({ rol, onClose }) => {
   const [description, setDescription] = useState(rol?.description ?? '');
 
   const claveValida = rol ? true : CLAVE.test(key);
-  const puedeGuardar = name.trim().length > 0 && claveValida && !crear.isPending && !editar.isPending;
+  const errNombre = errorNombre(name, 'El nombre');
+  const errDesc = errorTexto(description, 'La descripción', 0, 200, false);
+  const puedeGuardar = !errNombre && !errDesc && claveValida && !crear.isPending && !editar.isPending;
 
   const guardar = async () => {
     if (rol) {
-      await editar.mutateAsync({ id: rol.id, patch: { name: name.trim(), description: description.trim() || null } });
+      await editar.mutateAsync({ id: rol.id, patch: { name: normalizarNombre(name), description: description.trim() || null } });
     } else {
-      await crear.mutateAsync({ key: key.trim(), name: name.trim(), description: description.trim() || undefined, permisos: [] });
+      await crear.mutateAsync({ key: key.trim(), name: normalizarNombre(name), description: description.trim() || undefined, permisos: [] });
     }
     onClose();
   };
@@ -51,11 +54,13 @@ export const RolDialog: React.FC<RolDialogProps> = ({ rol, onClose }) => {
           </div>
           <div className="space-y-1.5">
             <label htmlFor="rol-nombre" className="font-medium block">Nombre</label>
-            <Input id="rol-nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Comunicación" className="text-xs" />
+            <Input id="rol-nombre" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setName(normalizarNombre(name))} placeholder="ej. Comunicación" className="text-xs" />
+            {name && errNombre && <p className="text-[11px] text-red-400">{errNombre}</p>}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="rol-desc" className="font-medium block">Descripción</label>
             <Input id="rol-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Para qué sirve este rol" className="text-xs" />
+            {errDesc && <p className="text-[11px] text-red-400">{errDesc}</p>}
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 p-4 border-t border-border/60 bg-secondary/20">

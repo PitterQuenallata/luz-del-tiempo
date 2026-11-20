@@ -3,6 +3,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
 import { permissions, rolePermissions, roles, users } from '../../db/schema.js';
+import { validarNombre, validarTexto } from '../../lib/validaciones.js';
 
 // Roles y permisos del panel (docs/PLAN.md §6).
 // Leer: quien gestiona usuarios. Crear, editar y eliminar: solo quien tiene roles:gestionar (superadmin).
@@ -71,7 +72,10 @@ rolesRoutes.post('/', requirePermission('roles:gestionar'), async (c) => {
   if (!key || !CLAVE_VALIDA.test(key) || key === ROL_PROTEGIDO) {
     return c.json({ error: 'clave_invalida', message: 'La clave debe empezar con letra y usar solo letras minúsculas, números o guion bajo (2–41 caracteres).' }, 422);
   }
-  if (!name) return c.json({ error: 'nombre_requerido', message: 'El nombre del rol es obligatorio.' }, 422);
+  const nombre = validarNombre(name, 'El nombre del rol');
+  if (!nombre.ok) return c.json({ error: 'validacion', campo: 'name', message: nombre.mensaje }, 422);
+  const descripcion = validarTexto(body.description, 'La descripción', 0, 200, false);
+  if (!descripcion.ok) return c.json({ error: 'validacion', campo: 'description', message: descripcion.mensaje }, 422);
   if (!(await permisosExistentes(permisos))) return c.json({ error: 'permiso_invalido' }, 422);
 
   const [existe] = await db.select({ id: roles.id }).from(roles).where(eq(roles.key, key));
@@ -79,7 +83,7 @@ rolesRoutes.post('/', requirePermission('roles:gestionar'), async (c) => {
 
   const [creado] = await db
     .insert(roles)
-    .values({ key, name, description: body.description?.trim() || null, scope: body.scope ?? 'global', isSystem: false })
+    .values({ key, name: nombre.valor, description: descripcion.valor, scope: body.scope ?? 'global', isSystem: false })
     .returning({ id: roles.id });
   await reemplazarPermisos(creado.id, permisos);
   return c.json({ id: creado.id, key }, 201);
@@ -96,11 +100,15 @@ rolesRoutes.patch('/:id', requirePermission('roles:gestionar'), async (c) => {
 
   const cambios: { name?: string; description?: string | null } = {};
   if (body.name !== undefined) {
-    const name = body.name.trim();
-    if (!name) return c.json({ error: 'nombre_requerido', message: 'El nombre del rol es obligatorio.' }, 422);
-    cambios.name = name;
+    const nombre = validarNombre(body.name, 'El nombre del rol');
+    if (!nombre.ok) return c.json({ error: 'validacion', campo: 'name', message: nombre.mensaje }, 422);
+    cambios.name = nombre.valor;
   }
-  if (body.description !== undefined) cambios.description = body.description?.trim() || null;
+  if (body.description !== undefined) {
+    const descripcion = validarTexto(body.description, 'La descripción', 0, 200, false);
+    if (!descripcion.ok) return c.json({ error: 'validacion', campo: 'description', message: descripcion.mensaje }, 422);
+    cambios.description = descripcion.valor;
+  }
   if (Object.keys(cambios).length > 0) await db.update(roles).set(cambios).where(eq(roles.id, id));
 
   if (body.permisos !== undefined) {
