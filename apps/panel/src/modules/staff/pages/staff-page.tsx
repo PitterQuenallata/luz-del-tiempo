@@ -5,7 +5,6 @@ import { Input } from '../../../shared/components/ui/input';
 import { Switch } from '../../../shared/components/ui/switch';
 import { StaffGrid } from '../components/staff-grid';
 import { StaffPermissionsMatrix } from '../components/staff-permissions-matrix';
-import { initialStaffMembers, initialPermissionsMatrix } from '../data/staff-data';
 import { StaffMember } from '../types/staff.types';
 import { useStaffMembers, useStaffPermissions } from '../hooks/use-staff';
 import { useSound } from '../../../shared/context/sound-context';
@@ -13,8 +12,8 @@ import { pillToast } from '../../../shared/components/ui/pill-toast';
 
 export const StaffPage: React.FC = () => {
   const { play } = useSound();
-  const { data: initialMembers = initialStaffMembers } = useStaffMembers();
-  const { data: permissions = initialPermissionsMatrix } = useStaffPermissions();
+  const { data: initialMembers = [] } = useStaffMembers();
+  const { data: permissions = [] } = useStaffPermissions();
   const [members, setMembers] = useState<StaffMember[]>(initialMembers);
 
   // Invite Staff Modal State

@@ -2,6 +2,7 @@ export interface Usuario {
   id: string;
   name: string;
   email: string;
+  roleKey?: string;
   role: 'Administrador' | 'Editor' | 'Cliente' | 'Soporte' | 'Desarrollador' | string;
   status: 'Activo' | 'Inactivo' | 'Pendiente' | string;
   subscription: string;

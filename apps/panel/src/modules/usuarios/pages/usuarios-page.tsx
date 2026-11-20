@@ -4,9 +4,9 @@ import {
   UserCircle2,
   Settings,
 } from 'lucide-react';
-import { initialUsuarios } from '../data/usuarios-data';
 import { Usuario } from '../types/usuarios.types';
 import { useUsuarios, useCreateUsuario, useDeleteUsuario } from '../hooks/use-usuarios';
+import { NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { UsuariosDirectoryTab } from '../components/usuarios-directory-tab';
 import { UsuariosProfileTab } from '../components/usuarios-profile-tab';
 import { UsuariosAccountTab } from '../components/usuarios-account-tab';
@@ -17,7 +17,7 @@ export type UsuariosSubTab = 'directory' | 'profile' | 'account';
 
 export const UsuariosPage: React.FC = () => {
   const { play } = useSound();
-  const { data: usuarios = initialUsuarios } = useUsuarios();
+  const { data: usuarios = [] } = useUsuarios();
   const createMutation = useCreateUsuario();
   const deleteMutation = useDeleteUsuario();
 
@@ -51,8 +51,8 @@ export const UsuariosPage: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleAddUsuario = (newUser: Usuario) => {
-    createMutation.mutate(newUser);
+  const handleAddUsuario = (input: NuevoUsuarioInput) => {
+    createMutation.mutate(input);
   };
 
   const handleDeleteUsuario = (id: string) => {

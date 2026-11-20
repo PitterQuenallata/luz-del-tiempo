@@ -23,11 +23,11 @@ export const StaffPermissionsMatrix: React.FC<StaffPermissionsMatrixProps> = ({ 
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-border/40 text-muted-foreground font-semibold">
-                <th className="py-3 px-5">Módulo Funcional</th>
-                <th className="py-3 px-4 text-center">Super Admin</th>
-                <th className="py-3 px-4 text-center">Security</th>
-                <th className="py-3 px-4 text-center">DevOps</th>
-                <th className="py-3 px-4 text-center">Billing</th>
+                <th className="py-3 px-5">Permiso</th>
+                <th className="py-3 px-4 text-center">Superadmin</th>
+                <th className="py-3 px-4 text-center">Admin</th>
+                <th className="py-3 px-4 text-center">Editor</th>
+                <th className="py-3 px-4 text-center">Operador</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
