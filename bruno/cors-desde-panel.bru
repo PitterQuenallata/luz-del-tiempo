@@ -1,0 +1,21 @@
+meta {
+  name: CORS - preflight desde el panel
+  type: http
+  seq: 6
+}
+
+options {
+  url: {{baseUrl}}/api/v1/health
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: http://localhost:3000
+  Access-Control-Request-Method: GET
+}
+
+assert {
+  res.status: eq 204
+  res.headers.access-control-allow-origin: eq http://localhost:3000
+}
