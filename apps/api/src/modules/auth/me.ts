@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
+import { cambioContrasenaSchema, datosPersonalesSchema, soloDigitos, PAIS_PREDETERMINADO } from '@luz/shared';
 import { auth } from '../../lib/auth.js';
 import { registrarAuditoria } from '../../lib/audit.js';
-import { validarTelefono } from '../../lib/telefono.js';
-import { separarNombreLegado, validarNombre } from '../../lib/validaciones.js';
+import { separarNombreLegado } from '../../lib/validaciones.js';
 import { separarTelefonoLegado } from '../../lib/telefono.js';
+import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
 import { roles, users } from '../../db/schema.js';
 
@@ -51,41 +52,36 @@ meRoutes.get('/', async (c) => {
 meRoutes.patch('/', async (c) => {
   const yo = await cargarYo(c.req.raw.headers);
   if (!yo) return c.json({ error: 'no_autenticado' }, 401);
-  const body = await c.req.json<{ firstName?: string; lastName?: string; phoneCode?: string; phone?: string | null }>();
-
-  const nombres = validarNombre(body.firstName ?? yo.firstName ?? '', 'Nombres');
-  if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
-  const apellidos = validarNombre(body.lastName ?? yo.lastName ?? '', 'Apellidos');
-  if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
-  const firstName = nombres.valor;
-  const lastName = apellidos.valor;
-  const tel = validarTelefono(body.phoneCode ?? yo.phoneCode, body.phone === undefined ? yo.phone : body.phone);
-  if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
-
-  const name = `${firstName} ${lastName}`;
+  const body = await c.req.json<{ firstName?: string; lastName?: string; phoneCode?: string; phone?: string | null }>().catch(() => ({} as any));
+  const nombres = separarNombreLegado(yo.name, yo.firstName, yo.lastName);
+  const parsed = datosPersonalesSchema.safeParse({
+    firstName: body.firstName ?? nombres.firstName ?? '',
+    lastName: body.lastName ?? nombres.lastName ?? '',
+    phoneCode: body.phoneCode ?? yo.phoneCode ?? PAIS_PREDETERMINADO,
+    phone: body.phone === undefined ? yo.phone ?? '' : body.phone ?? '',
+  });
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const d = parsed.data;
+  const numero = d.phone ? soloDigitos(d.phone) : null;
   await db
     .update(users)
-    .set({ firstName, lastName, name, phoneCode: tel.codigo, phone: tel.numero, updatedAt: new Date() })
+    .set({ firstName: d.firstName, lastName: d.lastName, name: `${d.firstName} ${d.lastName}`, phoneCode: numero ? d.phoneCode : null, phone: numero, updatedAt: new Date() })
     .where(eq(users.id, yo.id));
   await registrarAuditoria({ userId: yo.id, accion: 'perfil.editar', entidad: 'usuario', entidadId: yo.id });
   return c.json({ ok: true });
 });
 
-// Cambiar mi contraseña (también la inicial). Validación del servidor: mínimo 8 caracteres, distinta de la actual.
+// Cambiar mi contraseña (también la inicial). Validación compartida con el panel.
 meRoutes.post('/contrasena', async (c) => {
   const yo = await cargarYo(c.req.raw.headers);
   if (!yo) return c.json({ error: 'no_autenticado' }, 401);
-  const body = await c.req.json<{ actual?: string; nueva?: string }>();
-  const actual = body.actual ?? '';
-  const nueva = body.nueva ?? '';
-  if (!actual) return c.json({ error: 'validacion', campo: 'actual', message: 'Escribe tu contraseña actual.' }, 422);
-  if (nueva.length < 8) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña debe tener al menos 8 caracteres.' }, 422);
-  if (nueva.length > 128) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña es demasiado larga.' }, 422);
-  if (nueva === actual) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña debe ser distinta de la actual.' }, 422);
+  const body = await c.req.json<{ actual?: string; nueva?: string }>().catch(() => ({} as any));
+  const parsed = cambioContrasenaSchema.safeParse({ actual: body.actual ?? '', nueva: body.nueva ?? '', repetir: body.nueva ?? '' });
+  if (!parsed.success) return errorValidacion(c, parsed.error);
 
   try {
     await auth.api.changePassword({
-      body: { currentPassword: actual, newPassword: nueva, revokeOtherSessions: false },
+      body: { currentPassword: parsed.data.actual, newPassword: parsed.data.nueva, revokeOtherSessions: false },
       headers: c.req.raw.headers,
     });
   } catch {

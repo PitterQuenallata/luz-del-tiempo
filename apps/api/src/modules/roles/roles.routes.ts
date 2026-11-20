@@ -3,7 +3,8 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
 import { permissions, rolePermissions, roles, users } from '../../db/schema.js';
-import { validarNombre, validarTexto } from '../../lib/validaciones.js';
+import { rolSchema } from '@luz/shared';
+import { errorValidacion } from '../../lib/validar.js';
 
 // Roles y permisos del panel (docs/PLAN.md §6).
 // Leer: quien gestiona usuarios. Crear, editar y eliminar: solo quien tiene roles:gestionar (superadmin).
@@ -64,18 +65,12 @@ rolesRoutes.get('/', requirePermission('usuarios:gestionar'), async (c) => {
 });
 
 rolesRoutes.post('/', requirePermission('roles:gestionar'), async (c) => {
-  const body = await c.req.json<RolInput>();
-  const key = body.key?.trim();
-  const name = body.name?.trim();
+  const body = await c.req.json<RolInput>().catch(() => ({} as RolInput));
+  const parsed = rolSchema.safeParse({ key: body.key ?? '', name: body.name ?? '', description: body.description ?? undefined });
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const { key, name, description } = parsed.data;
   const permisos = body.permisos ?? [];
-
-  if (!key || !CLAVE_VALIDA.test(key) || key === ROL_PROTEGIDO) {
-    return c.json({ error: 'clave_invalida', message: 'La clave debe empezar con letra y usar solo letras minúsculas, números o guion bajo (2–41 caracteres).' }, 422);
-  }
-  const nombre = validarNombre(name, 'El nombre del rol');
-  if (!nombre.ok) return c.json({ error: 'validacion', campo: 'name', message: nombre.mensaje }, 422);
-  const descripcion = validarTexto(body.description, 'La descripción', 0, 200, false);
-  if (!descripcion.ok) return c.json({ error: 'validacion', campo: 'description', message: descripcion.mensaje }, 422);
+  if (key === ROL_PROTEGIDO) return c.json({ error: 'validacion', campo: 'key', message: 'Esa clave está reservada.' }, 422);
   if (!(await permisosExistentes(permisos))) return c.json({ error: 'permiso_invalido' }, 422);
 
   const [existe] = await db.select({ id: roles.id }).from(roles).where(eq(roles.key, key));
@@ -83,7 +78,7 @@ rolesRoutes.post('/', requirePermission('roles:gestionar'), async (c) => {
 
   const [creado] = await db
     .insert(roles)
-    .values({ key, name: nombre.valor, description: descripcion.valor, scope: body.scope ?? 'global', isSystem: false })
+    .values({ key, name, description: description?.trim() || null, scope: body.scope ?? 'global', isSystem: false })
     .returning({ id: roles.id });
   await reemplazarPermisos(creado.id, permisos);
   return c.json({ id: creado.id, key }, 201);
@@ -99,15 +94,11 @@ rolesRoutes.patch('/:id', requirePermission('roles:gestionar'), async (c) => {
   }
 
   const cambios: { name?: string; description?: string | null } = {};
-  if (body.name !== undefined) {
-    const nombre = validarNombre(body.name, 'El nombre del rol');
-    if (!nombre.ok) return c.json({ error: 'validacion', campo: 'name', message: nombre.mensaje }, 422);
-    cambios.name = nombre.valor;
-  }
-  if (body.description !== undefined) {
-    const descripcion = validarTexto(body.description, 'La descripción', 0, 200, false);
-    if (!descripcion.ok) return c.json({ error: 'validacion', campo: 'description', message: descripcion.mensaje }, 422);
-    cambios.description = descripcion.valor;
+  if (body.name !== undefined || body.description !== undefined) {
+    const parsed = rolSchema.pick({ name: true, description: true }).safeParse({ name: body.name ?? rol.name, description: body.description ?? rol.description ?? undefined });
+    if (!parsed.success) return errorValidacion(c, parsed.error);
+    if (body.name !== undefined) cambios.name = parsed.data.name;
+    if (body.description !== undefined) cambios.description = parsed.data.description?.trim() || null;
   }
   if (Object.keys(cambios).length > 0) await db.update(roles).set(cambios).where(eq(roles.id, id));
 

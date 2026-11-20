@@ -2,11 +2,13 @@ import { Hono } from 'hono';
 import { desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { datosPersonalesSchema, usuarioAltaSchema, soloDigitos, PAISES, PAIS_PREDETERMINADO, contrasenaInicial } from '@luz/shared';
 import { auth } from '../../lib/auth.js';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
-import { PAISES, PAIS_PREDETERMINADO, contrasenaInicial, separarTelefonoLegado, validarTelefono } from '../../lib/telefono.js';
-import { separarNombreLegado, validarEmail, validarNombre } from '../../lib/validaciones.js';
+import { separarNombreLegado } from '../../lib/validaciones.js';
+import { separarTelefonoLegado } from '../../lib/telefono.js';
+import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
 import { auditLog, roles, users } from '../../db/schema.js';
 
@@ -33,8 +35,7 @@ async function puedeVerCuenta(c: any, id: string): Promise<boolean> {
   const yo = await loadCurrentUser(c.req.raw.headers);
   if (!yo) return false;
   if (yo.id === id) return true;
-  const [fila] = await db.select({ id: users.id }).from(users).where(eq(users.id, yo.id));
-  return Boolean(fila) && (yo.roleKey === 'superadmin' || yo.roleKey === 'admin');
+  return yo.roleKey === 'superadmin' || yo.roleKey === 'admin';
 }
 
 usuariosRoutes.get('/:id/foto', async (c) => {
@@ -42,10 +43,9 @@ usuariosRoutes.get('/:id/foto', async (c) => {
   if (!(await puedeVerCuenta(c, id))) return c.json({ error: 'sin_permiso' }, 403);
   const [u] = await db.select({ image: users.image }).from(users).where(eq(users.id, id));
   if (!u?.image) return c.json({ error: 'sin_foto' }, 404);
-  const ext = u.image;
-  const tipo = Object.entries(FORMATOS_FOTO).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream';
+  const tipo = Object.entries(FORMATOS_FOTO).find(([, e]) => e === u.image)?.[0] ?? 'application/octet-stream';
   try {
-    const bytes = await readFile(join(CARPETA_FOTOS, `${id}.${ext}`));
+    const bytes = await readFile(join(CARPETA_FOTOS, `${id}.${u.image}`));
     return new Response(bytes, { headers: { 'Content-Type': tipo, 'Cache-Control': 'private, max-age=300' } });
   } catch {
     return c.json({ error: 'sin_foto' }, 404);
@@ -57,15 +57,13 @@ usuariosRoutes.post('/:id/foto', async (c) => {
   if (!(await puedeVerCuenta(c, id))) return c.json({ error: 'sin_permiso' }, 403);
   const body = await c.req.parseBody();
   const archivo = body['foto'];
-  if (!(archivo instanceof File)) return c.json({ error: 'datos_invalidos', message: 'Selecciona una imagen.' }, 422);
+  if (!(archivo instanceof File)) return c.json({ error: 'validacion', campo: 'foto', message: 'Selecciona una imagen.' }, 422);
   const ext = FORMATOS_FOTO[archivo.type];
-  if (!ext) return c.json({ error: 'formato', message: 'La foto debe ser JPG, PNG o WebP.' }, 422);
-  if (archivo.size > MAX_FOTO_BYTES) return c.json({ error: 'tamano', message: 'La foto no puede pesar más de 2 MB.' }, 422);
+  if (!ext) return c.json({ error: 'validacion', campo: 'foto', message: 'La foto debe ser JPG, PNG o WebP.' }, 422);
+  if (archivo.size > MAX_FOTO_BYTES) return c.json({ error: 'validacion', campo: 'foto', message: 'La foto no puede pesar más de 2 MB.' }, 422);
 
   await mkdir(CARPETA_FOTOS, { recursive: true });
-  for (const e of Object.values(FORMATOS_FOTO)) {
-    await unlink(join(CARPETA_FOTOS, `${id}.${e}`)).catch(() => undefined);
-  }
+  for (const e of Object.values(FORMATOS_FOTO)) await unlink(join(CARPETA_FOTOS, `${id}.${e}`)).catch(() => undefined);
   await writeFile(join(CARPETA_FOTOS, `${id}.${ext}`), Buffer.from(await archivo.arrayBuffer()));
   await db.update(users).set({ image: ext, updatedAt: new Date() }).where(eq(users.id, id));
   return c.json({ ok: true });
@@ -111,43 +109,28 @@ usuariosRoutes.get('/', requirePermission('usuarios:gestionar'), async (c) => {
 
 usuariosRoutes.post('/', requirePermission('usuarios:gestionar'), async (c) => {
   const caller = await loadCurrentUser(c.req.raw.headers);
-  const body = await c.req.json<{
-    firstName?: string; lastName?: string; email?: string; phoneCode?: string; phone?: string; roleKey?: string;
-  }>();
-
-  const nombres = validarNombre(body.firstName, 'Nombres');
-  if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
-  const apellidos = validarNombre(body.lastName, 'Apellidos');
-  if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
-  const correo = validarEmail(body.email);
-  if (!correo.ok) return c.json({ error: 'validacion', campo: 'email', message: correo.mensaje }, 422);
-  const firstName = nombres.valor;
-  const lastName = apellidos.valor;
-  const email = correo.valor;
-  const roleKey = body.roleKey ?? '';
-  if (!roleKey) return c.json({ error: 'validacion', campo: 'roleKey', message: 'Elige un rol.' }, 422);
-
-  const tel = validarTelefono(body.phoneCode, body.phone);
-  if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
-
-  const password = contrasenaInicial(lastName);
+  const parsed = usuarioAltaSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const { firstName, lastName, email, phoneCode, phone, roleKey } = parsed.data;
 
   if (roleKey === 'superadmin' && caller?.roleKey !== 'superadmin') {
     return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede crear otro superadmin.' }, 403);
   }
   const [role] = await db.select().from(roles).where(eq(roles.key, roleKey));
-  if (!role) return c.json({ error: 'rol_no_existe', message: 'El rol seleccionado no existe.' }, 422);
+  if (!role) return c.json({ error: 'validacion', campo: 'roleKey', message: 'El rol seleccionado no existe.' }, 422);
 
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-  if (existing) return c.json({ error: 'correo_existente', message: 'Ya existe una cuenta con ese correo.' }, 409);
+  if (existing) return c.json({ error: 'correo_existente', campo: 'email', message: 'Ya existe una cuenta con ese correo.' }, 409);
 
+  const password = contrasenaInicial(lastName);
   const nombre = nombreCompleto(firstName, lastName);
   const created = await auth.api.signUpEmail({ body: { name: nombre, email, password } });
 
+  const numero = phone ? soloDigitos(phone) : null;
   await db
     .update(users)
     .set({
-      firstName, lastName, roleId: role.id, phoneCode: tel.codigo, phone: tel.numero,
+      firstName, lastName, roleId: role.id, phoneCode: numero ? phoneCode : null, phone: numero,
       emailVerified: true, mustChangePassword: true,
     })
     .where(eq(users.id, created.user.id));
@@ -186,29 +169,34 @@ usuariosRoutes.patch('/:id', requirePermission('usuarios:gestionar'), async (c) 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   const cambios: Record<string, unknown> = {};
 
-  if (body.firstName !== undefined || body.lastName !== undefined) {
-    const nombres = validarNombre(body.firstName ?? target.firstName ?? '', 'Nombres');
-    if (!nombres.ok) return c.json({ error: 'validacion', campo: 'firstName', message: nombres.mensaje }, 422);
-    const apellidos = validarNombre(body.lastName ?? target.lastName ?? '', 'Apellidos');
-    if (!apellidos.ok) return c.json({ error: 'validacion', campo: 'lastName', message: apellidos.mensaje }, 422);
-    patch.firstName = nombres.valor;
-    patch.lastName = apellidos.valor;
-    patch.name = nombreCompleto(nombres.valor, apellidos.valor);
-    cambios.nombre = { de: target.firstName && target.lastName ? nombreCompleto(target.firstName, target.lastName) : null, a: patch.name };
-  }
-  if (body.phone !== undefined || body.phoneCode !== undefined) {
-    const tel = validarTelefono(body.phoneCode ?? target.phoneCode, body.phone === undefined ? target.phone : body.phone);
-    if (!tel.ok) return c.json({ error: 'validacion', campo: 'phone', message: tel.mensaje }, 422);
-    patch.phoneCode = tel.codigo;
-    patch.phone = tel.numero;
-    cambios.telefono = { a: tel.codigo && tel.numero ? `${tel.codigo} ${tel.numero}` : null };
+  if (body.firstName !== undefined || body.lastName !== undefined || body.phone !== undefined || body.phoneCode !== undefined) {
+    const parsed = datosPersonalesSchema.safeParse({
+      firstName: body.firstName ?? target.firstName ?? '',
+      lastName: body.lastName ?? target.lastName ?? '',
+      phoneCode: body.phoneCode ?? target.phoneCode ?? PAIS_PREDETERMINADO,
+      phone: body.phone === undefined ? target.phone ?? '' : body.phone ?? '',
+    });
+    if (!parsed.success) return errorValidacion(c, parsed.error);
+    const d = parsed.data;
+    const numero = d.phone ? soloDigitos(d.phone) : null;
+    patch.firstName = d.firstName;
+    patch.lastName = d.lastName;
+    patch.name = nombreCompleto(d.firstName, d.lastName);
+    patch.phoneCode = numero ? d.phoneCode : null;
+    patch.phone = numero;
+    if (body.firstName !== undefined || body.lastName !== undefined) {
+      cambios.nombre = { de: target.firstName && target.lastName ? nombreCompleto(target.firstName, target.lastName) : null, a: patch.name };
+    }
+    if (body.phone !== undefined || body.phoneCode !== undefined) {
+      cambios.telefono = { a: numero ? `${d.phoneCode} ${numero}` : null };
+    }
   }
   if (body.roleKey !== undefined && body.roleKey !== target.roleKey) {
     if (body.roleKey === 'superadmin' && !callerIsSuper) {
       return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede asignar el rol superadmin.' }, 403);
     }
     const [role] = await db.select().from(roles).where(eq(roles.key, body.roleKey));
-    if (!role) return c.json({ error: 'rol_no_existe', message: 'El rol seleccionado no existe.' }, 422);
+    if (!role) return c.json({ error: 'validacion', campo: 'roleKey', message: 'El rol seleccionado no existe.' }, 422);
     patch.roleId = role.id;
     cambios.rol = { de: target.roleName, a: role.name };
   }
@@ -219,9 +207,10 @@ usuariosRoutes.patch('/:id', requirePermission('usuarios:gestionar'), async (c) 
 
   await db.update(users).set(patch).where(eq(users.id, id));
   if (Object.keys(cambios).length > 0) {
+    const soloEstado = Object.keys(cambios).length === 1 && cambios.estado;
     await registrarAuditoria({
       userId: caller?.id ?? null,
-      accion: typeof body.isActive === 'boolean' && Object.keys(cambios).length === 1 ? (body.isActive ? 'usuario.activar' : 'usuario.desactivar') : 'usuario.editar',
+      accion: soloEstado ? (body.isActive ? 'usuario.activar' : 'usuario.desactivar') : 'usuario.editar',
       entidad: 'usuario', entidadId: id, cambios,
     });
   }

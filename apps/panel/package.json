@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@animateicons/react": "^0.13.0",
+    "@luz/shared": "workspace:*",
     "@tanstack/react-form": "^0.41.0",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-router": "^1.111.0",
