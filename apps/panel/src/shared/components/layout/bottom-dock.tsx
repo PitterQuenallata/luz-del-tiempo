@@ -93,7 +93,7 @@ export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate 
               play('click');
               signOut.mutate(undefined, {
                 onSettled: () => {
-                  window.location.hash = '/auth/card';
+                  window.location.hash = '/login';
                 },
               });
             }}

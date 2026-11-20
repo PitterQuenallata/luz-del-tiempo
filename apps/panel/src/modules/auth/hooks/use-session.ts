@@ -35,7 +35,7 @@ export function useSignOut() {
     onSettled: () => {
       queryClient.removeQueries({ queryKey: SESSION_QUERY_KEY });
       queryClient.clear();
-      window.location.hash = '/auth/card';
+      window.location.hash = '/login';
       window.location.reload();
     },
   });

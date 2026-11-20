@@ -38,7 +38,7 @@ const withSuspense = (LazyComponent: React.LazyExoticComponent<React.ComponentTy
 const DashboardPage = withSuspense(lazy(() => import('../../modules/dashboard/pages/dashboard-page').then((m) => ({ default: m.DashboardPage }))));
 const UsuariosPage = withSuspense(lazy(() => import('../../modules/usuarios/pages/usuarios-page').then((m) => ({ default: m.UsuariosPage }))));
 const AuthCardFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-card-fullscreen-page').then((m) => ({ default: m.AuthCardFullscreenPage }))));
-const CambiarContrasenaPage = withSuspense(lazy(() => import('../../modules/auth/pages/cambiar-contrasena-page').then((m) => ({ default: m.CambiarContrasenaPage }))));
+const NewPasswordPage = withSuspense(lazy(() => import('../../modules/auth/pages/new-password-page').then((m) => ({ default: m.NewPasswordPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
 const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-page').then((m) => ({ default: m.LogsPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
@@ -67,8 +67,8 @@ const rootRoute = createRootRoute({
 
     // If viewing standalone fullscreen auth or error pages, omit BlakorShell
     const isStandalonePage =
-      location.pathname === '/auth/card' ||
-      location.pathname === '/cambiar-contrasena' ||
+      location.pathname === '/login' ||
+      location.pathname === '/new-password' ||
       location.pathname === '/auth/split' ||
       location.pathname === '/auth/404' ||
       location.pathname === '/auth/505' ||
@@ -81,16 +81,16 @@ const rootRoute = createRootRoute({
       return <Outlet />;
     }
 
-    // Sin sesión no se entra al panel: se manda al login (/auth/card)
+    // Sin sesión no se entra al panel: se manda al login
     if (session.isPending) {
       return <PageLoader />;
     }
     if (session.isError) {
-      return <Navigate to="/auth/card" />;
+      return <Navigate to="/login" />;
     }
     // Primer ingreso: antes de usar el panel hay que cambiar la contraseña inicial
     if (session.data?.mustChangePassword) {
-      return <Navigate to="/cambiar-contrasena" />;
+      return <Navigate to="/new-password" />;
     }
 
     return (
@@ -123,7 +123,7 @@ const usuariosRoute = createRoute({
 
 const authCardRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/auth/card',
+  path: '/login',
   component: AuthCardFullscreenPage,
 });
 
@@ -157,10 +157,10 @@ const logsRoute = createRoute({
   component: LogsPage,
 });
 
-const cambiarContrasenaRoute = createRoute({
+const newPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/cambiar-contrasena',
-  component: CambiarContrasenaPage,
+  path: '/new-password',
+  component: NewPasswordPage,
 });
 
 const direct404Route = createRoute({
@@ -186,7 +186,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   usuariosRoute,
-  cambiarContrasenaRoute,
+  newPasswordRoute,
   perfilRoute,
   logsRoute,
   authCardRoute,
