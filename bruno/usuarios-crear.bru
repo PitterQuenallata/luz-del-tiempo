@@ -1,0 +1,28 @@
+meta {
+  name: Usuarios - crear editor de prueba
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/usuarios
+  body: json
+  auth: none
+}
+
+headers {
+  Origin: http://localhost:3000
+}
+
+body:json {
+  {
+    "name": "Usuario de prueba Bruno",
+    "email": "bruno.prueba@luzdeltiempo.local",
+    "password": "{{testUserPassword}}",
+    "roleKey": "editor"
+  }
+}
+
+assert {
+  res.status: in [201, 409]
+}

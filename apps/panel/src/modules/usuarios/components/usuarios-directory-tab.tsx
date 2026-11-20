@@ -24,13 +24,16 @@ import { Input } from '../../../shared/components/ui/input';
 import { DataTable } from '../../../shared/components/data-table/data-table';
 import { usuariosColumns } from './usuarios-columns';
 import { Usuario } from '../types/usuarios.types';
+import { useRoles } from '../hooks/use-usuarios';
+import { useSession } from '../../auth/hooks/use-session';
+import { NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { useSound } from '../../../shared/context/sound-context';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { cn } from '../../../shared/lib/utils';
 
 interface UsuariosDirectoryTabProps {
   usuarios: Usuario[];
-  onAddUsuario: (user: Usuario) => void;
+  onAddUsuario: (input: NuevoUsuarioInput) => void;
   onSelectProfile: (user: Usuario) => void;
   onDeleteUsuario: (id: string) => void;
 }
@@ -52,10 +55,13 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newRole, setNewRole] = useState('Editor');
-  const [newDepartment, setNewDepartment] = useState('Diseño de Producto');
-  const [newPhone, setNewPhone] = useState('+1 (555) 000-0000');
-  const [newLocation, setNewLocation] = useState('San Francisco, CA');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRoleKey, setNewRoleKey] = useState('editor');
+  const [newPhone, setNewPhone] = useState('');
+  const { data: roles = [] } = useRoles();
+  const { data: sesion } = useSession();
+  const esSuperadmin = sesion?.roleKey === 'superadmin';
+  const rolesAsignables = roles.filter((r) => r.key !== 'superadmin' || esSuperadmin);
 
   // Quick View Drawer State
   const [selectedUserForDrawer, setSelectedUserForDrawer] = useState<Usuario | null>(null);
@@ -84,41 +90,18 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newEmail.trim()) {
-      play('alert');
-      pillToast.error('Campos Requeridos', 'Por favor ingresa nombre y correo corporativo.');
-      return;
-    }
-
-    const initials = newName
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-
-    const created: Usuario = {
-      id: `USR-${Date.now().toString().slice(-4)}`,
-      name: newName,
-      email: newEmail,
-      role: newRole,
-      status: 'Activo',
-      subscription: 'Pro Plan',
-      avatarText: initials || 'US',
-      avatar: `/images/profile/user-${Math.floor(1 + Math.random() * 12)}.jpg`,
-      joinedAt: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-      phone: newPhone,
-      department: newDepartment,
-      location: newLocation,
-      bio: 'Miembro del equipo recientemente incorporado al espacio corporativo.',
-    };
-
-    onAddUsuario(created);
+    play('success');
+    onAddUsuario({
+      name: newName.trim(),
+      email: newEmail.trim(),
+      password: newPassword,
+      phone: newPhone.trim() || undefined,
+      roleKey: newRoleKey,
+    });
     setIsNewUserModalOpen(false);
     setNewName('');
     setNewEmail('');
-    play('success');
-    pillToast.success('Usuario Creado con Éxito', `Se envió invitación de acceso a ${newEmail}.`);
+    setNewPassword('');
   };
 
   return (
@@ -224,11 +207,9 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                 className="h-9 px-3 rounded-xl border border-border bg-background text-xs font-medium text-foreground cursor-pointer focus:outline-hidden"
               >
                 <option value="all">Todos los Roles</option>
-                <option value="Administrador">Administrador</option>
-                <option value="Editor">Editor</option>
-                <option value="Desarrollador">Desarrollador</option>
-                <option value="Soporte">Soporte</option>
-                <option value="Cliente">Cliente</option>
+                {roles.map((r) => (
+                  <option key={r.key} value={r.name}>{r.name}</option>
+                ))}
               </select>
 
               {/* Status filter */}
@@ -443,54 +424,46 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="ej. mateo.anderson@blakor.io"
+                    placeholder="ej. mateo.anderson@luzdeltiempo.local"
                     className="text-xs font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-medium text-foreground block mb-1.5">Contraseña inicial *</label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    className="text-xs"
+                    minLength={8}
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="font-medium text-foreground block mb-1.5">Rol de Seguridad</label>
+                    <label className="font-medium text-foreground block mb-1.5">Rol de Seguridad *</label>
                     <select
-                      value={newRole}
-                      onChange={(e) => setNewRole(e.target.value)}
+                      value={newRoleKey}
+                      onChange={(e) => setNewRoleKey(e.target.value)}
                       className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs font-medium text-foreground cursor-pointer focus:outline-hidden"
                     >
-                      <option value="Administrador">Administrador</option>
-                      <option value="Editor">Editor</option>
-                      <option value="Desarrollador">Desarrollador</option>
-                      <option value="Soporte">Soporte</option>
-                      <option value="Cliente">Cliente</option>
+                      {rolesAsignables.map((r) => (
+                        <option key={r.key} value={r.key}>{r.name}</option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-medium text-foreground block mb-1.5">Departamento</label>
-                    <Input
-                      value={newDepartment}
-                      onChange={(e) => setNewDepartment(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="font-medium text-foreground block mb-1.5">Teléfono Directo</label>
+                    <label className="font-medium text-foreground block mb-1.5">Teléfono</label>
                     <Input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
+                      placeholder="+591 7xxxxxxx"
                       className="text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-medium text-foreground block mb-1.5">Ubicación / Sede</label>
-                    <Input
-                      value={newLocation}
-                      onChange={(e) => setNewLocation(e.target.value)}
-                      className="text-xs"
                     />
                   </div>
                 </div>
@@ -515,7 +488,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                   className="text-xs gap-1.5"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Crear y Enviar Invitación
+                  Crear Usuario
                 </Button>
               </div>
             </form>

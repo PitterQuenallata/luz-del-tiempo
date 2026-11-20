@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { auth } from './lib/auth.js';
 import { db } from './db/index.js';
 import { meRoutes } from './modules/auth/me.js';
+import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
 
 const app = new Hono();
 
@@ -27,6 +28,7 @@ app.use(
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
 app.route('/api/v1/me', meRoutes);
+app.route('/api/v1/usuarios', usuariosRoutes);
 
 app.get('/api/v1/health', (c) => c.json({ status: 'ok' }));
 

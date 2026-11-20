@@ -1,0 +1,15 @@
+meta {
+  name: Usuarios - editor no puede listar (403)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/usuarios
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 403
+}

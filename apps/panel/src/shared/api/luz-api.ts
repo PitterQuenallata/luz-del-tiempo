@@ -13,6 +13,15 @@ export class ApiRequestError extends Error {
   }
 }
 
+const MENSAJES_ERROR: Record<string, string> = {
+  correo_existente: 'Ya existe una cuenta con ese correo.',
+  sin_permiso: 'No tienes permiso para esta acción.',
+  rol_invalido: 'El rol seleccionado no es válido.',
+  rol_no_existe: 'El rol seleccionado no existe.',
+  datos_invalidos: 'Revisa los datos del formulario.',
+  auto_desactivacion: 'No puedes desactivar tu propia cuenta.',
+};
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
@@ -21,7 +30,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const message = (data && (data.message || data.error)) || `Error ${res.status}`;
+    const message =
+      (data && (data.message || MENSAJES_ERROR[data.error])) || `Error ${res.status}`;
     throw new ApiRequestError(message, res.status);
   }
   return data as T;
@@ -36,6 +46,31 @@ export interface SessionUser {
   roleKey: string | null;
   roleName: string | null;
   roleScope: 'global' | 'station' | null;
+}
+
+export interface ApiUsuario {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  isActive: boolean;
+  createdAt: string;
+  roleKey: string | null;
+  roleName: string | null;
+}
+
+export interface ApiRole {
+  key: string;
+  name: string;
+  scope: 'global' | 'station';
+}
+
+export interface NuevoUsuarioInput {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  roleKey: string;
 }
 
 export const luzApi = {
@@ -60,5 +95,23 @@ export const luzApi = {
   async me(): Promise<SessionUser> {
     const data = await request<{ user: SessionUser }>('/api/v1/me');
     return data.user;
+  },
+
+  async listUsuarios(): Promise<ApiUsuario[]> {
+    const data = await request<{ usuarios: ApiUsuario[] }>('/api/v1/usuarios');
+    return data.usuarios;
+  },
+
+  async listRoles(): Promise<ApiRole[]> {
+    const data = await request<{ roles: ApiRole[] }>('/api/v1/usuarios/roles');
+    return data.roles;
+  },
+
+  createUsuario(input: NuevoUsuarioInput) {
+    return request('/api/v1/usuarios', { method: 'POST', body: JSON.stringify(input) });
+  },
+
+  updateUsuario(id: string, patch: { roleKey?: string; isActive?: boolean }) {
+    return request(`/api/v1/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   },
 };

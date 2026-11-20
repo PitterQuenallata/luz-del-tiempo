@@ -1,51 +1,71 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { initialUsuarios } from '../data/usuarios-data';
+import { luzApi, ApiUsuario, NuevoUsuarioInput } from '../../../shared/api/luz-api';
+import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { Usuario } from '../types/usuarios.types';
 
 const USUARIOS_QUERY_KEY = ['usuarios'] as const;
+const ROLES_QUERY_KEY = ['roles'] as const;
 
-// In-memory store initialized with initial data
-let inMemoryUsuarios = [...initialUsuarios];
+const iniciales = (nombre: string) =>
+  nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0])
+    .join('')
+    .toUpperCase() || 'US';
 
-export const fetchUsuarios = async (): Promise<Usuario[]> => {
-  // Simulates instant micro-latency response
-  return inMemoryUsuarios;
-};
+// Adapta la respuesta de la API al tipo que usa la plantilla de la tabla
+export const toUsuario = (u: ApiUsuario): Usuario => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.roleName ?? 'Sin rol',
+  status: u.isActive ? 'Activo' : 'Inactivo',
+  subscription: '—',
+  avatarText: iniciales(u.name),
+  joinedAt: new Date(u.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' }),
+  phone: u.phone ?? undefined,
+});
 
-export const useUsuarios = () => {
-  return useQuery({
+export const useUsuarios = () =>
+  useQuery({
     queryKey: USUARIOS_QUERY_KEY,
-    queryFn: fetchUsuarios,
-    staleTime: 1000 * 60 * 5,
+    queryFn: async () => (await luzApi.listUsuarios()).map(toUsuario),
   });
-};
+
+export const useRoles = () =>
+  useQuery({
+    queryKey: ROLES_QUERY_KEY,
+    queryFn: () => luzApi.listRoles(),
+    staleTime: 1000 * 60 * 10,
+  });
 
 export const useCreateUsuario = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (newUser: Usuario) => {
-      inMemoryUsuarios = [newUser, ...inMemoryUsuarios];
-      return newUser;
+    mutationFn: (input: NuevoUsuarioInput) => luzApi.createUsuario(input),
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({ queryKey: USUARIOS_QUERY_KEY });
+      pillToast.success('Usuario creado', `${input.email} ya puede ingresar al panel.`);
     },
-    onSuccess: (newUser) => {
-      queryClient.setQueryData<Usuario[]>(USUARIOS_QUERY_KEY, (prev) => [newUser, ...(prev || [])]);
+    onError: (err) => {
+      pillToast.error('No se pudo crear el usuario', err instanceof Error ? err.message : 'Inténtalo de nuevo.');
     },
   });
 };
 
+// En el panel "eliminar" desactiva la cuenta: no se borra el historial.
 export const useDeleteUsuario = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (id: string) => {
-      inMemoryUsuarios = inMemoryUsuarios.filter((u) => u.id !== id);
-      return id;
+    mutationFn: (id: string) => luzApi.updateUsuario(id, { isActive: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USUARIOS_QUERY_KEY });
+      pillToast.info('Usuario desactivado', 'Ya no podrá ingresar al panel.');
     },
-    onSuccess: (deletedId) => {
-      queryClient.setQueryData<Usuario[]>(USUARIOS_QUERY_KEY, (prev) =>
-        (prev || []).filter((u) => u.id !== deletedId)
-      );
+    onError: (err) => {
+      pillToast.error('No se pudo desactivar', err instanceof Error ? err.message : 'Inténtalo de nuevo.');
     },
   });
 };
