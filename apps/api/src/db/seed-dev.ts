@@ -16,9 +16,9 @@ const ROLES = [
 
 const ACCOUNTS = [
   { email: 'mallku@gmail.com', name: 'Mallku', password: 'sopademani1', roleKey: 'superadmin' },
-  { email: 'admin@luzdeltiempo.local', name: 'Admin de prueba', password: 'sopade mani', roleKey: 'admin' },
-  { email: 'editor@luzdeltiempo.local', name: 'Editor de prueba', password: 'sopade mani', roleKey: 'editor' },
-  { email: 'operador@luzdeltiempo.local', name: 'Operador de prueba', password: 'sopade mani', roleKey: 'station_operator' },
+  { email: 'admin@luzdeltiempo.local', name: 'Admin de prueba', password: 'sopademani1', roleKey: 'admin' },
+  { email: 'editor@luzdeltiempo.local', name: 'Editor de prueba', password: 'sopademani1', roleKey: 'editor' },
+  { email: 'operador@luzdeltiempo.local', name: 'Operador de prueba', password: 'sopademani1', roleKey: 'station_operator' },
 ];
 
 async function seedRoles() {
