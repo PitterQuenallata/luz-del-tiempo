@@ -46,7 +46,12 @@ async function seedRoles() {
     const roleId = ids.get(role.key);
     if (!roleId) continue;
     const [existente] = await db.select({ k: rolePermissions.permissionKey }).from(rolePermissions).where(eq(rolePermissions.roleId, roleId));
-    if (existente) continue;
+    if (existente) {
+      // Permisos nuevos del catálogo: se agregan sin quitar lo que el panel haya cambiado
+      const nuevos = PERMISOS.filter((p) => (p.roles as string[]).includes(role.key)).map((p) => p.key);
+      if (nuevos.length) await db.insert(rolePermissions).values(nuevos.map((k) => ({ roleId, permissionKey: k }))).onConflictDoNothing();
+      continue;
+    }
     const defaults = PERMISOS.filter((p) => (p.roles as string[]).includes(role.key)).map((p) => p.key);
     if (defaults.length > 0) {
       await db.insert(rolePermissions).values(defaults.map((k) => ({ roleId, permissionKey: k })));

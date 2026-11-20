@@ -5,6 +5,7 @@ dist/
 .env
 *.log
 infra/data/
+apps/api/uploads/
 
 # Imágenes solo para la demo (algunas son de referencia de otro ministerio): nunca al repositorio
 apps/web/public/demo/*

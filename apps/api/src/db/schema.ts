@@ -2,7 +2,7 @@
 // Tablas de autenticación en formato Better Auth (usePlural: true), según docs/DATABASE.md.
 // Las demás tablas (áreas, publicaciones, hero, predicadores, etc.) se agregan en pasos siguientes.
 
-import { boolean, index, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Roles del panel (docs/DATABASE.md §1). El alcance 'station' se usa para operadores de radio.
 export const roles = pgTable('roles', {
@@ -39,17 +39,42 @@ export const rolePermissions = pgTable(
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
+  name: text('name').notNull(), // nombre completo (nombres + apellidos), lo usa Better Auth
+  firstName: text('first_name'),
+  lastName: text('last_name'),
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
-  image: text('image'),
-  phone: text('phone'),
+  image: text('image'), // ruta de la foto de perfil (null = iniciales)
+  phoneCode: text('phone_code'), // p. ej. '+591'
+  phone: text('phone'), // solo el número nacional (Bolivia: 8 dígitos)
   // NULL = sin acceso al panel (p. ej. usuario de la app móvil)
   roleId: uuid('role_id').references(() => roles.id, { onDelete: 'set null' }),
+  // Estado de la cuenta: activa o inactiva (se puede reactivar)
   isActive: boolean('is_active').notNull().default(true),
+  // Eliminación lógica: la cuenta ya tuvo actividad y se conserva el historial
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Bitácora de actividad (docs/PLAN.md §7: audit_log)
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'set null' }), // quién hizo la acción
+    accion: text('accion').notNull(), // p. ej. usuario.crear, sesion.iniciar
+    entidad: text('entidad').notNull(), // p. ej. usuario, rol, sesion
+    entidadId: text('entidad_id'),
+    detalle: text('detalle'),
+    cambios: jsonb('cambios'),
+    fecha: timestamp('fecha', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('audit_log_fecha_idx').on(t.fecha), index('audit_log_user_idx').on(t.userId)],
+);
+
 
 export const sessions = pgTable(
   'sessions',
