@@ -110,37 +110,6 @@ export const navItems: NavItem[] = [
     badge: 'Split',
     category: 'auth',
   },
-  {
-    id: 'auth-forgot',
-    title: 'Recuperar Contraseña',
-    path: '/auth?tab=forgot-password',
-    icon: KeyRound,
-    category: 'auth',
-  },
-  {
-    id: 'auth-2fa',
-    title: 'Verificación 2FA / OTP',
-    path: '/auth?tab=two-factor',
-    icon: ShieldCheck,
-    badge: '2FA',
-    category: 'auth',
-  },
-  {
-    id: 'auth-404',
-    title: 'Error 404 (Not Found)',
-    path: '/auth/404',
-    icon: FileQuestion,
-    badge: '404',
-    category: 'auth',
-  },
-  {
-    id: 'auth-505',
-    title: 'Error 505 / 500 (Server)',
-    path: '/auth/505',
-    icon: ServerCrash,
-    badge: '505',
-    category: 'auth',
-  },
 
   // 3. APLICACIONES & NEGOCIO
   {

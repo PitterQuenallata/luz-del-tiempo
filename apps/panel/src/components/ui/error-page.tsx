@@ -216,7 +216,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
         {/* Subtle Tech Badge Footer */}
         <div className="mt-12 flex items-center gap-2 text-[11px] font-mono text-zinc-600">
           <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-          <span>Blakor OS / HTTP Status Engine</span>
+          <span>La Luz del Tiempo · Panel</span>
         </div>
       </div>
     </div>

@@ -1,4 +1,8 @@
 import React from 'react';
+import { useSession, useSignOut } from '../../../modules/auth/hooks/use-session';
+import { iniciales } from '../../lib/utils';
+import { Logo } from '../brand/logo';
+import { LogOut as LogOutIcon } from 'lucide-react';
 import {
   Volume2,
   VolumeX,
@@ -37,6 +41,8 @@ interface TopNavbarProps {
 export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick, onShortcutsClick, onNavigate }) => {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { soundEnabled, toggleSound, play } = useSound();
+  const sesion = useSession().data;
+  const signOut = useSignOut();
   const { preset, setIsCustomizerOpen, isDrawerOpen, setIsDrawerOpen, glassMode, toggleGlassMode } = useLayout();
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const bellHover = useIconHover();
@@ -103,15 +109,13 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
             }}
             className="flex items-center gap-2.5 group cursor-pointer"
           >
-            <div className="h-8 w-8 rounded-xl bg-primary flex items-center justify-center text-white transition-transform active:scale-95 group-hover:scale-105 shadow-xs">
-              <Layers className="h-4 w-4" strokeWidth={2.2} />
-            </div>
+            <Logo className="h-8 w-8" />
             <div className="flex flex-col">
               <span className="font-semibold text-sm tracking-tight flex items-center gap-1.5 leading-none">
-                Blakor <span className="text-primary font-bold">Pro</span>
+                La Luz del Tiempo
               </span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono mt-0.5">
-                Admin Shell
+                Panel de administración
               </span>
             </div>
           </a>
@@ -219,11 +223,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
               className="flex items-center gap-2 pl-1 pr-1.5 py-0.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group"
             >
               <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-semibold group-hover:scale-105 transition-transform">
-                JD
+                {iniciales(sesion?.name ?? '')}
               </div>
               <div className="hidden xl:flex flex-col text-left">
-                <span className="text-xs font-medium leading-none">J. Daniels</span>
-                <span className="text-[10px] text-muted-foreground mt-0.5">Admin Pro</span>
+                <span className="text-xs font-medium leading-none">{sesion?.name ?? ''}</span>
+                <span className="text-[10px] text-muted-foreground mt-0.5">{sesion?.roleName ?? ''}</span>
               </div>
             </button>
 
@@ -235,11 +239,10 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
                 />
                 <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border/80 bg-card p-2 text-card-foreground shadow-xl z-50 animate-in fade-in zoom-in-95">
                   <div className="px-2.5 py-2 border-b border-border/60 mb-1">
-                    <p className="text-xs font-semibold leading-none">John Daniels</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">admin@blakor.dev</p>
+                    <p className="text-xs font-semibold leading-none">{sesion?.name ?? ''}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{sesion?.email ?? ''}</p>
                     <div className="mt-1.5 flex gap-1">
-                      <Badge variant="default" className="text-[10px] py-0 px-1.5">Owner</Badge>
-                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5">RBAC Super</Badge>
+                      {sesion?.roleName && <Badge variant="default" className="text-[10px] py-0 px-1.5">{sesion.roleName}</Badge>}
                     </div>
                   </div>
                   <div className="space-y-0.5">
@@ -266,6 +269,22 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
                     >
                       <ShieldCheckIcon size={16} className="text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
                       <span>Seguridad & 2FA</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-destructive transition-colors cursor-pointer"
+                      onClick={() => {
+                        play('click');
+                        setIsProfileOpen(false);
+                        signOut.mutate(undefined, {
+                          onSettled: () => {
+                            window.location.hash = '/auth/card';
+                          },
+                        });
+                      }}
+                    >
+                      <LogOutIcon className="h-4 w-4" />
+                      <span>Cerrar sesión</span>
                     </button>
                     <button
                       type="button"

@@ -1,4 +1,7 @@
 import React from 'react';
+import { useSession, useSignOut } from '../../../modules/auth/hooks/use-session';
+import { iniciales } from '../../lib/utils';
+import { Logo } from '../brand/logo';
 import { X, Layers } from 'lucide-react';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
@@ -17,6 +20,7 @@ interface FloatingDrawerProps {
 
 export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onNavigate }) => {
   const { play } = useSound();
+  const sesion = useSession().data;
   const { isDrawerOpen, setIsDrawerOpen, glassMode } = useLayout();
   const { resolvedTheme } = useTheme();
   const basePath = currentPath.split('?')[0];
@@ -60,10 +64,8 @@ export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onN
 
         <div className="flex items-center justify-between pb-4 border-b border-border/60 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-              <Layers className="h-4 w-4" />
-            </div>
-            <span className="font-semibold text-sm">Blakor Menú</span>
+            <Logo className="h-7 w-7" />
+            <span className="font-semibold text-sm">Menú</span>
           </div>
           <Button
             variant="ghost"
@@ -141,14 +143,14 @@ export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onN
           >
             <div className="flex items-center gap-2 min-w-0">
               <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-semibold shrink-0">
-                JD
+                {iniciales(sesion?.name ?? '')}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold leading-none truncate">John Daniels</span>
-                <span className="text-[10px] text-muted-foreground truncate font-mono mt-0.5">admin@blakor.dev</span>
+                <span className="text-xs font-semibold leading-none truncate">{sesion?.name ?? ''}</span>
+                <span className="text-[10px] text-muted-foreground truncate font-mono mt-0.5">{sesion?.email ?? ''}</span>
               </div>
             </div>
-            <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">Owner</Badge>
+            <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">{sesion?.roleName ?? ''}</Badge>
           </div>
 
           <div className="grid grid-cols-3 gap-1">

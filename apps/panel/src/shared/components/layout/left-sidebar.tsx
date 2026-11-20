@@ -1,4 +1,7 @@
 import React from 'react';
+import { useSession, useSignOut } from '../../../modules/auth/hooks/use-session';
+import { iniciales } from '../../lib/utils';
+import { Logo } from '../brand/logo';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
 import { navItems, navigationCategories } from '../../lib/navigation';
@@ -16,6 +19,7 @@ interface LeftSidebarProps {
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigate }) => {
   const { play } = useSound();
+  const sesion = useSession().data;
   const { glassMode } = useLayout();
   const { resolvedTheme } = useTheme();
 
@@ -89,21 +93,21 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
           >
             <div className="relative">
               <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-semibold group-hover:scale-105 transition-transform">
-                JD
+                {iniciales(sesion?.name ?? '')}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-card" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                  John Daniels
+                  {sesion?.name ?? ''}
                 </span>
                 <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono uppercase tracking-wider">
-                  Owner
+                  {sesion?.roleName ?? ''}
                 </Badge>
               </div>
               <p className="text-[10px] text-muted-foreground truncate font-mono">
-                admin@blakor.dev
+                {sesion?.email ?? ''}
               </p>
             </div>
           </div>
