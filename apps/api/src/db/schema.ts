@@ -2,7 +2,16 @@
 // Tablas de autenticación en formato Better Auth (usePlural: true), según docs/DATABASE.md.
 // Las demás tablas (áreas, publicaciones, hero, predicadores, etc.) se agregan en pasos siguientes.
 
-import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+// Roles del panel (docs/DATABASE.md §1). El alcance 'station' se usa para operadores de radio.
+export const roles = pgTable('roles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  scope: text('scope', { enum: ['global', 'station'] }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
@@ -10,6 +19,10 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  phone: text('phone'),
+  // NULL = sin acceso al panel (p. ej. usuario de la app móvil)
+  roleId: uuid('role_id').references(() => roles.id, { onDelete: 'set null' }),
+  isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

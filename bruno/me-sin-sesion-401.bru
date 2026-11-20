@@ -1,0 +1,15 @@
+meta {
+  name: Me - sin sesión 401
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/me
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}

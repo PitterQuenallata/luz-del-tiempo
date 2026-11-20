@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { sql } from 'drizzle-orm';
 import { auth } from './lib/auth.js';
 import { db } from './db/index.js';
+import { meRoutes } from './modules/auth/me.js';
 
 const app = new Hono();
 
@@ -24,6 +25,8 @@ app.use(
 
 // Autenticación (Better Auth): /api/auth/*
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+
+app.route('/api/v1/me', meRoutes);
 
 app.get('/api/v1/health', (c) => c.json({ status: 'ok' }));
 

@@ -8,6 +8,13 @@
       "when": 1795190066258,
       "tag": "0000_white_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795190468314,
+      "tag": "0001_strange_penance",
+      "breakpoints": true
     }
   ]
 }
