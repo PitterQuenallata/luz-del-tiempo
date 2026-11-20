@@ -13,6 +13,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.11
         version: 2.1.11(hono@4.13.19)
+      '@luz/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       better-auth:
         specifier: ^1.7.27
         version: 1.7.27(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -47,6 +50,9 @@ importers:
       '@animateicons/react':
         specifier: ^0.13.0
         version: 0.13.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@luz/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@tanstack/react-form':
         specifier: ^0.41.0
         version: 0.41.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
@@ -175,6 +181,12 @@ importers:
       vite:
         specifier: ^8.3.8
         version: 8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
 packages:
 
