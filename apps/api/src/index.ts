@@ -6,6 +6,7 @@ import { auth } from './lib/auth.js';
 import { db } from './db/index.js';
 import { meRoutes } from './modules/auth/me.js';
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
+import { rolesRoutes } from './modules/roles/roles.routes.js';
 
 const app = new Hono();
 
@@ -37,6 +38,7 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
 
 app.route('/api/v1/me', meRoutes);
 app.route('/api/v1/usuarios', usuariosRoutes);
+app.route('/api/v1/roles', rolesRoutes);
 
 app.get('/api/v1/health', (c) => c.json({ status: 'ok' }));
 

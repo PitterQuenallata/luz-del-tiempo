@@ -2,16 +2,40 @@
 // Tablas de autenticación en formato Better Auth (usePlural: true), según docs/DATABASE.md.
 // Las demás tablas (áreas, publicaciones, hero, predicadores, etc.) se agregan en pasos siguientes.
 
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Roles del panel (docs/DATABASE.md §1). El alcance 'station' se usa para operadores de radio.
 export const roles = pgTable('roles', {
   id: uuid('id').primaryKey().defaultRandom(),
   key: text('key').notNull().unique(),
   name: text('name').notNull(),
+  description: text('description'),
   scope: text('scope', { enum: ['global', 'station'] }).notNull(),
+  // Roles de sistema: no se pueden eliminar ni cambiar su clave (el superadmin no se edita).
+  isSystem: boolean('is_system').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Catálogo de permisos (se siembra desde lib/permisos.ts)
+export const permissions = pgTable('permissions', {
+  key: text('key').primaryKey(),
+  descripcion: text('descripcion').notNull(),
+  grupo: text('grupo').notNull().default('general'),
+});
+
+// Permisos asignados a cada rol
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permissionKey: text('permission_key')
+      .notNull()
+      .references(() => permissions.key, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.permissionKey] })],
+);
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),

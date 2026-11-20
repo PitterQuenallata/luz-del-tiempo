@@ -4,8 +4,9 @@
 
 import { eq } from 'drizzle-orm';
 import { auth } from '../lib/auth.js';
+import { PERMISOS } from '../lib/permisos.js';
 import { db, pool } from './index.js';
-import { roles, users } from './schema.js';
+import { permissions, rolePermissions, roles, users } from './schema.js';
 
 const ROLES = [
   { key: 'superadmin', name: 'Superadmin (Blakor)', scope: 'global' as const },
@@ -21,15 +22,37 @@ const ACCOUNTS = [
   { email: 'operador@luzdeltiempo.local', name: 'Operador de prueba', password: 'sopademani1', roleKey: 'station_operator' },
 ];
 
+async function seedPermisos() {
+  for (const p of PERMISOS) {
+    await db
+      .insert(permissions)
+      .values({ key: p.key, descripcion: p.descripcion, grupo: p.key.split(':')[0] })
+      .onConflictDoUpdate({ target: permissions.key, set: { descripcion: p.descripcion } });
+  }
+}
+
 async function seedRoles() {
   for (const role of ROLES) {
     await db
       .insert(roles)
-      .values(role)
-      .onConflictDoUpdate({ target: roles.key, set: { name: role.name, scope: role.scope } });
+      .values({ ...role, isSystem: true })
+      .onConflictDoUpdate({ target: roles.key, set: { name: role.name, scope: role.scope, isSystem: true } });
   }
   const rows = await db.select().from(roles);
-  return new Map(rows.map((r) => [r.key, r.id]));
+  const ids = new Map(rows.map((r) => [r.key, r.id]));
+
+  // Permisos por defecto solo si el rol aún no tiene ninguno (no se pisan los cambios hechos desde el panel)
+  for (const role of ROLES) {
+    const roleId = ids.get(role.key);
+    if (!roleId) continue;
+    const [existente] = await db.select({ k: rolePermissions.permissionKey }).from(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+    if (existente) continue;
+    const defaults = PERMISOS.filter((p) => (p.roles as string[]).includes(role.key)).map((p) => p.key);
+    if (defaults.length > 0) {
+      await db.insert(rolePermissions).values(defaults.map((k) => ({ roleId, permissionKey: k })));
+    }
+  }
+  return ids;
 }
 
 async function seedAccounts(roleIds: Map<string, string>) {
@@ -52,6 +75,7 @@ async function seedAccounts(roleIds: Map<string, string>) {
 }
 
 async function main() {
+  await seedPermisos();
   const roleIds = await seedRoles();
   await seedAccounts(roleIds);
   console.log('Seed de desarrollo listo.');

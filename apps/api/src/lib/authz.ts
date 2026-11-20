@@ -1,12 +1,13 @@
 import type { Context, Next } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { auth } from './auth.js';
 import { db } from '../db/index.js';
-import { roles, users } from '../db/schema.js';
+import { rolePermissions, roles, users } from '../db/schema.js';
 
 export interface CurrentUser {
   id: string;
   isActive: boolean;
+  roleId: string | null;
   roleKey: string | null;
 }
 
@@ -16,7 +17,7 @@ export async function loadCurrentUser(headers: Headers): Promise<CurrentUser | n
   if (!session) return null;
 
   const [row] = await db
-    .select({ id: users.id, isActive: users.isActive, roleKey: roles.key })
+    .select({ id: users.id, isActive: users.isActive, roleId: roles.id, roleKey: roles.key })
     .from(users)
     .leftJoin(roles, eq(users.roleId, roles.id))
     .where(eq(users.id, session.user.id));
@@ -25,13 +26,24 @@ export async function loadCurrentUser(headers: Headers): Promise<CurrentUser | n
   return row;
 }
 
-// Middleware: exige sesión y que el rol esté en la lista permitida (403 si no).
-export function requireRole(allowed: string[]) {
+// ¿El rol tiene este permiso? El superadmin tiene todos (no se puede quitar).
+export async function tienePermiso(user: CurrentUser, permiso: string): Promise<boolean> {
+  if (user.roleKey === 'superadmin') return true;
+  if (!user.roleId) return false;
+  const [fila] = await db
+    .select({ key: rolePermissions.permissionKey })
+    .from(rolePermissions)
+    .where(and(eq(rolePermissions.roleId, user.roleId), eq(rolePermissions.permissionKey, permiso)));
+  return Boolean(fila);
+}
+
+// Middleware: exige sesión y el permiso indicado (401 sin sesión, 403 sin permiso).
+export function requirePermission(permiso: string) {
   return async (c: Context, next: Next) => {
     const user = await loadCurrentUser(c.req.raw.headers);
     if (!user) return c.json({ error: 'no_autenticado' }, 401);
-    if (!user.roleKey || !allowed.includes(user.roleKey)) {
-      return c.json({ error: 'sin_permiso' }, 403);
+    if (!(await tienePermiso(user, permiso))) {
+      return c.json({ error: 'sin_permiso', message: 'No tienes permiso para esta acción.' }, 403);
     }
     await next();
   };

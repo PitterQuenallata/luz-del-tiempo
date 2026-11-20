@@ -1,38 +1,16 @@
 import { Hono } from 'hono';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { auth } from '../../lib/auth.js';
-import { loadCurrentUser, requireRole } from '../../lib/authz.js';
+import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
 import { roles, users } from '../../db/schema.js';
-import { PERMISOS, permisosDeRol } from '../../lib/permisos.js';
 
-// Gestión de usuarios del panel. Solo superadmin y admin (docs/PLAN.md §6).
+// Gestión de usuarios del panel. Requiere el permiso usuarios:gestionar.
 // Reglas: solo el superadmin asigna o modifica al superadmin; nadie se desactiva a sí mismo.
+// No se borran cuentas: se desactivan (se conserva el historial).
 export const usuariosRoutes = new Hono();
 
-usuariosRoutes.use('*', requireRole(['superadmin', 'admin']));
-
-const ROLE_KEYS_ASIGNABLES = ['superadmin', 'admin', 'editor', 'station_operator'];
-
-usuariosRoutes.get('/roles', async (c) => {
-  const rows = await db.select().from(roles).orderBy(roles.key);
-  const conteo = await db
-    .select({ roleId: users.roleId, total: sql<number>`count(*)::int` })
-    .from(users)
-    .groupBy(users.roleId);
-  const miembros = new Map(conteo.map((x) => [x.roleId, x.total]));
-
-  return c.json({
-    roles: rows.map((r) => ({
-      key: r.key,
-      name: r.name,
-      scope: r.scope,
-      miembros: miembros.get(r.id) ?? 0,
-      permisos: permisosDeRol(r.key),
-    })),
-    permisos: PERMISOS,
-  });
-});
+usuariosRoutes.use('*', requirePermission('usuarios:gestionar'));
 
 usuariosRoutes.get('/', async (c) => {
   const rows = await db
@@ -65,18 +43,15 @@ usuariosRoutes.post('/', async (c) => {
   if (!name || !email || password.length < 8) {
     return c.json({ error: 'datos_invalidos', message: 'Nombre, correo y contraseña (mín. 8 caracteres) son obligatorios.' }, 422);
   }
-  if (!ROLE_KEYS_ASIGNABLES.includes(roleKey)) {
-    return c.json({ error: 'rol_invalido' }, 422);
-  }
   if (roleKey === 'superadmin' && caller?.roleKey !== 'superadmin') {
     return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede crear otro superadmin.' }, 403);
   }
 
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-  if (existing) return c.json({ error: 'correo_existente' }, 409);
-
   const [role] = await db.select().from(roles).where(eq(roles.key, roleKey));
-  if (!role) return c.json({ error: 'rol_no_existe' }, 422);
+  if (!role) return c.json({ error: 'rol_no_existe', message: 'El rol seleccionado no existe.' }, 422);
+
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+  if (existing) return c.json({ error: 'correo_existente', message: 'Ya existe una cuenta con ese correo.' }, 409);
 
   const created = await auth.api.signUpEmail({ body: { name, email, password } });
 
@@ -91,10 +66,10 @@ usuariosRoutes.post('/', async (c) => {
 usuariosRoutes.patch('/:id', async (c) => {
   const caller = await loadCurrentUser(c.req.raw.headers);
   const id = c.req.param('id');
-  const body = await c.req.json<{ roleKey?: string; isActive?: boolean }>();
+  const body = await c.req.json<{ name?: string; phone?: string | null; roleKey?: string; isActive?: boolean }>();
 
   const [target] = await db
-    .select({ id: users.id, isActive: users.isActive, roleKey: roles.key })
+    .select({ id: users.id, roleKey: roles.key })
     .from(users)
     .leftJoin(roles, eq(users.roleId, roles.id))
     .where(eq(users.id, id));
@@ -104,19 +79,27 @@ usuariosRoutes.patch('/:id', async (c) => {
   if (target.roleKey === 'superadmin' && !callerIsSuper) {
     return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede modificar al superadmin.' }, 403);
   }
-  if (typeof body.isActive === 'boolean' && body.isActive === false && caller?.id === id) {
+  if (body.isActive === false && caller?.id === id) {
     return c.json({ error: 'auto_desactivacion', message: 'No puedes desactivar tu propia cuenta.' }, 422);
   }
 
-  const patch: { roleId?: string | null; isActive?: boolean; updatedAt: Date } = { updatedAt: new Date() };
+  const patch: { name?: string; phone?: string | null; roleId?: string | null; isActive?: boolean; updatedAt: Date } = {
+    updatedAt: new Date(),
+  };
+
+  if (body.name !== undefined) {
+    const name = body.name.trim();
+    if (!name) return c.json({ error: 'datos_invalidos', message: 'El nombre no puede estar vacío.' }, 422);
+    patch.name = name;
+  }
+  if (body.phone !== undefined) patch.phone = body.phone?.trim() || null;
 
   if (body.roleKey !== undefined) {
-    if (!ROLE_KEYS_ASIGNABLES.includes(body.roleKey)) return c.json({ error: 'rol_invalido' }, 422);
     if (body.roleKey === 'superadmin' && !callerIsSuper) {
       return c.json({ error: 'sin_permiso', message: 'Solo el superadmin puede asignar el rol superadmin.' }, 403);
     }
     const [role] = await db.select().from(roles).where(eq(roles.key, body.roleKey));
-    if (!role) return c.json({ error: 'rol_no_existe' }, 422);
+    if (!role) return c.json({ error: 'rol_no_existe', message: 'El rol seleccionado no existe.' }, 422);
     patch.roleId = role.id;
   }
   if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
