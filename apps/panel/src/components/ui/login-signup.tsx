@@ -173,23 +173,10 @@ export function LoginCardSection({
           }}
           className="cursor-pointer font-bold tracking-widest text-sm text-[#0b1324]/90 hover:text-[#0b1324] transition-colors font-mono flex items-center gap-2"
         >
-          <span className="h-2 w-2 rounded-full bg-primary" />
           <Logo className="h-8 w-8" />
           <span>{brandName}</span>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            play('click');
-            pillToast.info('Mesa de Ayuda La Luz del Tiempo', 'Soporte y documentación oficial disponibles 24/7.');
-          }}
-          className="rounded-full bg-[#0b1324]/5 border-[#0b1324]/10 hover:bg-[#0b1324]/10 text-xs text-[#0b1324]/80 hover:text-[#0b1324] transition-all cursor-pointer"
-        >
-          <span>Contacto</span>
-          <ArrowRight className="h-3.5 w-3.5 ml-1" />
-        </Button>
       </header>
 
       {/* Center Floating iOS Card */}
