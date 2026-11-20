@@ -23,23 +23,23 @@ export interface ErrorPageProps {
 
 const ERROR_CONFIG: Record<string, { title: string; description: string; hint: string }> = {
   '404': {
-    title: 'Página no encontrada',
-    description: 'La página que buscas pudo haberse movido o no existe.',
+    title: 'Page Not Found',
+    description: "The page you're looking for might have been moved or doesn't exist.",
     hint: 'Ruta no encontrada o enlace desactualizado.',
   },
   '500': {
-    title: 'Error interno del servidor',
-    description: 'Algo salió mal en el servidor. Ya estamos revisándolo.',
+    title: 'Internal Server Error',
+    description: "Something went wrong on our servers. We're actively looking into it.",
     hint: 'Error interno en el procesamiento del servidor.',
   },
   '505': {
-    title: 'Versión HTTP no soportada',
-    description: 'El servidor no soporta la versión del protocolo HTTP usada en la solicitud.',
+    title: 'HTTP Version Not Supported',
+    description: 'The server does not support the HTTP protocol version used in the request.',
     hint: 'Protocolo de red no soportado por el gateway.',
   },
   '403': {
-    title: 'Acceso denegado',
-    description: 'No tienes permiso para entrar a esta zona.',
+    title: 'Access Forbidden',
+    description: "You don't have authorization or permission to access this secure zone.",
     hint: 'Permisos insuficientes en las políticas RBAC.',
   },
 };
@@ -174,7 +174,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#E4E4E7] text-[#0A0A0A] hover:bg-white active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer"
           >
             <Home className="w-4 h-4 stroke-[2.2]" />
-            <span>Ir al inicio</span>
+            <span>Go Home</span>
           </button>
 
           {/* Secondary Action: Explore */}
@@ -184,7 +184,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10 active:scale-[0.98] backdrop-blur-md transition-all duration-150 cursor-pointer"
           >
             <Compass className="w-4 h-4 stroke-[2.2]" />
-            <span>Explorar</span>
+            <span>Explore</span>
           </button>
 
           {/* Retry Button for 500 / 505 Server Errors */}
@@ -208,7 +208,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Volver</span>
+              <span>Back</span>
             </button>
           )}
         </div>
@@ -216,7 +216,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
         {/* Subtle Tech Badge Footer */}
         <div className="mt-12 flex items-center gap-2 text-[11px] font-mono text-zinc-600">
           <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-          <span>La Luz del Tiempo · Panel</span>
+          <span>Blakor OS / HTTP Status Engine</span>
         </div>
       </div>
     </div>

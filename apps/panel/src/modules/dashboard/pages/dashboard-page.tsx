@@ -6,6 +6,8 @@ import { DownloadIcon, CompassIcon } from '@animateicons/react/lucide';
 import { Button } from '../../../shared/components/ui/button';
 import { DashboardType } from '../types/dashboard.types';
 import { DashboardExecutiveView } from '../components/dashboard-executive-view';
+import { DashboardEcommerceView } from '../components/dashboard-ecommerce-view';
+import { DashboardCrmView } from '../components/dashboard-crm-view';
 import { DashboardAnalyticsView } from '../components/dashboard-analytics-view';
 import { DashboardTour } from '../components/dashboard-tour';
 import { useSound } from '../../../shared/context/sound-context';
@@ -15,6 +17,8 @@ import { cn } from '../../../shared/lib/utils';
 const DASHBOARD_TABS: { id: DashboardType; label: string }[] = [
   { id: 'ejecutivo', label: 'Ejecutivo (Finanzas)' },
   { id: 'analytics', label: 'Analítica Global' },
+  { id: 'crm', label: 'CRM Ventas B2B' },
+  { id: 'ecommerce', label: 'eCommerce Retail' },
 ];
 
 export const DashboardPage: React.FC = () => {
@@ -157,6 +161,8 @@ export const DashboardPage: React.FC = () => {
       <div id="dashboard-content-container">
         {activeDashboard === 'ejecutivo' && <DashboardExecutiveView />}
         {activeDashboard === 'analytics' && <DashboardAnalyticsView />}
+        {activeDashboard === 'crm' && <DashboardCrmView />}
+        {activeDashboard === 'ecommerce' && <DashboardEcommerceView />}
       </div>
 
       {/* Interactive Step-by-Step Apple Product Tour */}

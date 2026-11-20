@@ -1,21 +1,31 @@
-# Panel de administración — La Luz del Tiempo
+# Blakor Admin Pro
 
-Base: plantilla **Blakor Admin Pro** (React 19 + Vite + TypeScript + Tailwind + shadcn/ui + TanStack Router, Query, Table y Form).
+> Starter Kit y Plantilla Comercial para Panel Administrativo Moderno (Dashboard) construida con **React**, **Vite**, **TypeScript (tsgo en Go)**, **Tailwind CSS**, **shadcn/ui** y el **Ecosistema TanStack Completo**.
 
-## Comandos
+Para consultar la arquitectura técnica completa, estructura de carpetas, requisitos y diseño de los módulos:
+- Consulta el documento maestro de especificaciones: [REQUIREMENTS.md](./REQUIREMENTS.md)
 
-Desde la raíz del monorepo:
+---
 
-```bash
-pnpm install
-pnpm --filter @luz/panel dev     # http://localhost:3000
-pnpm --filter @luz/panel build   # tsgo --noEmit + vite build
-```
+## Características Principales
 
-## Organización
-
-- `src/app/` — providers y router.
-- `src/shared/` — componentes de la plantilla (layout, UI, tablas), contextos, utilidades y cliente de API.
-- `src/modules/<dominio>/` — un módulo por dominio (usuarios, staff, auditoría, configuración…), cada uno con `pages/`, `components/`, `hooks/`, `data/` y `types/`.
-
-Estado: primera pasada de limpieza. Los módulos siguen con datos de prueba de la plantilla; se conectarán a la API en `apps/api`.
+- **Compilación ultrarrápida con Go**: Type-checking con `@typescript/native-preview` (`tsgo`) y soporte nativo en VS Code.
+- **Gestor de paquetes**: `pnpm`.
+- **Arquitectura Feature / Domain-Driven (FDD)**: Módulos completamente desacoplados y auto-contenidos.
+- **Ecosistema TanStack de punta a punta**:
+  - TanStack Router (enrutamiento seguro con tipos).
+  - TanStack Query v5 (gestión de estado de servidor y caché).
+  - TanStack Table v8 (data tables avanzadas con sorting, filtros, selección y paginación).
+  - TanStack Form + Zod (validación reactiva de formularios).
+- **Layout Switcher Dinámico (Blakor Shell)**:
+  - Dock Inferior flotante (estilo app celular / iOS dock).
+  - Barra superior (Top Navbar).
+  - Sidebar izquierdo clásico y minimizado (icon bar).
+  - Sidebar oculto en Drawer/Modal flotante.
+  - Botón de acción rápida flotante (FAB naranja).
+  - Panel interactivo de configuración de temas y layouts con persistencia en `localStorage`.
+- **Módulos Comerciales y Showcases**:
+  - Autenticación (Login, Registro, Recuperación, 2FA).
+  - Dashboard de Métricas y Analítica.
+  - Usuarios, Staff (RBAC), Pagos / Facturación, Licencias, Reportes y Auditoría.
+  - Catálogo de UI Kit, Tablas y Formularios para venta como plantilla.

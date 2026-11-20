@@ -13,9 +13,17 @@ export const usuariosColumns: ColumnDef<Usuario>[] = [
       const user = row.original;
       return (
         <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center text-xs shrink-0">
+          {user.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="h-9 w-9 rounded-xl object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary font-semibold flex items-center justify-center text-xs shrink-0">
               {user.avatarText}
             </div>
+          )}
           <div>
             <div className="font-semibold text-foreground text-xs leading-tight">{user.name}</div>
             <div className="text-[11px] text-muted-foreground font-mono">{user.email}</div>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { DashboardKpiGrid } from './dashboard-kpi-grid';
 import { DashboardRevenueChart } from './dashboard-revenue-chart';
-import { initialKpiMetrics, initialRevenueChartPoints } from '../data/dashboard-data';
+import { DashboardRecentTransactions } from './dashboard-recent-transactions';
+import { initialKpiMetrics, initialRecentTransactions, initialRevenueChartPoints } from '../data/dashboard-data';
 
 export const DashboardExecutiveView: React.FC = () => {
   return (
@@ -11,6 +12,9 @@ export const DashboardExecutiveView: React.FC = () => {
 
       {/* Revenue Chart Section */}
       <DashboardRevenueChart points={initialRevenueChartPoints} />
+
+      {/* Recent Transactions Table */}
+      <DashboardRecentTransactions transactions={initialRecentTransactions} />
     </div>
   );
 };

@@ -21,16 +21,3 @@ export function formatDate(date: string | Date): string {
     year: 'numeric',
   }).format(d);
 }
-
-// Iniciales de un nombre para avatares: "Mallku Quenallata" -> "MQ"
-export function iniciales(nombre: string): string {
-  return (
-    nombre
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((parte) => parte[0])
-      .join('')
-      .toUpperCase() || 'US'
-  );
-}

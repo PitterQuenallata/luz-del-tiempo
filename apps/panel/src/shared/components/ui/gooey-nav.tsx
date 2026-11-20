@@ -201,7 +201,7 @@ export function GooeyNav({
   currentPath,
   onChange,
   size = 'md',
-  activeColor = '#e2a927',
+  activeColor = '#F97316',
   activeLabelColor = '#ffffff',
   separation,
   radius,

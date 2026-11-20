@@ -24,23 +24,21 @@ import { Input } from '../../../shared/components/ui/input';
 import { DataTable } from '../../../shared/components/data-table/data-table';
 import { usuariosColumns } from './usuarios-columns';
 import { Usuario } from '../types/usuarios.types';
-import { useRoles } from '../hooks/use-usuarios';
-import { UsuarioDetalleDialog } from './usuario-detalle-dialog';
-import { useSession } from '../../auth/hooks/use-session';
-import { NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { useSound } from '../../../shared/context/sound-context';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { cn } from '../../../shared/lib/utils';
 
 interface UsuariosDirectoryTabProps {
   usuarios: Usuario[];
-  onAddUsuario: (input: NuevoUsuarioInput) => void;
+  onAddUsuario: (user: Usuario) => void;
+  onSelectProfile: (user: Usuario) => void;
   onDeleteUsuario: (id: string) => void;
 }
 
 export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   usuarios,
   onAddUsuario,
+  onSelectProfile,
   onDeleteUsuario,
 }) => {
   const { play } = useSound();
@@ -54,13 +52,10 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRoleKey, setNewRoleKey] = useState('editor');
-  const [newPhone, setNewPhone] = useState('');
-  const { data: roles = [] } = useRoles();
-  const { data: sesion } = useSession();
-  const esSuperadmin = sesion?.roleKey === 'superadmin';
-  const rolesAsignables = roles.filter((r) => r.key !== 'superadmin' || esSuperadmin);
+  const [newRole, setNewRole] = useState('Editor');
+  const [newDepartment, setNewDepartment] = useState('Diseño de Producto');
+  const [newPhone, setNewPhone] = useState('+1 (555) 000-0000');
+  const [newLocation, setNewLocation] = useState('San Francisco, CA');
 
   // Quick View Drawer State
   const [selectedUserForDrawer, setSelectedUserForDrawer] = useState<Usuario | null>(null);
@@ -70,7 +65,9 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
     return usuarios.filter((u) => {
       const matchSearch =
         u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase());
+        u.email.toLowerCase().includes(search.toLowerCase()) ||
+        (u.department && u.department.toLowerCase().includes(search.toLowerCase())) ||
+        (u.location && u.location.toLowerCase().includes(search.toLowerCase()));
 
       const matchRole = roleFilter === 'all' || u.role === roleFilter;
       const matchStatus = statusFilter === 'all' || u.status === statusFilter;
@@ -82,22 +79,46 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   // Metrics
   const totalCount = usuarios.length;
   const activeCount = usuarios.filter((u) => u.status === 'Activo').length;
+  const pendingCount = usuarios.filter((u) => u.status === 'Pendiente').length;
   const inactiveCount = usuarios.filter((u) => u.status === 'Inactivo').length;
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    play('success');
-    onAddUsuario({
-      name: newName.trim(),
-      email: newEmail.trim(),
-      password: newPassword,
-      phone: newPhone.trim() || undefined,
-      roleKey: newRoleKey,
-    });
+    if (!newName.trim() || !newEmail.trim()) {
+      play('alert');
+      pillToast.error('Campos Requeridos', 'Por favor ingresa nombre y correo corporativo.');
+      return;
+    }
+
+    const initials = newName
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
+    const created: Usuario = {
+      id: `USR-${Date.now().toString().slice(-4)}`,
+      name: newName,
+      email: newEmail,
+      role: newRole,
+      status: 'Activo',
+      subscription: 'Pro Plan',
+      avatarText: initials || 'US',
+      avatar: `/images/profile/user-${Math.floor(1 + Math.random() * 12)}.jpg`,
+      joinedAt: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+      phone: newPhone,
+      department: newDepartment,
+      location: newLocation,
+      bio: 'Miembro del equipo recientemente incorporado al espacio corporativo.',
+    };
+
+    onAddUsuario(created);
     setIsNewUserModalOpen(false);
     setNewName('');
     setNewEmail('');
-    setNewPassword('');
+    play('success');
+    pillToast.success('Usuario Creado con Éxito', `Se envió invitación de acceso a ${newEmail}.`);
   };
 
   return (
@@ -117,6 +138,14 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
             <span className="text-xs text-muted-foreground block font-medium">Usuarios Activos</span>
             <div className="font-mono text-2xl font-bold text-emerald-500 tabular-nums">{activeCount}</div>
             <span className="text-[11px] text-emerald-500/80 font-mono">Con acceso habilitado</span>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardContent className="p-4 space-y-1">
+            <span className="text-xs text-muted-foreground block font-medium">Invitaciones Pendientes</span>
+            <div className="font-mono text-2xl font-bold text-amber-500 tabular-nums">{pendingCount}</div>
+            <span className="text-[11px] text-amber-500/80 font-mono">En espera de aceptación</span>
           </CardContent>
         </Card>
 
@@ -195,9 +224,11 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                 className="h-9 px-3 rounded-xl border border-border bg-background text-xs font-medium text-foreground cursor-pointer focus:outline-hidden"
               >
                 <option value="all">Todos los Roles</option>
-                {roles.map((r) => (
-                  <option key={r.key} value={r.name}>{r.name}</option>
-                ))}
+                <option value="Administrador">Administrador</option>
+                <option value="Editor">Editor</option>
+                <option value="Desarrollador">Desarrollador</option>
+                <option value="Soporte">Soporte</option>
+                <option value="Cliente">Cliente</option>
               </select>
 
               {/* Status filter */}
@@ -211,6 +242,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
               >
                 <option value="all">Todos los Estados</option>
                 <option value="Activo">Activos</option>
+                <option value="Pendiente">Pendientes</option>
                 <option value="Inactivo">Inactivos</option>
               </select>
 
@@ -268,9 +300,17 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                                              <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
+                      {user.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          className="h-11 w-11 rounded-2xl object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
                           {user.avatarText}
                         </div>
+                      )}
                       <div>
                         <h4 className="font-semibold text-foreground text-xs line-clamp-1">{user.name}</h4>
                         <span className="text-[11px] text-muted-foreground font-mono block truncate max-w-[150px]">
@@ -283,12 +323,33 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                     </div>
 
                     <Badge
-                      variant={user.status === 'Activo' ? 'success' : 'secondary'}
+                      variant={
+                        user.status === 'Activo'
+                          ? 'success'
+                          : user.status === 'Pendiente'
+                          ? 'warning'
+                          : 'secondary'
+                      }
                       className="text-[10px] font-mono shrink-0"
                     >
                       {user.status}
                     </Badge>
                   </div>
+
+                  {user.department && (
+                    <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/40 pt-3">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Building className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                        <span className="truncate">{user.department}</span>
+                      </div>
+                      {user.location && (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                          <span className="truncate">{user.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                     <span className="font-mono text-[10px] text-muted-foreground">
@@ -306,6 +367,18 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                         title="Ver detalles"
                       >
                         <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="iconSm"
+                        soundType="tab"
+                        onClick={() => {
+                          play('tab');
+                          onSelectProfile(user);
+                        }}
+                        title="Ir al perfil"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -370,46 +443,54 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="ej. mateo.anderson@luzdeltiempo.local"
+                    placeholder="ej. mateo.anderson@blakor.io"
                     className="text-xs font-mono"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="font-medium text-foreground block mb-1.5">Contraseña inicial *</label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    className="text-xs"
-                    minLength={8}
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="font-medium text-foreground block mb-1.5">Rol de Seguridad *</label>
+                    <label className="font-medium text-foreground block mb-1.5">Rol de Seguridad</label>
                     <select
-                      value={newRoleKey}
-                      onChange={(e) => setNewRoleKey(e.target.value)}
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
                       className="w-full h-9 px-3 rounded-xl border border-border bg-background text-xs font-medium text-foreground cursor-pointer focus:outline-hidden"
                     >
-                      {rolesAsignables.map((r) => (
-                        <option key={r.key} value={r.key}>{r.name}</option>
-                      ))}
+                      <option value="Administrador">Administrador</option>
+                      <option value="Editor">Editor</option>
+                      <option value="Desarrollador">Desarrollador</option>
+                      <option value="Soporte">Soporte</option>
+                      <option value="Cliente">Cliente</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="font-medium text-foreground block mb-1.5">Teléfono</label>
+                    <label className="font-medium text-foreground block mb-1.5">Departamento</label>
+                    <Input
+                      value={newDepartment}
+                      onChange={(e) => setNewDepartment(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-medium text-foreground block mb-1.5">Teléfono Directo</label>
                     <Input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
-                      placeholder="+591 7xxxxxxx"
                       className="text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-medium text-foreground block mb-1.5">Ubicación / Sede</label>
+                    <Input
+                      value={newLocation}
+                      onChange={(e) => setNewLocation(e.target.value)}
+                      className="text-xs"
                     />
                   </div>
                 </div>
@@ -434,7 +515,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                   className="text-xs gap-1.5"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  Crear Usuario
+                  Crear y Enviar Invitación
                 </Button>
               </div>
             </form>
@@ -442,8 +523,114 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
         </div>
       )}
 
+      {/* User Quick View Drawer Modal */}
       {selectedUserForDrawer && (
-        <UsuarioDetalleDialog usuario={selectedUserForDrawer} onClose={() => setSelectedUserForDrawer(null)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
+          <Card className="w-full max-w-md border-border shadow-2xl">
+            <CardHeader className="pb-3 border-b border-border/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold">Ficha de Usuario</CardTitle>
+                  <CardDescription className="text-xs">Identificador: {selectedUserForDrawer.id}</CardDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserForDrawer(null)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5 text-xs">
+              <div className="flex items-center gap-4">
+                {selectedUserForDrawer.avatar ? (
+                  <img
+                    src={selectedUserForDrawer.avatar}
+                    alt={selectedUserForDrawer.name}
+                    className="h-16 w-16 rounded-2xl object-cover border border-border"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-lg">
+                    {selectedUserForDrawer.avatarText}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">{selectedUserForDrawer.name}</h3>
+                  <span className="text-muted-foreground font-mono block">{selectedUserForDrawer.email}</span>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {selectedUserForDrawer.role}
+                    </Badge>
+                    <Badge
+                      variant={
+                        selectedUserForDrawer.status === 'Activo'
+                          ? 'success'
+                          : selectedUserForDrawer.status === 'Pendiente'
+                          ? 'warning'
+                          : 'secondary'
+                      }
+                      className="text-[10px] font-mono"
+                    >
+                      {selectedUserForDrawer.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {selectedUserForDrawer.bio && (
+                <div className="p-3.5 rounded-xl bg-secondary/30 border border-border text-[11px] text-muted-foreground leading-relaxed">
+                  {selectedUserForDrawer.bio}
+                </div>
+              )}
+
+              <div className="space-y-2.5 pt-2 border-t border-border/50 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Departamento:</span>
+                  <span className="font-semibold text-foreground">{selectedUserForDrawer.department || 'General'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Ubicación:</span>
+                  <span className="font-semibold text-foreground">{selectedUserForDrawer.location || 'Remoto'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Teléfono:</span>
+                  <span className="font-mono text-foreground">{selectedUserForDrawer.phone || 'No registrado'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Plan Asignado:</span>
+                  <span className="font-semibold text-primary">{selectedUserForDrawer.subscription}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Fecha de Registro:</span>
+                  <span className="font-mono text-muted-foreground">{selectedUserForDrawer.joinedAt}</span>
+                </div>
+              </div>
+            </CardContent>
+
+            <div className="p-4 border-t border-border/50 flex items-center justify-end gap-2 bg-secondary/20">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedUserForDrawer(null)}
+                className="text-xs"
+              >
+                Cerrar
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  onSelectProfile(selectedUserForDrawer);
+                  setSelectedUserForDrawer(null);
+                }}
+                className="text-xs"
+              >
+                Ver Perfil Completo
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );
