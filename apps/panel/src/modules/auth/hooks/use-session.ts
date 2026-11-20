@@ -16,8 +16,8 @@ export function useSession() {
 export function useSignIn() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      await luzApi.signIn(email, password);
+    mutationFn: async ({ email, password, rememberMe }: { email: string; password: string; rememberMe?: boolean }) => {
+      await luzApi.signIn(email, password, rememberMe);
       return luzApi.me();
     },
     onSuccess: (user) => {

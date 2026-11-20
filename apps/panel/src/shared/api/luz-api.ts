@@ -63,6 +63,20 @@ export interface ApiRole {
   key: string;
   name: string;
   scope: 'global' | 'station';
+  miembros: number;
+  permisos: string[];
+}
+
+export interface ApiPermiso {
+  key: string;
+  descripcion: string;
+  roles: string[];
+  aplicado: boolean;
+}
+
+export interface ApiRolesResponse {
+  roles: ApiRole[];
+  permisos: ApiPermiso[];
 }
 
 export interface NuevoUsuarioInput {
@@ -74,11 +88,11 @@ export interface NuevoUsuarioInput {
 }
 
 export const luzApi = {
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string, rememberMe = true) {
     try {
       return await request('/api/auth/sign-in/email', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
@@ -102,9 +116,8 @@ export const luzApi = {
     return data.usuarios;
   },
 
-  async listRoles(): Promise<ApiRole[]> {
-    const data = await request<{ roles: ApiRole[] }>('/api/v1/usuarios/roles');
-    return data.roles;
+  listRoles(): Promise<ApiRolesResponse> {
+    return request<ApiRolesResponse>('/api/v1/usuarios/roles');
   },
 
   createUsuario(input: NuevoUsuarioInput) {

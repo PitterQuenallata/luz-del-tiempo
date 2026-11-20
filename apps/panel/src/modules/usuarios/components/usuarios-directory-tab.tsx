@@ -25,6 +25,7 @@ import { DataTable } from '../../../shared/components/data-table/data-table';
 import { usuariosColumns } from './usuarios-columns';
 import { Usuario } from '../types/usuarios.types';
 import { useRoles } from '../hooks/use-usuarios';
+import { UsuarioDetalleDialog } from './usuario-detalle-dialog';
 import { useSession } from '../../auth/hooks/use-session';
 import { NuevoUsuarioInput } from '../../../shared/api/luz-api';
 import { useSound } from '../../../shared/context/sound-context';
@@ -34,14 +35,12 @@ import { cn } from '../../../shared/lib/utils';
 interface UsuariosDirectoryTabProps {
   usuarios: Usuario[];
   onAddUsuario: (input: NuevoUsuarioInput) => void;
-  onSelectProfile: (user: Usuario) => void;
   onDeleteUsuario: (id: string) => void;
 }
 
 export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   usuarios,
   onAddUsuario,
-  onSelectProfile,
   onDeleteUsuario,
 }) => {
   const { play } = useSound();
@@ -71,9 +70,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
     return usuarios.filter((u) => {
       const matchSearch =
         u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase()) ||
-        (u.department && u.department.toLowerCase().includes(search.toLowerCase())) ||
-        (u.location && u.location.toLowerCase().includes(search.toLowerCase()));
+        u.email.toLowerCase().includes(search.toLowerCase());
 
       const matchRole = roleFilter === 'all' || u.role === roleFilter;
       const matchStatus = statusFilter === 'all' || u.status === statusFilter;
@@ -85,7 +82,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   // Metrics
   const totalCount = usuarios.length;
   const activeCount = usuarios.filter((u) => u.status === 'Activo').length;
-  const pendingCount = usuarios.filter((u) => u.status === 'Pendiente').length;
   const inactiveCount = usuarios.filter((u) => u.status === 'Inactivo').length;
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -121,14 +117,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
             <span className="text-xs text-muted-foreground block font-medium">Usuarios Activos</span>
             <div className="font-mono text-2xl font-bold text-emerald-500 tabular-nums">{activeCount}</div>
             <span className="text-[11px] text-emerald-500/80 font-mono">Con acceso habilitado</span>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="p-4 space-y-1">
-            <span className="text-xs text-muted-foreground block font-medium">Invitaciones Pendientes</span>
-            <div className="font-mono text-2xl font-bold text-amber-500 tabular-nums">{pendingCount}</div>
-            <span className="text-[11px] text-amber-500/80 font-mono">En espera de aceptación</span>
           </CardContent>
         </Card>
 
@@ -223,7 +211,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
               >
                 <option value="all">Todos los Estados</option>
                 <option value="Activo">Activos</option>
-                <option value="Pendiente">Pendientes</option>
                 <option value="Inactivo">Inactivos</option>
               </select>
 
@@ -281,17 +268,9 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      {user.avatar ? (
-                        <img
-                          src={user.avatar}
-                          alt={user.name}
-                          className="h-11 w-11 rounded-2xl object-cover border border-border shrink-0"
-                        />
-                      ) : (
-                        <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
+                                              <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
                           {user.avatarText}
                         </div>
-                      )}
                       <div>
                         <h4 className="font-semibold text-foreground text-xs line-clamp-1">{user.name}</h4>
                         <span className="text-[11px] text-muted-foreground font-mono block truncate max-w-[150px]">
@@ -304,33 +283,12 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                     </div>
 
                     <Badge
-                      variant={
-                        user.status === 'Activo'
-                          ? 'success'
-                          : user.status === 'Pendiente'
-                          ? 'warning'
-                          : 'secondary'
-                      }
+                      variant={user.status === 'Activo' ? 'success' : 'secondary'}
                       className="text-[10px] font-mono shrink-0"
                     >
                       {user.status}
                     </Badge>
                   </div>
-
-                  {user.department && (
-                    <div className="space-y-1 text-[11px] text-muted-foreground border-t border-border/40 pt-3">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Building className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-                        <span className="truncate">{user.department}</span>
-                      </div>
-                      {user.location && (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-                          <span className="truncate">{user.location}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
                     <span className="font-mono text-[10px] text-muted-foreground">
@@ -348,18 +306,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                         title="Ver detalles"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        soundType="tab"
-                        onClick={() => {
-                          play('tab');
-                          onSelectProfile(user);
-                        }}
-                        title="Ir al perfil"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -496,114 +442,8 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
         </div>
       )}
 
-      {/* User Quick View Drawer Modal */}
       {selectedUserForDrawer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
-          <Card className="w-full max-w-md border-border shadow-2xl">
-            <CardHeader className="pb-3 border-b border-border/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold">Ficha de Usuario</CardTitle>
-                  <CardDescription className="text-xs">Identificador: {selectedUserForDrawer.id}</CardDescription>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedUserForDrawer(null)}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-5 text-xs">
-              <div className="flex items-center gap-4">
-                {selectedUserForDrawer.avatar ? (
-                  <img
-                    src={selectedUserForDrawer.avatar}
-                    alt={selectedUserForDrawer.name}
-                    className="h-16 w-16 rounded-2xl object-cover border border-border"
-                  />
-                ) : (
-                  <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center text-lg">
-                    {selectedUserForDrawer.avatarText}
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">{selectedUserForDrawer.name}</h3>
-                  <span className="text-muted-foreground font-mono block">{selectedUserForDrawer.email}</span>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <Badge variant="outline" className="text-[10px] font-mono">
-                      {selectedUserForDrawer.role}
-                    </Badge>
-                    <Badge
-                      variant={
-                        selectedUserForDrawer.status === 'Activo'
-                          ? 'success'
-                          : selectedUserForDrawer.status === 'Pendiente'
-                          ? 'warning'
-                          : 'secondary'
-                      }
-                      className="text-[10px] font-mono"
-                    >
-                      {selectedUserForDrawer.status}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {selectedUserForDrawer.bio && (
-                <div className="p-3.5 rounded-xl bg-secondary/30 border border-border text-[11px] text-muted-foreground leading-relaxed">
-                  {selectedUserForDrawer.bio}
-                </div>
-              )}
-
-              <div className="space-y-2.5 pt-2 border-t border-border/50 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Departamento:</span>
-                  <span className="font-semibold text-foreground">{selectedUserForDrawer.department || 'General'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Ubicación:</span>
-                  <span className="font-semibold text-foreground">{selectedUserForDrawer.location || 'Remoto'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Teléfono:</span>
-                  <span className="font-mono text-foreground">{selectedUserForDrawer.phone || 'No registrado'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Plan Asignado:</span>
-                  <span className="font-semibold text-primary">{selectedUserForDrawer.subscription}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Fecha de Registro:</span>
-                  <span className="font-mono text-muted-foreground">{selectedUserForDrawer.joinedAt}</span>
-                </div>
-              </div>
-            </CardContent>
-
-            <div className="p-4 border-t border-border/50 flex items-center justify-end gap-2 bg-secondary/20">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedUserForDrawer(null)}
-                className="text-xs"
-              >
-                Cerrar
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  onSelectProfile(selectedUserForDrawer);
-                  setSelectedUserForDrawer(null);
-                }}
-                className="text-xs"
-              >
-                Ver Perfil Completo
-              </Button>
-            </div>
-          </Card>
-        </div>
+        <UsuarioDetalleDialog usuario={selectedUserForDrawer} onClose={() => setSelectedUserForDrawer(null)} />
       )}
     </div>
   );

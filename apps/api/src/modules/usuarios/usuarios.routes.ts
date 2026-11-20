@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { auth } from '../../lib/auth.js';
 import { loadCurrentUser, requireRole } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
 import { roles, users } from '../../db/schema.js';
+import { PERMISOS, permisosDeRol } from '../../lib/permisos.js';
 
 // Gestión de usuarios del panel. Solo superadmin y admin (docs/PLAN.md §6).
 // Reglas: solo el superadmin asigna o modifica al superadmin; nadie se desactiva a sí mismo.
@@ -15,7 +16,22 @@ const ROLE_KEYS_ASIGNABLES = ['superadmin', 'admin', 'editor', 'station_operator
 
 usuariosRoutes.get('/roles', async (c) => {
   const rows = await db.select().from(roles).orderBy(roles.key);
-  return c.json({ roles: rows.map((r) => ({ key: r.key, name: r.name, scope: r.scope })) });
+  const conteo = await db
+    .select({ roleId: users.roleId, total: sql<number>`count(*)::int` })
+    .from(users)
+    .groupBy(users.roleId);
+  const miembros = new Map(conteo.map((x) => [x.roleId, x.total]));
+
+  return c.json({
+    roles: rows.map((r) => ({
+      key: r.key,
+      name: r.name,
+      scope: r.scope,
+      miembros: miembros.get(r.id) ?? 0,
+      permisos: permisosDeRol(r.key),
+    })),
+    permisos: PERMISOS,
+  });
 });
 
 usuariosRoutes.get('/', async (c) => {
