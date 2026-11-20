@@ -92,7 +92,7 @@ export const LayoutCustomizer: React.FC = () => {
   ];
 
   const accents: { id: AccentColor; label: string; bg: string }[] = [
-    { id: 'orange', label: 'Naranja Blakor', bg: 'bg-[#F97316]' },
+    { id: 'orange', label: 'Dorado La Luz', bg: 'bg-[#e2a927]' },
     { id: 'emerald', label: 'Esmeralda', bg: 'bg-[#10B981]' },
     { id: 'violet', label: 'Violeta', bg: 'bg-[#8B5CF6]' },
     { id: 'blue', label: 'Azul Real', bg: 'bg-[#3B82F6]' },
