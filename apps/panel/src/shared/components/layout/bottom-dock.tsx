@@ -1,5 +1,6 @@
 import React from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, LogOut } from 'lucide-react';
+import { useSignOut } from '../../../modules/auth/hooks/use-session';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
 import { navItems } from '../../lib/navigation';
@@ -15,6 +16,7 @@ interface BottomDockProps {
 
 export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate }) => {
   const { play } = useSound();
+  const signOut = useSignOut();
   const { setIsDrawerOpen } = useLayout();
   const basePath = currentPath.split('?')[0];
 
@@ -83,6 +85,25 @@ export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate 
           })}
 
           <DockSeparator />
+
+          {/* Cerrar sesión */}
+          <DockItem
+            aria-label="Cerrar sesión"
+            onClick={() => {
+              play('click');
+              signOut.mutate(undefined, {
+                onSettled: () => {
+                  window.location.hash = '/auth/card';
+                },
+              });
+            }}
+            className="aspect-square rounded-full transition-colors flex items-center justify-center group bg-[#E5E7EB] dark:bg-neutral-800 text-destructive hover:bg-[#D1D5DB] dark:hover:bg-neutral-700"
+          >
+            <DockLabel>Cerrar sesión</DockLabel>
+            <DockIcon>
+              <LogOut className="h-[22px] w-[22px]" />
+            </DockIcon>
+          </DockItem>
 
           {/* Profile Shortcut */}
           <DockItem

@@ -220,8 +220,8 @@ export const luzApi = {
     return request('/api/v1/me', { method: 'PATCH', body: json(patch) });
   },
 
-  changePassword(currentPassword: string, newPassword: string) {
-    return request('/api/auth/change-password', { method: 'POST', body: json({ currentPassword, newPassword, revokeOtherSessions: false }) });
+  changePassword(actual: string, nueva: string) {
+    return request('/api/v1/me/contrasena', { method: 'POST', body: json({ actual, nueva }) });
   },
 
   async listLogs(accion?: string): Promise<EventoLog[]> {

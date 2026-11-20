@@ -38,6 +38,7 @@ const withSuspense = (LazyComponent: React.LazyExoticComponent<React.ComponentTy
 const DashboardPage = withSuspense(lazy(() => import('../../modules/dashboard/pages/dashboard-page').then((m) => ({ default: m.DashboardPage }))));
 const UsuariosPage = withSuspense(lazy(() => import('../../modules/usuarios/pages/usuarios-page').then((m) => ({ default: m.UsuariosPage }))));
 const AuthCardFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-card-fullscreen-page').then((m) => ({ default: m.AuthCardFullscreenPage }))));
+const CambiarContrasenaPage = withSuspense(lazy(() => import('../../modules/auth/pages/cambiar-contrasena-page').then((m) => ({ default: m.CambiarContrasenaPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
 const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-page').then((m) => ({ default: m.LogsPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
@@ -67,6 +68,7 @@ const rootRoute = createRootRoute({
     // If viewing standalone fullscreen auth or error pages, omit BlakorShell
     const isStandalonePage =
       location.pathname === '/auth/card' ||
+      location.pathname === '/cambiar-contrasena' ||
       location.pathname === '/auth/split' ||
       location.pathname === '/auth/404' ||
       location.pathname === '/auth/505' ||
@@ -85,6 +87,10 @@ const rootRoute = createRootRoute({
     }
     if (session.isError) {
       return <Navigate to="/auth/card" />;
+    }
+    // Primer ingreso: antes de usar el panel hay que cambiar la contraseña inicial
+    if (session.data?.mustChangePassword) {
+      return <Navigate to="/cambiar-contrasena" />;
     }
 
     return (
@@ -151,6 +157,12 @@ const logsRoute = createRoute({
   component: LogsPage,
 });
 
+const cambiarContrasenaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/cambiar-contrasena',
+  component: CambiarContrasenaPage,
+});
+
 const direct404Route = createRoute({
   getParentRoute: () => rootRoute,
   path: '/404',
@@ -174,6 +186,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   usuariosRoute,
+  cambiarContrasenaRoute,
   perfilRoute,
   logsRoute,
   authCardRoute,

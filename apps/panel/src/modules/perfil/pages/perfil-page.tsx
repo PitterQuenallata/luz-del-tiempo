@@ -11,7 +11,7 @@ import { useSession, SESSION_QUERY_KEY } from '../../auth/hooks/use-session';
 import { FotoPerfil } from '../../usuarios/components/foto-perfil';
 import { TelefonoInput, telefonoValido } from '../../usuarios/components/telefono-input';
 import { formatoUltimoAcceso } from '../../usuarios/lib/usuario';
-import { errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
+import { errorContrasena, errorNombre, normalizarNombre } from '../../../shared/lib/validaciones';
 import { useQuery } from '@tanstack/react-query';
 
 // Ajustes de mi perfil: foto, datos personales, teléfono y contraseña.
@@ -128,19 +128,19 @@ export const PerfilPage: React.FC = () => {
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Cambiar contraseña</CardTitle>
-          <CardDescription className="text-xs">Mínimo 4 caracteres.</CardDescription>
+          <CardDescription className="text-xs">Mínimo 8 caracteres.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
           <Input type="password" placeholder="Contraseña actual" value={actual} onChange={(e) => setActual(e.target.value)} className="text-xs" aria-label="Contraseña actual" />
           <Input type="password" placeholder="Nueva contraseña" value={nueva} onChange={(e) => setNueva(e.target.value)} className="text-xs" aria-label="Nueva contraseña" />
-          {nueva && nueva.length < 4 && <p className="text-[11px] text-red-400">La contraseña debe tener al menos 4 caracteres.</p>}
+          {nueva && errorContrasena(nueva, actual) && <p className="text-[11px] text-red-400">{errorContrasena(nueva, actual)}</p>}
           {repetir && nueva !== repetir && <p className="text-[11px] text-red-400">Las contraseñas no coinciden.</p>}
           <Input type="password" placeholder="Repetir nueva contraseña" value={repetir} onChange={(e) => setRepetir(e.target.value)} className="text-xs" aria-label="Repetir nueva contraseña" />
           <div className="flex justify-end">
             <Button
               variant="default"
               size="sm"
-              disabled={!actual || nueva.length < 4 || !repetir || cambiando}
+              disabled={!actual || !!errorContrasena(nueva, actual) || !repetir || nueva !== repetir || cambiando}
               onClick={cambiarContrasena}
               className="text-xs"
             >

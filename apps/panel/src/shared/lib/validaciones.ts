@@ -36,3 +36,12 @@ export function errorTexto(texto: string, campo: string, min: number, max: numbe
   if (valor.length > max) return `${campo} no puede pasar de ${max} caracteres.`;
   return null;
 }
+
+// Contraseña nueva: mínimo 8, máximo 128, distinta de la actual (mismas reglas que la API)
+export function errorContrasena(nueva: string, actual: string): string | null {
+  if (!nueva) return 'Escribe una contraseña nueva.';
+  if (nueva.length < 8) return 'La nueva contraseña debe tener al menos 8 caracteres.';
+  if (nueva.length > 128) return 'La nueva contraseña es demasiado larga.';
+  if (actual && nueva === actual) return 'La nueva contraseña debe ser distinta de la actual.';
+  return null;
+}

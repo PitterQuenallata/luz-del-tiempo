@@ -9,6 +9,7 @@ export interface CurrentUser {
   isActive: boolean;
   roleId: string | null;
   roleKey: string | null;
+  mustChangePassword: boolean;
 }
 
 // Usuario de la sesión con su rol. Null si no hay sesión o la cuenta está desactivada.
@@ -17,7 +18,7 @@ export async function loadCurrentUser(headers: Headers): Promise<CurrentUser | n
   if (!session) return null;
 
   const [row] = await db
-    .select({ id: users.id, isActive: users.isActive, roleId: roles.id, roleKey: roles.key })
+    .select({ id: users.id, isActive: users.isActive, mustChangePassword: users.mustChangePassword, roleId: roles.id, roleKey: roles.key })
     .from(users)
     .leftJoin(roles, eq(users.roleId, roles.id))
     .where(eq(users.id, session.user.id));
@@ -42,6 +43,10 @@ export function requirePermission(permiso: string) {
   return async (c: Context, next: Next) => {
     const user = await loadCurrentUser(c.req.raw.headers);
     if (!user) return c.json({ error: 'no_autenticado' }, 401);
+    // Primer inicio: hasta cambiar la contraseña inicial no se usa el panel
+    if (user.mustChangePassword) {
+      return c.json({ error: 'debe_cambiar_contrasena', message: 'Debes cambiar tu contraseña inicial antes de continuar.' }, 403);
+    }
     if (!(await tienePermiso(user, permiso))) {
       return c.json({ error: 'sin_permiso', message: 'No tienes permiso para esta acción.' }, 403);
     }

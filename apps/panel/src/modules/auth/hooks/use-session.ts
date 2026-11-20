@@ -26,12 +26,17 @@ export function useSignIn() {
   });
 }
 
+// Cierra la sesión en la API y recarga la app limpia en la pantalla de login.
+// La recarga evita que quede en caché la sesión anterior (y que el login vuelva al panel).
 export function useSignOut() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => luzApi.signOut(),
     onSettled: () => {
       queryClient.removeQueries({ queryKey: SESSION_QUERY_KEY });
+      queryClient.clear();
+      window.location.hash = '/auth/card';
+      window.location.reload();
     },
   });
 }

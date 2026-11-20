@@ -70,3 +70,27 @@ meRoutes.patch('/', async (c) => {
   await registrarAuditoria({ userId: yo.id, accion: 'perfil.editar', entidad: 'usuario', entidadId: yo.id });
   return c.json({ ok: true });
 });
+
+// Cambiar mi contraseña (también la inicial). Validación del servidor: mínimo 8 caracteres, distinta de la actual.
+meRoutes.post('/contrasena', async (c) => {
+  const yo = await cargarYo(c.req.raw.headers);
+  if (!yo) return c.json({ error: 'no_autenticado' }, 401);
+  const body = await c.req.json<{ actual?: string; nueva?: string }>();
+  const actual = body.actual ?? '';
+  const nueva = body.nueva ?? '';
+  if (!actual) return c.json({ error: 'validacion', campo: 'actual', message: 'Escribe tu contraseña actual.' }, 422);
+  if (nueva.length < 8) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña debe tener al menos 8 caracteres.' }, 422);
+  if (nueva.length > 128) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña es demasiado larga.' }, 422);
+  if (nueva === actual) return c.json({ error: 'validacion', campo: 'nueva', message: 'La nueva contraseña debe ser distinta de la actual.' }, 422);
+
+  try {
+    await auth.api.changePassword({
+      body: { currentPassword: actual, newPassword: nueva, revokeOtherSessions: false },
+      headers: c.req.raw.headers,
+    });
+  } catch {
+    return c.json({ error: 'contrasena_actual', campo: 'actual', message: 'La contraseña actual no es correcta.' }, 422);
+  }
+  await db.update(users).set({ mustChangePassword: false, updatedAt: new Date() }).where(eq(users.id, yo.id));
+  return c.json({ ok: true });
+});

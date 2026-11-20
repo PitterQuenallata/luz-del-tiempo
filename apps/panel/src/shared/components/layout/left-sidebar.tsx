@@ -3,7 +3,8 @@ import { useSession, useSignOut } from '../../../modules/auth/hooks/use-session'
 import { iniciales } from '../../lib/utils';
 import { Logo } from '../brand/logo';
 import { useIconHover } from '@animateicons/react';
-import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
+import { UserIcon, SettingsIcon } from '@animateicons/react/lucide';
+import { LogOut } from 'lucide-react';
 import { navItems, navigationCategories } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
@@ -19,12 +20,12 @@ interface LeftSidebarProps {
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigate }) => {
   const { play } = useSound();
+  const signOut = useSignOut();
   const sesion = useSession().data;
   const { glassMode } = useLayout();
   const { resolvedTheme } = useTheme();
 
   const profileHover = useIconHover();
-  const securityHover = useIconHover();
   const settingsHover = useIconHover();
 
   return (
@@ -136,23 +137,17 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
             </button>
 
             <button
-              {...securityHover.triggerProps}
               type="button"
+              aria-label="Cerrar sesión"
               onClick={() => {
-                play('tab');
+                play('click');
+                signOut.mutate();
               }}
-              title="Seguridad & 2FA"
-              className={cn(
-                'flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer group',
-                currentPath.includes('tab=seguridad')
-                  ? 'bg-primary/10 text-primary font-semibold'
-                  : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-              )}
+              title="Cerrar sesión"
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer group text-destructive hover:bg-destructive/10"
             >
-              <div className="transition-transform duration-200 group-hover:scale-120 group-active:scale-90">
-                <ShieldCheckIcon ref={securityHover.ref} size={17} className="mb-0.5 transition-colors group-hover:text-primary" />
-              </div>
-              <span>Seguridad</span>
+              <LogOut className="mb-0.5 h-[17px] w-[17px] transition-transform duration-200 group-hover:scale-110" />
+              <span>Salir</span>
             </button>
 
           </div>
