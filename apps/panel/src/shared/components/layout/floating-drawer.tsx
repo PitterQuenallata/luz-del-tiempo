@@ -175,7 +175,6 @@ export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onN
               type="button"
               onClick={() => {
                 play('tab');
-                onNavigate('/configuracion?tab=seguridad');
                 setIsDrawerOpen(false);
               }}
               className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-[11px] font-medium bg-muted/50 hover:bg-muted text-foreground transition-all cursor-pointer group"
@@ -191,7 +190,6 @@ export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onN
               type="button"
               onClick={() => {
                 play('tab');
-                onNavigate('/configuracion');
                 setIsDrawerOpen(false);
               }}
               className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-[11px] font-medium bg-muted/50 hover:bg-muted text-foreground transition-all cursor-pointer group"

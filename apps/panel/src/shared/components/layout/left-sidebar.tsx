@@ -140,7 +140,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
               type="button"
               onClick={() => {
                 play('tab');
-                onNavigate('/configuracion?tab=seguridad');
               }}
               title="Seguridad & 2FA"
               className={cn(
@@ -156,26 +155,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
               <span>Seguridad</span>
             </button>
 
-            <button
-              {...settingsHover.triggerProps}
-              type="button"
-              onClick={() => {
-                play('tab');
-                onNavigate('/configuracion');
-              }}
-              title="Configuración General"
-              className={cn(
-                'flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all cursor-pointer group',
-                currentPath.startsWith('/configuracion') && !currentPath.includes('tab=seguridad')
-                  ? 'bg-primary/10 text-primary font-semibold'
-                  : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-              )}
-            >
-              <div className="transition-transform duration-200 group-hover:scale-120 group-active:scale-90">
-                <SettingsIcon ref={settingsHover.ref} size={17} className="mb-0.5 transition-colors group-hover:text-primary" />
-              </div>
-              <span>Ajustes</span>
-            </button>
           </div>
         </div>
       </div>

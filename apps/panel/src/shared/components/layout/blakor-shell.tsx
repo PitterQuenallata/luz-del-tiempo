@@ -55,7 +55,7 @@ export const BlakorShell: React.FC<BlakorShellProps> = ({
 
       {/* Liquid Glass Dynamic Ambient Mesh - Provides vibrant color highlights to refract through the glass */}
       <div className="glass-ambient-mesh pointer-events-none fixed inset-0 overflow-hidden z-0 opacity-0 transition-opacity duration-500">
-        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-amber-400/12 via-amber-200/6 to-transparent rounded-full filter blur-[100px]" />
+        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-orange-500/12 via-rose-500/8 to-transparent rounded-full filter blur-[100px]" />
         <div className="absolute top-1/2 right-10 w-[450px] h-[450px] bg-gradient-to-bl from-blue-500/10 via-indigo-500/8 to-transparent rounded-full filter blur-[100px]" />
         <div className="absolute bottom-10 left-10 w-[550px] h-[550px] bg-gradient-to-tr from-purple-500/10 via-teal-500/6 to-transparent rounded-full filter blur-[110px]" />
       </div>
@@ -113,14 +113,7 @@ export const BlakorShell: React.FC<BlakorShellProps> = ({
           onQuickAction={(actionId) => {
             if (actionId === 'open-sidebar') setIsDrawerOpen(true);
             if (actionId === 'profile') onNavigate('/usuarios?tab=profile');
-            if (actionId === 'security') onNavigate('/configuracion?tab=seguridad');
-            if (actionId === 'config') onNavigate('/configuracion');
             if (actionId === 'new-user') onNavigate('/usuarios');
-            if (actionId === 'new-payment') onNavigate('/pagos');
-            if (actionId === 'new-blog') onNavigate('/blog');
-            if (actionId === 'new-ticket') onNavigate('/soporte');
-            if (actionId === 'new-license') onNavigate('/licencias');
-            if (actionId === 'new-report') onNavigate('/reportes');
           }}
         />
       )}

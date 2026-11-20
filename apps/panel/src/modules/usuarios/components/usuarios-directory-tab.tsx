@@ -35,14 +35,12 @@ import { cn } from '../../../shared/lib/utils';
 interface UsuariosDirectoryTabProps {
   usuarios: Usuario[];
   onAddUsuario: (input: NuevoUsuarioInput) => void;
-  onSelectProfile: (user: Usuario) => void;
   onDeleteUsuario: (id: string) => void;
 }
 
 export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   usuarios,
   onAddUsuario,
-  onSelectProfile,
   onDeleteUsuario,
 }) => {
   const { play } = useSound();
@@ -349,18 +347,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                         title="Ver detalles"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        soundType="tab"
-                        onClick={() => {
-                          play('tab');
-                          onSelectProfile(user);
-                        }}
-                        title="Ir al perfil"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"

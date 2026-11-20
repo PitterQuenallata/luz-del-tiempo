@@ -83,30 +83,6 @@ const GUIDE_PILLARS = [
     actionText: 'Personalizar Tipografía',
     isCustomizer: true,
   },
-  {
-    id: 'tables',
-    title: '3. Tablas de Datos de Alta Densidad (TanStack v8)',
-    summary: 'Herramientas de nivel empresarial para analistas y operadores.',
-    bullets: [
-      'Selector de densidad de fila: Compacta (32px), Normal (44px) y Amplia (56px).',
-      'Visibilidad dinámica de columnas con selector emergente.',
-      'Barra flotante de acciones por lote al seleccionar múltiples filas.',
-    ],
-    path: '/tables',
-    actionText: 'Explorar Tablas',
-  },
-  {
-    id: 'automations',
-    title: '4. Motor de Automatizaciones para Negocios',
-    summary: 'Disparadores y acciones en background que ahorran horas de trabajo manual.',
-    bullets: [
-      'eCommerce: Generación de guías y despacho automático.',
-      'Finanzas: Cobranza inteligente de facturas vencidas.',
-      'Seguridad: Bloqueo preventivo de accesos ante sospechas de intrusión.',
-    ],
-    path: '/automatizaciones',
-    actionText: 'Ver Automatizaciones',
-  },
 ];
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
@@ -334,7 +310,6 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
             onClick={() => {
               play('click');
               onClose();
-              onNavigate?.('/documentacion');
             }}
             className="flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium cursor-pointer"
           >

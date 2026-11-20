@@ -262,46 +262,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
                       <Sliders className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
                       <span>Ajustes de Perfil</span>
                     </button>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-foreground transition-colors cursor-pointer group"
-                      onClick={() => handleNavigate('/configuracion?tab=seguridad')}
-                    >
-                      <ShieldCheckIcon size={16} className="text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
-                      <span>Seguridad & 2FA</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-destructive transition-colors cursor-pointer"
-                      onClick={() => {
-                        play('click');
-                        setIsProfileOpen(false);
-                        signOut.mutate(undefined, {
-                          onSettled: () => {
-                            window.location.hash = '/auth/card';
-                          },
-                        });
-                      }}
-                    >
-                      <LogOutIcon className="h-4 w-4" />
-                      <span>Cerrar sesión</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-foreground transition-colors cursor-pointer group"
-                      onClick={() => handleNavigate('/documentacion')}
-                    >
-                      <BookOpen className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
-                      <span>Documentación & Manual</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs hover:bg-muted/80 text-foreground transition-colors cursor-pointer group"
-                      onClick={() => handleNavigate('/configuracion')}
-                    >
-                      <SettingsIcon size={16} className="text-muted-foreground group-hover:text-primary group-hover:scale-115 transition-all duration-200" />
-                      <span>Configuración del Sistema</span>
-                    </button>
                     <div className="h-px bg-border/60 my-1" />
                     <button
                       type="button"

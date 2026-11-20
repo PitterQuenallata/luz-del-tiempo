@@ -160,7 +160,6 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
         icon: BookOpen,
         perform: () => {
           onClose();
-          onNavigate('/documentacion');
         },
       },
       // Quick Navigation Presets
@@ -194,7 +193,6 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
         category: 'Comercio',
         icon: Truck,
         perform: () => {
-          onNavigate('/ecommerce');
           onClose();
         },
       },
@@ -205,7 +203,6 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
         category: 'Acciones',
         icon: Activity,
         perform: () => {
-          onNavigate('/auditoria');
           onClose();
         },
       },
@@ -227,7 +224,6 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
         category: 'Acciones',
         icon: Shield,
         perform: () => {
-          onNavigate('/configuracion?tab=seguridad');
           onClose();
         },
       },
