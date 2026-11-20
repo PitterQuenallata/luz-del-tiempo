@@ -40,9 +40,9 @@ export function validarTelefono(codigo: string | null | undefined, numero: strin
   return { ok: true, codigo: pais.codigo, numero: digitos };
 }
 
-// Contraseña inicial: el primer apellido con inicial mayúscula. Ej.: "QUISPE mamani" -> "Quispe"
+// Contraseña inicial: primer apellido con inicial mayúscula + "*." Ej.: "QUISPE mamani" -> "Quispe*."
 export function contrasenaInicial(apellidos: string): string {
   const primero = apellidos.trim().split(/\s+/)[0] ?? '';
   const minus = primero.toLocaleLowerCase('es');
-  return minus.charAt(0).toLocaleUpperCase('es') + minus.slice(1);
+  return (minus.charAt(0).toLocaleUpperCase('es') + minus.slice(1)) + '*.';
 }

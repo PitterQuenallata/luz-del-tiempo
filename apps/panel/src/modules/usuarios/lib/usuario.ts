@@ -16,9 +16,9 @@ export const formatoUltimoAcceso = (iso: string | null): string => {
 export const bandera = (iso: string): string =>
   String.fromCodePoint(...iso.toUpperCase().split('').map((c) => 127397 + c.charCodeAt(0)));
 
-// Contraseña inicial que muestra el panel: el primer apellido con inicial mayúscula.
+// Contraseña inicial que muestra el panel: primer apellido con inicial mayúscula + "*." (Ej.: Mamani*.)
 export const contrasenaInicialPreview = (apellidos: string): string => {
   const primero = apellidos.trim().split(/\s+/)[0] ?? '';
   const minus = primero.toLocaleLowerCase('es');
-  return minus ? minus.charAt(0).toLocaleUpperCase('es') + minus.slice(1) : '';
+  return minus ? minus.charAt(0).toLocaleUpperCase('es') + minus.slice(1) + '*.' : '';
 };

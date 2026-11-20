@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
+import { copiarTexto } from '../../../shared/lib/clipboard';
+import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { luzApi } from '../../../shared/api/luz-api';
@@ -27,6 +29,8 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
   const [phoneCode, setPhoneCode] = useState(paisesData?.predeterminado ?? '+591');
   const [phone, setPhone] = useState('');
   const [roleKey, setRoleKey] = useState('editor');
+  const [creado, setCreado] = useState<{ nombre: string; email: string; contrasena: string } | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   const rolesAsignables = roles.filter((r) => r.key !== 'superadmin' || sesion?.roleKey === 'superadmin');
   const preview = contrasenaInicialPreview(lastName);
@@ -38,9 +42,49 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
     if (!valido) return;
     crear.mutate(
       { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phoneCode, phone, roleKey },
-      { onSuccess: onClose }
+      {
+        onSuccess: (res) => setCreado({ nombre: res.usuario.name, email: res.usuario.email, contrasena: res.contrasenaInicial }),
+      }
     );
   };
+
+  const copiar = async (texto: string) => {
+    const ok = await copiarTexto(texto);
+    if (ok) {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } else {
+      pillToast.error('No se pudo copiar', 'Selecciona la contraseña y cópiala a mano.');
+    }
+  };
+
+  // Pantalla de resultado: la contraseña inicial solo se muestra en este momento
+  if (creado) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground shadow-xl">
+          <div className="p-5 border-b border-border/60">
+            <h3 className="text-sm font-semibold">Usuario creado</h3>
+            <p className="text-xs text-muted-foreground mt-1">{creado.nombre} · {creado.email}</p>
+          </div>
+          <div className="p-5 space-y-3 text-xs">
+            <p>Entrega esta contraseña inicial. La cambiará al entrar por primera vez.</p>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 p-3">
+              <span className="font-mono text-base font-semibold select-all">{creado.contrasena}</span>
+              <Button type="button" variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => copiar(creado.contrasena)}>
+                {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiado ? 'Copiado' : 'Copiar'}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">No se volverá a mostrar. Si la pierdes, el administrador puede editar la cuenta.</p>
+          </div>
+          <div className="flex justify-end p-4 border-t border-border/60 bg-secondary/20">
+            <Button type="button" variant="default" size="sm" onClick={onClose} className="text-xs">Listo</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -90,9 +134,17 @@ export const AltaUsuarioDialog: React.FC<AltaUsuarioDialogProps> = ({ onClose })
           </div>
 
           <div className="rounded-xl border border-border bg-secondary/30 p-3">
-            <p className="text-[11px] text-muted-foreground">Contraseña inicial (su primer apellido)</p>
-            <p className="font-mono text-sm font-semibold">{preview || '—'}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">La cambiará al entrar por primera vez.</p>
+            <p className="text-[11px] text-muted-foreground">Contraseña inicial: Apellido*.</p>
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <p className="font-mono text-sm font-semibold">{preview || '—'}</p>
+              {preview && (
+                <Button type="button" variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => copiar(preview)}>
+                  {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiado ? 'Copiado' : 'Copiar'}
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Primer apellido con inicial mayúscula, seguido de *. La cambiará al entrar por primera vez.</p>
           </div>
         </div>
 
