@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Toaster } from 'sileo';
-import { Moon, Sun, LogOut } from 'lucide-react';
+import { Moon, Sun, LogOut, SlidersHorizontal } from 'lucide-react';
 import { SonnerToaster } from '../ui/sonner';
 import { PillToaster } from '../ui/pill-toast';
 import { useTheme } from '../../context/theme-context';
 import { Logo } from '../brand/logo';
 import { LeftSidebar } from './left-sidebar';
 import { useSession, useSignOut } from '../../../modules/auth/hooks/use-session';
-import { iniciales } from '../../lib/utils';
+import { iniciales, cn } from '../../lib/utils';
+import { applyAccent, getAccent, getContainer, ContainerWidth } from '../../lib/appearance';
+import { ThemeSettingsDialog } from './theme-settings-dialog';
 
 interface AppShellProps {
   currentPath: string;
@@ -21,6 +23,13 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
   const session = useSession();
   const signOut = useSignOut();
   const usuario = session.data;
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [container, setContainer] = useState<ContainerWidth>(getContainer);
+
+  // Aplica el acento guardado al cargar el panel
+  useEffect(() => {
+    applyAccent(getAccent());
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground antialiased">
@@ -42,6 +51,16 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
             className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer"
           >
             {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="Configuración de tema"
+            title="Configuración de tema"
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
           </button>
 
           <div className="hidden sm:flex items-center gap-2 pl-2 ml-1 border-l border-border/60">
@@ -74,8 +93,14 @@ export const AppShell: React.FC<AppShellProps> = ({ currentPath, onNavigate, chi
 
       <div className="flex flex-1 min-h-0">
         <LeftSidebar currentPath={currentPath} onNavigate={onNavigate} />
-        <main className="flex-1 min-w-0 p-4 sm:p-6">{children}</main>
+        <main className={cn('flex-1 min-w-0 p-4 sm:p-6', container === 'boxed' && 'mx-auto max-w-[1440px] w-full')}>
+          {children}
+        </main>
       </div>
+
+      {isSettingsOpen && (
+        <ThemeSettingsDialog onClose={() => setIsSettingsOpen(false)} onContainerChange={setContainer} />
+      )}
 
       <Toaster position="top-center" theme={resolvedTheme} options={{ duration: 3500 }} />
       <SonnerToaster position="bottom-right" />
