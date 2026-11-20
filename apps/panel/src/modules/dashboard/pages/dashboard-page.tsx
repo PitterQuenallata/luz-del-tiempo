@@ -57,7 +57,7 @@ export const DashboardPage: React.FC = () => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 text-sm">
           <Link to="/usuarios" className="px-4 py-2 rounded-xl border border-border hover:bg-muted/60">Usuarios</Link>
-          <Link to="/staff" className="px-4 py-2 rounded-xl border border-border hover:bg-muted/60">Staff & Permisos</Link>
+          <Link to="/usuarios" search={{ tab: 'roles' }} className="px-4 py-2 rounded-xl border border-border hover:bg-muted/60">Roles y permisos</Link>
         </CardContent>
       </Card>
     </div>

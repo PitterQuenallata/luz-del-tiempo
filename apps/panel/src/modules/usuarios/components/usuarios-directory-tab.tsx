@@ -116,38 +116,12 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="border-border">
-          <CardContent className="p-4 space-y-1">
-            <span className="text-xs text-muted-foreground block font-medium">Total de Usuarios</span>
-            <div className="font-mono text-2xl font-bold text-foreground tabular-nums">{totalCount}</div>
-            <span className="text-[11px] text-muted-foreground">Directorio global</span>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="p-4 space-y-1">
-            <span className="text-xs text-muted-foreground block font-medium">Usuarios Activos</span>
-            <div className="font-mono text-2xl font-bold text-emerald-500 tabular-nums">{activeCount}</div>
-            <span className="text-[11px] text-emerald-500/80 font-mono">Con acceso habilitado</span>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="p-4 space-y-1">
-            <span className="text-xs text-muted-foreground block font-medium">Cuentas Inactivas</span>
-            <div className="font-mono text-2xl font-bold text-muted-foreground tabular-nums">{inactiveCount}</div>
-            <span className="text-[11px] text-muted-foreground font-mono">Suspendidos o en baja</span>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Container Card */}
-      <Card className="border-border">
+            <Card className="border-border">
         <CardHeader className="pb-4 border-b border-border/50">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-base font-bold">Directorio & Control de Miembros</CardTitle>
+              <CardTitle className="text-base font-bold">Directorio de usuarios</CardTitle>
+              <p className="text-[11px] font-mono text-muted-foreground mt-0.5">{totalCount} usuarios · {activeCount} activos · {inactiveCount} desactivados</p>
               <CardDescription className="text-xs">
                 Administración de credenciales corporativas, roles de seguridad y asignación de roles
               </CardDescription>

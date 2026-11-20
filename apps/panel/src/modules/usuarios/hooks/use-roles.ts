@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { luzApi, NuevoRolInput, EditarRolInput } from '../../../shared/api/luz-api';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
-import { ROLES_KEY } from '../../usuarios/hooks/use-usuarios';
+import { ROLES_KEY } from './use-usuarios';
 
 const mensaje = (err: unknown) => (err instanceof Error ? err.message : 'Inténtalo de nuevo.');
 

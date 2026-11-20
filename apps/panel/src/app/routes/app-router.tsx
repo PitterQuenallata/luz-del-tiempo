@@ -37,7 +37,6 @@ const withSuspense = (LazyComponent: React.LazyExoticComponent<React.ComponentTy
 // Route-level code splitting: drops initial bundle by >80%
 const DashboardPage = withSuspense(lazy(() => import('../../modules/dashboard/pages/dashboard-page').then((m) => ({ default: m.DashboardPage }))));
 const UsuariosPage = withSuspense(lazy(() => import('../../modules/usuarios/pages/usuarios-page').then((m) => ({ default: m.UsuariosPage }))));
-const StaffPage = withSuspense(lazy(() => import('../../modules/staff/pages/staff-page').then((m) => ({ default: m.StaffPage }))));
 const AuthCardFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-card-fullscreen-page').then((m) => ({ default: m.AuthCardFullscreenPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
 
@@ -114,12 +113,6 @@ const usuariosRoute = createRoute({
   component: UsuariosPage,
 });
 
-const staffRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/staff',
-  component: StaffPage,
-});
-
 const authCardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/card',
@@ -167,7 +160,6 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   usuariosRoute,
-  staffRoute,
   authCardRoute,
   auth404Route,
   auth505Route,

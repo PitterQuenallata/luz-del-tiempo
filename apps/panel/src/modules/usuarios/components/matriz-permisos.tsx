@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ApiPermiso, ApiRole, luzApi } from '../../../shared/api/luz-api';
 import { Button } from '../../../shared/components/ui/button';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
-import { ROLES_KEY } from '../../usuarios/hooks/use-usuarios';
+import { ROLES_KEY } from '../hooks/use-usuarios';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface MatrizProps {
