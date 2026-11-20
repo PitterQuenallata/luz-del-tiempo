@@ -97,7 +97,7 @@ export function HookSidebar({
   defaultValue = 0,
   currentPath,
   onChange,
-  color = '#F97316',
+  color = '#e2a927',
   dashed = true,
   className,
   ...props

@@ -51,11 +51,11 @@ export const BlakorShell: React.FC<BlakorShellProps> = ({
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary relative overflow-x-hidden">
       {/* Subtle ambient lighting inspired by Mallku v1 */}
-      <div className="pointer-events-none absolute top-0 inset-x-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(249,115,22,0.06),transparent_70%)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(249,115,22,0.12),transparent_70%)] z-0" />
+      <div className="pointer-events-none absolute top-0 inset-x-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(226,169,39,0.06),transparent_70%)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(226,169,39,0.12),transparent_70%)] z-0" />
 
       {/* Liquid Glass Dynamic Ambient Mesh - Provides vibrant color highlights to refract through the glass */}
       <div className="glass-ambient-mesh pointer-events-none fixed inset-0 overflow-hidden z-0 opacity-0 transition-opacity duration-500">
-        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-orange-500/12 via-rose-500/8 to-transparent rounded-full filter blur-[100px]" />
+        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-amber-400/12 via-amber-200/6 to-transparent rounded-full filter blur-[100px]" />
         <div className="absolute top-1/2 right-10 w-[450px] h-[450px] bg-gradient-to-bl from-blue-500/10 via-indigo-500/8 to-transparent rounded-full filter blur-[100px]" />
         <div className="absolute bottom-10 left-10 w-[550px] h-[550px] bg-gradient-to-tr from-purple-500/10 via-teal-500/6 to-transparent rounded-full filter blur-[110px]" />
       </div>

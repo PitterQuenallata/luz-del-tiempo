@@ -31,6 +31,7 @@ export interface LoginCardSectionProps {
   initialView?: AuthCardView;
   brandName?: string;
   onSuccess?: (view: AuthCardView, data: any) => void;
+  onLogin?: (credentials: { email: string; password: string; rememberMe: boolean }) => Promise<void>;
   onNavigateHome?: () => void;
   fullscreen?: boolean;
 }
@@ -60,8 +61,9 @@ const AppleIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
 
 export function LoginCardSection({
   initialView = 'login',
-  brandName = 'DALI',
+  brandName = 'La Luz del Tiempo',
   onSuccess,
+  onLogin,
   onNavigateHome,
   fullscreen = false,
 }: LoginCardSectionProps) {
@@ -100,10 +102,25 @@ export function LoginCardSection({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     play('click');
     setIsLoading(true);
+
+    if (view === 'login' && onLogin) {
+      try {
+        await onLogin({ email, password, rememberMe });
+        play('success');
+        pillToast.success('Sesión iniciada', 'Bienvenido de nuevo.');
+        onSuccess?.('login', { email, rememberMe });
+      } catch (err) {
+        play('alert');
+        pillToast.error('No se pudo iniciar sesión', err instanceof Error ? err.message : 'Inténtalo de nuevo.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     setTimeout(() => {
       setIsLoading(false);
@@ -138,15 +155,15 @@ export function LoginCardSection({
       className={cn(
         'w-full flex flex-col justify-between relative select-none overflow-hidden transition-colors',
         fullscreen
-          ? 'min-h-screen bg-[#0A0A0C] text-[#EDEDED] p-4 sm:p-6 md:p-10'
-          : 'min-h-[720px] rounded-3xl bg-[#0B0B0E] text-[#EDEDED] p-4 sm:p-6 md:p-8 border border-white/10'
+          ? 'min-h-screen bg-[#0b1324] text-[#dbe3f3] p-4 sm:p-6 md:p-10'
+          : 'min-h-[720px] rounded-3xl bg-[#0b1324] text-[#dbe3f3] p-4 sm:p-6 md:p-8 border border-white/10'
       )}
     >
       {/* Background Geometric Maze / Labyrinth Lines */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         {/* Soft centered ambient bloom */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-tr from-cyan-500/[0.04] via-white/[0.03] to-transparent blur-[140px]" />
-        <div className="absolute top-1/4 left-1/4 w-[450px] h-[350px] rounded-full bg-blue-500/[0.025] blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-tr from-amber-400/[0.05] via-white/[0.03] to-transparent blur-[140px]" />
+        <div className="absolute top-1/4 left-1/4 w-[450px] h-[350px] rounded-full bg-amber-400/[0.04] blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/4 w-[450px] h-[350px] rounded-full bg-indigo-500/[0.025] blur-[120px]" />
 
         {/* Labyrinth Orthogonal Grid SVG */}
@@ -223,10 +240,10 @@ export function LoginCardSection({
             strokeDasharray="4 4"
             strokeOpacity="0.25"
           />
-          <rect x="22" y="22" width="4" height="4" fill="#06B6D4" fillOpacity="0.7" />
+          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
           <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
           <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#3B82F6" fillOpacity="0.7" />
+          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
         </svg>
 
         {/* Top-Right Corner Maze */}
@@ -249,10 +266,10 @@ export function LoginCardSection({
             strokeDasharray="4 4"
             strokeOpacity="0.25"
           />
-          <rect x="22" y="22" width="4" height="4" fill="#06B6D4" fillOpacity="0.7" />
+          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
           <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
           <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#3B82F6" fillOpacity="0.7" />
+          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
         </svg>
 
         {/* Bottom-Left Corner Maze */}
@@ -275,10 +292,10 @@ export function LoginCardSection({
             strokeDasharray="4 4"
             strokeOpacity="0.25"
           />
-          <rect x="22" y="22" width="4" height="4" fill="#06B6D4" fillOpacity="0.7" />
+          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
           <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
           <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#3B82F6" fillOpacity="0.7" />
+          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
         </svg>
 
         {/* Bottom-Right Corner Maze */}
@@ -301,14 +318,14 @@ export function LoginCardSection({
             strokeDasharray="4 4"
             strokeOpacity="0.25"
           />
-          <rect x="22" y="22" width="4" height="4" fill="#06B6D4" fillOpacity="0.7" />
+          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
           <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
           <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#3B82F6" fillOpacity="0.7" />
+          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
         </svg>
 
         {/* Vignette overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0A0A0C]/20 to-[#0A0A0C]/70 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b1324]/20 to-[#0b1324]/70 pointer-events-none" />
       </div>
 
       {/* Header Bar */}
@@ -329,35 +346,35 @@ export function LoginCardSection({
           size="sm"
           onClick={() => {
             play('click');
-            pillToast.info('Mesa de Ayuda Blakor', 'Soporte y documentación oficial disponibles 24/7.');
+            pillToast.info('Mesa de Ayuda La Luz del Tiempo', 'Soporte y documentación oficial disponibles 24/7.');
           }}
           className="rounded-full bg-white/5 border-white/10 hover:bg-white/10 text-xs text-white/80 hover:text-white transition-all cursor-pointer"
         >
-          <span>Contact</span>
+          <span>Contacto</span>
           <ArrowRight className="h-3.5 w-3.5 ml-1" />
         </Button>
       </header>
 
       {/* Center Floating iOS Card */}
       <main className="relative z-10 my-auto flex justify-center items-center py-6">
-        <div className="w-full max-w-[420px] rounded-3xl bg-[#121215]/90 backdrop-blur-2xl border border-white/10 p-6 sm:p-8 shadow-[0_24px_50px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all">
+        <div className="w-full max-w-[420px] rounded-3xl bg-[#0f1b38]/90 backdrop-blur-2xl border border-white/10 p-6 sm:p-8 shadow-[0_24px_50px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all">
           
           {/* VIEW: 1. LOGIN */}
           {view === 'login' && (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
                 <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Welcome back
+                  Bienvenido de nuevo
                 </h1>
                 <p className="text-sm text-neutral-400">
-                  Sign in to your account
+                  Inicia sesión en tu cuenta
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Email
+                    Correo
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -366,15 +383,15 @@ export function LoginCardSection({
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      placeholder="tu@correo.com"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Password
+                    Contraseña
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -384,7 +401,7 @@ export function LoginCardSection({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                     <button
                       type="button"
@@ -411,16 +428,6 @@ export function LoginCardSection({
                     <span className="text-xs text-neutral-400">Remember me</span>
                   </label>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      play('tab');
-                      setView('forgot-password');
-                    }}
-                    className="text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    Forgot password?
-                  </button>
                 </div>
 
                 <Button
@@ -428,7 +435,7 @@ export function LoginCardSection({
                   disabled={isLoading}
                   className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Spinner size="sm" /> : <span>Continue</span>}
+                  {isLoading ? <Spinner size="sm" /> : <span>Iniciar sesión</span>}
                 </Button>
               </form>
 
@@ -438,7 +445,7 @@ export function LoginCardSection({
                   <div className="w-full border-t border-white/10" />
                 </div>
                 <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-wider">
-                  <span className="bg-[#121215] px-2 text-neutral-500">OR</span>
+                  <span className="bg-[#0f1b38] px-2 text-neutral-500">OR</span>
                 </div>
               </div>
 
@@ -460,20 +467,6 @@ export function LoginCardSection({
                   <span>Google</span>
                 </button>
               </div>
-
-              <div className="pt-2 text-center text-xs text-neutral-400">
-                <span>Don't have an account? </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    play('tab');
-                    setView('register');
-                  }}
-                  className="text-white font-medium hover:underline cursor-pointer"
-                >
-                  Create one
-                </button>
-              </div>
             </div>
           )}
 
@@ -482,17 +475,17 @@ export function LoginCardSection({
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
                 <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Create an account
+                  Crear una cuenta
                 </h1>
                 <p className="text-sm text-neutral-400">
-                  Join Blakor Pro platform today
+                  Únete a La Luz del Tiempo
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Full Name
+                    Nombre completo
                   </label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -501,15 +494,15 @@ export function LoginCardSection({
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="John Daniels"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      placeholder="Nombre completo"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Email
+                    Correo
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -518,15 +511,15 @@ export function LoginCardSection({
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      placeholder="tu@correo.com"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Password
+                    Contraseña
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -535,8 +528,8 @@ export function LoginCardSection({
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="At least 8 characters"
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      placeholder="Mínimo 8 caracteres"
+                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                     <button
                       type="button"
@@ -557,7 +550,7 @@ export function LoginCardSection({
                     className="h-4 w-4 mt-0.5 rounded-md border-white/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
                   />
                   <span className="text-[11px] text-neutral-400 leading-tight">
-                    I agree to the Terms of Service and Privacy Policy
+                    Acepto los términos de servicio y la política de privacidad
                   </span>
                 </label>
 
@@ -566,12 +559,12 @@ export function LoginCardSection({
                   disabled={isLoading}
                   className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Spinner size="sm" /> : <span>Create Account</span>}
+                  {isLoading ? <Spinner size="sm" /> : <span>Crear cuenta</span>}
                 </Button>
               </form>
 
               <div className="pt-1 text-center text-xs text-neutral-400">
-                <span>Already have an account? </span>
+                <span>¿Ya tienes cuenta? </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -580,7 +573,7 @@ export function LoginCardSection({
                   }}
                   className="text-white font-medium hover:underline cursor-pointer"
                 >
-                  Sign in
+                  Iniciar sesión
                 </button>
               </div>
             </div>
@@ -591,17 +584,17 @@ export function LoginCardSection({
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
                 <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Reset password
+                  Restablecer contraseña
                 </h1>
                 <p className="text-sm text-neutral-400">
-                  Enter your email to receive recovery instructions.
+                  Escribe tu correo para recibir las instrucciones.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    Email address
+                    Correo electrónico
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -610,8 +603,8 @@ export function LoginCardSection({
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      placeholder="tu@correo.com"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -621,7 +614,7 @@ export function LoginCardSection({
                   disabled={isLoading}
                   className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Spinner size="sm" /> : <span>Send Recovery Link</span>}
+                  {isLoading ? <Spinner size="sm" /> : <span>Enviar enlace de recuperación</span>}
                 </Button>
               </form>
 
@@ -635,7 +628,7 @@ export function LoginCardSection({
                   className="text-xs text-neutral-400 hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Back to login</span>
+                  <span>Volver al inicio de sesión</span>
                 </button>
               </div>
             </div>
@@ -656,7 +649,7 @@ export function LoginCardSection({
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
                   <label className="text-xs font-medium text-neutral-300">
-                    New Password
+                    Nueva contraseña
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
@@ -666,7 +659,7 @@ export function LoginCardSection({
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -683,7 +676,7 @@ export function LoginCardSection({
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#0D0D10] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -693,7 +686,7 @@ export function LoginCardSection({
                   disabled={isLoading}
                   className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Spinner size="sm" /> : <span>Update Password</span>}
+                  {isLoading ? <Spinner size="sm" /> : <span>Actualizar contraseña</span>}
                 </Button>
               </form>
 
@@ -707,7 +700,7 @@ export function LoginCardSection({
                   className="text-xs text-neutral-400 hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Back to login</span>
+                  <span>Volver al inicio de sesión</span>
                 </button>
               </div>
             </div>
@@ -740,7 +733,7 @@ export function LoginCardSection({
                       value={digit}
                       onChange={(e) => handleOtpChange(i, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      className="w-12 h-13 rounded-xl bg-[#0D0D10] border border-white/10 text-center font-mono font-bold text-lg text-white focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all tabular-nums"
+                      className="w-12 h-13 rounded-xl bg-[#070d1a] border border-white/10 text-center font-mono font-bold text-lg text-white focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all tabular-nums"
                     />
                   ))}
                 </div>
@@ -750,7 +743,7 @@ export function LoginCardSection({
                   disabled={isLoading || otp.some((d) => !d)}
                   className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Spinner size="sm" /> : <span>Verify Code</span>}
+                  {isLoading ? <Spinner size="sm" /> : <span>Verificar código</span>}
                 </Button>
               </form>
 
@@ -764,7 +757,7 @@ export function LoginCardSection({
                   className="hover:text-white transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  <span>Resend code</span>
+                  <span>Reenviar código</span>
                 </button>
 
                 <button
@@ -788,9 +781,9 @@ export function LoginCardSection({
       <footer className="relative z-10 w-full flex items-center justify-between pt-6 text-[11px] text-neutral-500 font-mono border-t border-white/5">
         <div className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Systems Normal</span>
+          <span>Sistemas en línea</span>
         </div>
-        <span>Encrypted with TLS 1.3</span>
+        <span>Conexión cifrada (TLS)</span>
       </footer>
     </div>
   );

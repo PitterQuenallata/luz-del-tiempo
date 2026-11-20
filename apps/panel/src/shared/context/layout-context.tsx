@@ -106,7 +106,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const stored = localStorage.getItem('blakor_accent_color') as AccentColor | null;
       if (stored) return stored;
     }
-    return 'orange'; // Blakor Orange #F97316
+    return 'orange'; // Blakor Orange #e2a927
   });
 
   const [containerWidth, setContainerWidthState] = useState<ContainerWidth>(() => {
@@ -146,7 +146,7 @@ export const LayoutProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Apply accent class or style variables
     const root = document.documentElement;
     const accentColors = {
-      orange: '#F97316',
+      orange: '#e2a927',
       emerald: '#10B981',
       violet: '#8B5CF6',
       blue: '#3B82F6',

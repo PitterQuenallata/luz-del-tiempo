@@ -6,11 +6,13 @@ import {
   createHashHistory,
   RouterProvider,
   Outlet,
+  Navigate,
   useLocation,
   useNavigate,
 } from '@tanstack/react-router';
 import { BlakorShell } from '../../shared/components/layout/blakor-shell';
 import { IOSSpinner } from '../../components/ui/ios-spinner';
+import { useSession } from '../../modules/auth/hooks/use-session';
 
 // Fallback loader for smooth Apple-style deferred loading
 function PageLoader() {
@@ -64,6 +66,7 @@ const rootRoute = createRootRoute({
   component: function RootLayout() {
     const location = useLocation();
     const navigate = useNavigate();
+    const session = useSession();
 
     // Current path including search params
     const searchStr = location.searchStr || '';
@@ -93,6 +96,14 @@ const rootRoute = createRootRoute({
 
     if (isStandalonePage) {
       return <Outlet />;
+    }
+
+    // Sin sesión no se entra al panel: se manda al login (/auth/card)
+    if (session.isPending) {
+      return <PageLoader />;
+    }
+    if (session.isError) {
+      return <Navigate to="/auth/card" />;
     }
 
     return (
