@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
 import { cambioContrasenaSchema, datosPersonalesSchema, soloDigitos, PAIS_PREDETERMINADO } from '@luz/shared';
 import { auth } from '../../lib/auth.js';
+import { loadCurrentUser, permisosDe } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { separarNombreLegado } from '../../lib/validaciones.js';
 import { separarTelefonoLegado } from '../../lib/telefono.js';
@@ -45,7 +46,9 @@ meRoutes.get('/', async (c) => {
   if (!row) return c.json({ error: 'no_autenticado' }, 401);
   const nombres = separarNombreLegado(row.name, row.firstName, row.lastName);
   const tel = separarTelefonoLegado(row.phone, row.phoneCode);
-  return c.json({ user: { ...row, ...nombres, phoneCode: tel.codigo, phone: tel.numero, fotoUrl: fotoUrl(row) } });
+  const yoCompleto = await loadCurrentUser(c.req.raw.headers);
+  const permisos = yoCompleto ? await permisosDe(yoCompleto) : [];
+  return c.json({ user: { ...row, ...nombres, phoneCode: tel.codigo, phone: tel.numero, fotoUrl: fotoUrl(row), permisos } });
 });
 
 // Editar mi perfil: nombres, apellidos y teléfono (no el rol ni el estado).

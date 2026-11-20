@@ -68,6 +68,7 @@ export interface SessionUser {
   roleKey: string | null;
   roleName: string | null;
   roleScope: 'global' | 'station' | null;
+  permisos: string[];
 }
 
 export interface ApiUsuario {

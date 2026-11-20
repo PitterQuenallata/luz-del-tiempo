@@ -2,7 +2,7 @@ import type { Context, Next } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { auth } from './auth.js';
 import { db } from '../db/index.js';
-import { rolePermissions, roles, users } from '../db/schema.js';
+import { permissions, rolePermissions, roles, users } from '../db/schema.js';
 
 export interface CurrentUser {
   id: string;
@@ -52,4 +52,18 @@ export function requirePermission(permiso: string) {
     }
     await next();
   };
+}
+
+// Lista de permisos del usuario (para el menú y las rutas del panel). El superadmin tiene todos.
+export async function permisosDe(user: CurrentUser): Promise<string[]> {
+  if (user.roleKey === 'superadmin') {
+    const todos = await db.select({ key: permissions.key }).from(permissions);
+    return todos.map((p) => p.key).sort();
+  }
+  if (!user.roleId) return [];
+  const filas = await db
+    .select({ key: rolePermissions.permissionKey })
+    .from(rolePermissions)
+    .where(eq(rolePermissions.roleId, user.roleId));
+  return filas.map((f) => f.key).sort();
 }

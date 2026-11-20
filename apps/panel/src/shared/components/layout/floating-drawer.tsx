@@ -5,7 +5,7 @@ import { Logo } from '../brand/logo';
 import { X, Layers } from 'lucide-react';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
-import { navItems, navigationCategories } from '../../lib/navigation';
+import { navItemsVisibles, navigationCategories } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
 import { useTheme } from '../../context/theme-context';
@@ -81,7 +81,7 @@ export const FloatingDrawer: React.FC<FloatingDrawerProps> = ({ currentPath, onN
 
         <nav className="flex-1 overflow-y-auto py-2 space-y-4 no-scrollbar relative z-10">
           {navigationCategories.map((cat) => {
-            const items = navItems.filter((i) => i.category === cat.key);
+            const items = navItemsVisibles().filter((i) => i.category === cat.key);
             if (items.length === 0) return null;
 
             return (

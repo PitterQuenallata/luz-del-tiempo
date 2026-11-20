@@ -3,7 +3,7 @@ import { Layers, LogOut } from 'lucide-react';
 import { useSignOut } from '../../../modules/auth/hooks/use-session';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
-import { navItems } from '../../lib/navigation';
+import { navItemsVisibles } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
 import { Dock, DockItem, DockLabel, DockIcon, DockSeparator } from '../../../components/ui/dock';
@@ -37,7 +37,7 @@ export const BottomDock: React.FC<BottomDockProps> = ({ currentPath, onNavigate 
     'soporte',
     'usuarios',
   ];
-  const dockItems = navItems.filter((item) => dockModuleIds.includes(item.id));
+  const dockItems = navItemsVisibles().filter((item) => dockModuleIds.includes(item.id));
 
   return (
     <div className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 z-40 flex justify-center pointer-events-none px-2 sm:px-4">

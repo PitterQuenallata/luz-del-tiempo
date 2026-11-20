@@ -2,7 +2,8 @@ import React, { Suspense, lazy } from 'react';
 import {
   createRouter,
   createRoute,
-  createRootRoute,
+  createRootRouteWithContext,
+  redirect,
   createHashHistory,
   RouterProvider,
   Outlet,
@@ -12,7 +13,30 @@ import {
 } from '@tanstack/react-router';
 import { BlakorShell } from '../../shared/components/layout/blakor-shell';
 import { IOSSpinner } from '../../components/ui/ios-spinner';
-import { useSession } from '../../modules/auth/hooks/use-session';
+import { useSession, SESSION_QUERY_KEY } from '../../modules/auth/hooks/use-session';
+import type { QueryClient } from '@tanstack/react-query';
+import { luzApi } from '../../shared/api/luz-api';
+import { queryClient } from '../providers/query-provider';
+
+export interface RouterContext {
+  queryClient: QueryClient;
+}
+
+// Guard de ruta: exige sesión (si no, login), cambio de contraseña inicial y el permiso indicado (si no, 403).
+const exigirPermiso = (permiso?: string) => async ({ context }: { context: RouterContext }) => {
+  let yo;
+  try {
+    yo = await context.queryClient.ensureQueryData({
+      queryKey: SESSION_QUERY_KEY,
+      queryFn: () => luzApi.me(),
+      staleTime: 1000 * 60,
+    });
+  } catch {
+    throw redirect({ to: '/login' });
+  }
+  if (yo.mustChangePassword) throw redirect({ to: '/new-password' });
+  if (permiso && !yo.permisos.includes(permiso)) throw redirect({ to: '/403' });
+};
 
 // Fallback loader for smooth Apple-style deferred loading
 function PageLoader() {
@@ -44,7 +68,7 @@ const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-p
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
 
 // 1. Root Route with Shell Layout
-const rootRoute = createRootRoute({
+const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function RootLayout() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -73,6 +97,7 @@ const rootRoute = createRootRoute({
       location.pathname === '/auth/404' ||
       location.pathname === '/auth/505' ||
       location.pathname === '/auth/500' ||
+      location.pathname === '/403' ||
       location.pathname === '/404' ||
       location.pathname === '/505' ||
       location.pathname === '/500';
@@ -113,12 +138,14 @@ const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dashboard',
   component: DashboardPage,
+  beforeLoad: exigirPermiso('panel:acceso'),
 });
 
 const usuariosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/usuarios',
   component: UsuariosPage,
+  beforeLoad: exigirPermiso('usuarios:gestionar'),
 });
 
 const authCardRoute = createRoute({
@@ -149,18 +176,26 @@ const perfilRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/perfil',
   component: PerfilPage,
+  beforeLoad: exigirPermiso(),
 });
 
 const logsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/logs',
   component: LogsPage,
+  beforeLoad: exigirPermiso('logs:ver'),
 });
 
 const newPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/new-password',
   component: NewPasswordPage,
+});
+
+const forbiddenRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/403',
+  component: () => <AuthErrorFullscreenPage forcedCode="403" />,
 });
 
 const direct404Route = createRoute({
@@ -193,6 +228,7 @@ const routeTree = rootRoute.addChildren([
   auth404Route,
   auth505Route,
   auth500Route,
+  forbiddenRoute,
   direct404Route,
   direct505Route,
   direct500Route,
@@ -204,6 +240,7 @@ const hashHistory = createHashHistory();
 export const router = createRouter({
   routeTree,
   history: hashHistory,
+  context: { queryClient },
 });
 
 declare module '@tanstack/react-router' {

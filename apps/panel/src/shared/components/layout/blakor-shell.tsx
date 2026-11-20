@@ -1,3 +1,5 @@
+import { useSession } from '../../../modules/auth/hooks/use-session';
+import { setPermisosActivos } from '../../lib/navigation';
 import React, { useState } from 'react';
 import { Toaster } from 'sileo';
 import { SonnerToaster } from '../ui/sonner';
@@ -28,6 +30,8 @@ export const BlakorShell: React.FC<BlakorShellProps> = ({
   children,
 }) => {
   const { preset, containerWidth, setIsDrawerOpen, setIsCustomizerOpen } = useLayout();
+  const { data: sesion } = useSession();
+  setPermisosActivos(sesion?.permisos ?? []);
   const { resolvedTheme } = useTheme();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);

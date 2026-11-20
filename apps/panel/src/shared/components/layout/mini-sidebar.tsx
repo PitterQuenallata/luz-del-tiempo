@@ -2,7 +2,7 @@ import React from 'react';
 import { PanelLeft } from 'lucide-react';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
-import { navItems, navigationCategories } from '../../lib/navigation';
+import { navItemsVisibles, navigationCategories } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
 import { useTheme } from '../../context/theme-context';
@@ -66,7 +66,7 @@ export const MiniSidebar: React.FC<MiniSidebarProps> = ({ currentPath, onNavigat
       {/* Main Categorized Items */}
       <div className="flex-1 w-full space-y-3 py-2 overflow-y-auto no-scrollbar relative z-10">
         {navigationCategories.map((cat, catIdx) => {
-          const items = navItems.filter((i) => i.category === cat.key);
+          const items = navItemsVisibles().filter((i) => i.category === cat.key);
           if (items.length === 0) return null;
 
           return (

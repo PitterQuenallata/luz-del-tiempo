@@ -2,7 +2,7 @@ import React from 'react';
 import { PanelLeft } from 'lucide-react';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, ShieldCheckIcon, SettingsIcon } from '@animateicons/react/lucide';
-import { navItems } from '../../lib/navigation';
+import { navItemsVisibles } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
 import { Badge } from '../ui/badge';
@@ -42,7 +42,7 @@ export const TopNavLinks: React.FC<TopNavLinksProps> = ({ currentPath, onNavigat
         <div className="h-4 w-px bg-border/60 mx-1 shrink-0" />
 
         {/* Navigation Items */}
-        {navItems.map((item) => {
+        {navItemsVisibles().map((item) => {
           const Icon = item.icon;
           const isActive =
             basePath === item.path ||

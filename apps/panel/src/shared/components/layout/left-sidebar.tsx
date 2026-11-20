@@ -5,7 +5,7 @@ import { Logo } from '../brand/logo';
 import { useIconHover } from '@animateicons/react';
 import { UserIcon, SettingsIcon } from '@animateicons/react/lucide';
 import { LogOut } from 'lucide-react';
-import { navItems, navigationCategories } from '../../lib/navigation';
+import { navItemsVisibles, navigationCategories } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useLayout } from '../../context/layout-context';
 import { useTheme } from '../../context/theme-context';
@@ -51,7 +51,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ currentPath, onNavigat
       {/* Main Navigation Items (Layered above ambient light) */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 relative z-10 custom-scrollbar">
         {navigationCategories.map((cat) => {
-          const items = navItems.filter((i) => i.category === cat.key);
+          const items = navItemsVisibles().filter((i) => i.category === cat.key);
           if (items.length === 0) return null;
 
           const hookItems = items.map((i) => ({

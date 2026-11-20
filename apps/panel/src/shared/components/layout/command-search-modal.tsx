@@ -22,7 +22,7 @@ import {
   Keyboard,
   BookOpen,
 } from 'lucide-react';
-import { navItems } from '../../lib/navigation';
+import { navItemsVisibles } from '../../lib/navigation';
 import { useSound } from '../../context/sound-context';
 import { useTheme } from '../../context/theme-context';
 import { useLayout, NavigationPreset } from '../../context/layout-context';
@@ -230,7 +230,7 @@ export const CommandSearchModal: React.FC<CommandSearchModalProps> = ({
     ];
 
     // Append navigation items
-    navItems.forEach((nav) => {
+    navItemsVisibles().forEach((nav) => {
       list.push({
         id: `nav-${nav.id}`,
         title: nav.title,
