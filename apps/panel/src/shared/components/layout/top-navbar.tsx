@@ -267,9 +267,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ currentPath, onSearchClick
                       type="button"
                       className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                       onClick={() => {
-                        play('alert');
+                        play('click');
                         setIsProfileOpen(false);
-                        pillToast.info('Sesión Finalizada', 'Has cerrado la sesión administrativa con éxito.');
+                        signOut.mutate();
                       }}
                     >
                       <LogOut className="h-3.5 w-3.5" />
