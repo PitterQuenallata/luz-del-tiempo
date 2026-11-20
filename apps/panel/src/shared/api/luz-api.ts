@@ -23,14 +23,23 @@ const MENSAJES_ERROR: Record<string, string> = {
   auto_desactivacion: 'No puedes desactivar tu propia cuenta.',
 };
 
+const MENSAJE_SERVIDOR =
+  'El servidor no respondió bien. Revisa que la base de datos (Docker) y la API (pnpm dev) estén activas.';
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    credentials: 'include',
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      credentials: 'include',
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...init.headers },
+    });
+  } catch {
+    throw new ApiRequestError('No hay conexión con la API. Revisa que esté corriendo (pnpm dev).', 0);
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status >= 500) throw new ApiRequestError(MENSAJE_SERVIDOR, res.status);
     const message =
       (data && (data.message || MENSAJES_ERROR[data.error])) || `Error ${res.status}`;
     throw new ApiRequestError(message, res.status);
