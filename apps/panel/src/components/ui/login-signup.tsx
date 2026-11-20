@@ -1,3 +1,5 @@
+import { FondoRadio } from '../../shared/components/brand/fondo-radio';
+import { Logo } from '../../shared/components/brand/logo';
 "use client";
 
 import React, { useState } from 'react';
@@ -155,178 +157,12 @@ export function LoginCardSection({
       className={cn(
         'w-full flex flex-col justify-between relative select-none overflow-hidden transition-colors',
         fullscreen
-          ? 'min-h-screen bg-[#0b1324] text-[#dbe3f3] p-4 sm:p-6 md:p-10'
-          : 'min-h-[720px] rounded-3xl bg-[#0b1324] text-[#dbe3f3] p-4 sm:p-6 md:p-8 border border-white/10'
+          ? 'min-h-screen bg-[#0b1324] text-[#0b1324] p-4 sm:p-6 md:p-10'
+          : 'min-h-[720px] rounded-3xl bg-[#0b1324] text-[#0b1324] p-4 sm:p-6 md:p-8 border border-[#0b1324]/10'
       )}
     >
-      {/* Background Geometric Maze / Labyrinth Lines */}
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        {/* Soft centered ambient bloom */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-tr from-amber-400/[0.05] via-white/[0.03] to-transparent blur-[140px]" />
-        <div className="absolute top-1/4 left-1/4 w-[450px] h-[350px] rounded-full bg-amber-400/[0.04] blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[450px] h-[350px] rounded-full bg-indigo-500/[0.025] blur-[120px]" />
-
-        {/* Labyrinth Orthogonal Grid SVG */}
-        <svg
-          className="absolute inset-0 w-full h-full text-white"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            {/* Repeating Maze / Laberinto Pattern */}
-            <pattern
-              id="auth-maze-pattern"
-              width="120"
-              height="120"
-              patternUnits="userSpaceOnUse"
-            >
-              {/* Orthogonal square maze corridors */}
-              <path
-                d="M 0 0 H 120 V 120 H 0 Z
-                   M 15 15 H 45 V 45 H 15 Z
-                   M 45 15 H 105 V 30 H 60 V 45 H 75 V 75 H 45 V 60 H 15 V 105 H 30 V 75 H 45
-                   M 60 75 H 105 V 105 H 75 V 90 H 60 V 105 H 45
-                   M 75 45 H 105 V 60 H 90 V 75
-                   M 0 60 H 15 M 105 15 V 0 M 120 75 H 105 M 60 120 V 105"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeOpacity="0.08"
-                strokeLinecap="square"
-              />
-              {/* Maze junction nodes / square dots */}
-              <rect x="43" y="13" width="4" height="4" fill="currentColor" fillOpacity="0.18" />
-              <rect x="73" y="43" width="4" height="4" fill="currentColor" fillOpacity="0.18" />
-              <rect x="13" y="73" width="4" height="4" fill="currentColor" fillOpacity="0.18" />
-              <rect x="88" y="58" width="4" height="4" fill="currentColor" fillOpacity="0.18" />
-            </pattern>
-
-            {/* Radial mask for soft fade */}
-            <radialGradient id="auth-maze-radial" cx="50%" cy="50%" r="65%">
-              <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
-              <stop offset="60%" stopColor="#fff" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#fff" stopOpacity="0.15" />
-            </radialGradient>
-            <mask id="auth-maze-mask">
-              <rect width="100%" height="100%" fill="url(#auth-maze-radial)" />
-            </mask>
-          </defs>
-
-          <rect
-            width="100%"
-            height="100%"
-            fill="url(#auth-maze-pattern)"
-            mask="url(#auth-maze-mask)"
-          />
-        </svg>
-
-        {/* 4 Corner Labyrinth Architectural Circuits */}
-        {/* Top-Left Corner Maze */}
-        <svg
-          className="absolute top-0 left-0 w-80 h-80 pointer-events-none text-white/30 overflow-visible"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M 24 24 H 140 V 68 H 200 V 132 H 112 V 88 H 68 V 176 H 24 Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeOpacity="0.3"
-          />
-          <path
-            d="M 44 44 H 120 V 76 H 168 V 108"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-            strokeOpacity="0.25"
-          />
-          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
-          <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
-        </svg>
-
-        {/* Top-Right Corner Maze */}
-        <svg
-          className="absolute top-0 right-0 w-80 h-80 pointer-events-none text-white/30 overflow-visible -scale-x-100"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M 24 24 H 140 V 68 H 200 V 132 H 112 V 88 H 68 V 176 H 24 Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeOpacity="0.3"
-          />
-          <path
-            d="M 44 44 H 120 V 76 H 168 V 108"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-            strokeOpacity="0.25"
-          />
-          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
-          <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
-        </svg>
-
-        {/* Bottom-Left Corner Maze */}
-        <svg
-          className="absolute bottom-0 left-0 w-80 h-80 pointer-events-none text-white/30 overflow-visible -scale-y-100"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M 24 24 H 140 V 68 H 200 V 132 H 112 V 88 H 68 V 176 H 24 Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeOpacity="0.3"
-          />
-          <path
-            d="M 44 44 H 120 V 76 H 168 V 108"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-            strokeOpacity="0.25"
-          />
-          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
-          <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
-        </svg>
-
-        {/* Bottom-Right Corner Maze */}
-        <svg
-          className="absolute bottom-0 right-0 w-80 h-80 pointer-events-none text-white/30 overflow-visible -scale-x-100 -scale-y-100"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M 24 24 H 140 V 68 H 200 V 132 H 112 V 88 H 68 V 176 H 24 Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeOpacity="0.3"
-          />
-          <path
-            d="M 44 44 H 120 V 76 H 168 V 108"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-            strokeOpacity="0.25"
-          />
-          <rect x="22" y="22" width="4" height="4" fill="#e2a927" fillOpacity="0.7" />
-          <rect x="138" y="66" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="198" y="130" width="4" height="4" fill="currentColor" fillOpacity="0.5" />
-          <rect x="66" y="86" width="4" height="4" fill="#f0c35a" fillOpacity="0.7" />
-        </svg>
-
-        {/* Vignette overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0b1324]/20 to-[#0b1324]/70 pointer-events-none" />
-      </div>
+      {/* Fondo de ondas de radio */}
+      <FondoRadio className="z-0" />
 
       {/* Header Bar */}
       <header className="relative z-10 w-full flex items-center justify-between pb-6">
@@ -335,9 +171,10 @@ export function LoginCardSection({
             play('tab');
             onNavigateHome?.();
           }}
-          className="cursor-pointer font-bold tracking-widest text-sm text-white/90 hover:text-white transition-colors font-mono flex items-center gap-2"
+          className="cursor-pointer font-bold tracking-widest text-sm text-[#0b1324]/90 hover:text-[#0b1324] transition-colors font-mono flex items-center gap-2"
         >
           <span className="h-2 w-2 rounded-full bg-primary" />
+          <Logo className="h-8 w-8" />
           <span>{brandName}</span>
         </div>
 
@@ -348,7 +185,7 @@ export function LoginCardSection({
             play('click');
             pillToast.info('Mesa de Ayuda La Luz del Tiempo', 'Soporte y documentación oficial disponibles 24/7.');
           }}
-          className="rounded-full bg-white/5 border-white/10 hover:bg-white/10 text-xs text-white/80 hover:text-white transition-all cursor-pointer"
+          className="rounded-full bg-[#0b1324]/5 border-[#0b1324]/10 hover:bg-[#0b1324]/10 text-xs text-[#0b1324]/80 hover:text-[#0b1324] transition-all cursor-pointer"
         >
           <span>Contacto</span>
           <ArrowRight className="h-3.5 w-3.5 ml-1" />
@@ -357,7 +194,7 @@ export function LoginCardSection({
 
       {/* Center Floating iOS Card */}
       <main className="relative z-10 my-auto flex justify-center items-center py-6">
-        <div className="w-full max-w-[420px] rounded-3xl bg-[#0f1b38]/90 backdrop-blur-2xl border border-white/10 p-6 sm:p-8 shadow-[0_24px_50px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all">
+        <div className="w-full max-w-[420px] rounded-3xl bg-white/95 backdrop-blur-2xl border border-[#0b1324]/10 p-6 sm:p-8 shadow-[0_24px_50px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all">
           
           {/* VIEW: 1. LOGIN */}
           {view === 'login' && (
@@ -366,50 +203,50 @@ export function LoginCardSection({
                 <img src="/brand/logo.png" alt="La Luz del Tiempo" draggable={false} className="h-16 w-16 object-contain select-none" />
               </div>
               <div className="space-y-1.5 text-left">
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-[#0b1324]">
                   Bienvenido de nuevo
                 </h1>
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-[#5b6478]">
                   Inicia sesión en tu cuenta
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Correo
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="tu@correo.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Contraseña
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5b6478] hover:text-[#3f4a63] transition-colors cursor-pointer"
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -426,9 +263,9 @@ export function LoginCardSection({
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded-md border-white/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
+                      className="h-4 w-4 rounded-md border-[#0b1324]/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
                     />
-                    <span className="text-xs text-neutral-400">Recordarme</span>
+                    <span className="text-xs text-[#5b6478]">Recordarme</span>
                   </label>
 
                 </div>
@@ -436,7 +273,7 @@ export function LoginCardSection({
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-[#e2a927] text-[#0b1324] font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
                   {isLoading ? <Spinner size="sm" /> : <span>Iniciar sesión</span>}
                 </Button>
@@ -445,10 +282,10 @@ export function LoginCardSection({
               {/* Social Login Options */}
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10" />
+                  <div className="w-full border-t border-[#0b1324]/10" />
                 </div>
                 <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-wider">
-                  <span className="bg-[#0f1b38] px-2 text-neutral-500">O</span>
+                  <span className="bg-white px-2 text-[#5b6478]">O</span>
                 </div>
               </div>
 
@@ -456,7 +293,7 @@ export function LoginCardSection({
                 <button
                   type="button"
                   onClick={() => handleSocialLogin('GitHub')}
-                  className="h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+                  className="h-10 rounded-xl bg-[#0b1324]/5 hover:bg-[#0b1324]/10 border border-[#0b1324]/10 text-xs font-medium text-[#3f4a63] hover:text-[#0b1324] flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
                 >
                   <GithubIcon className="h-4 w-4" />
                   <span>GitHub</span>
@@ -464,7 +301,7 @@ export function LoginCardSection({
                 <button
                   type="button"
                   onClick={() => handleSocialLogin('Google')}
-                  className="h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+                  className="h-10 rounded-xl bg-[#0b1324]/5 hover:bg-[#0b1324]/10 border border-[#0b1324]/10 text-xs font-medium text-[#3f4a63] hover:text-[#0b1324] flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
                 >
                   <GoogleIcon className="h-4 w-4" />
                   <span>Google</span>
@@ -477,67 +314,67 @@ export function LoginCardSection({
           {view === 'register' && (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-[#0b1324]">
                   Crear una cuenta
                 </h1>
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-[#5b6478]">
                   Únete a La Luz del Tiempo
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Nombre completo
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="text"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Nombre completo"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Correo
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="tu@correo.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Contraseña
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Mínimo 8 caracteres"
-                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-10 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5b6478] hover:text-[#3f4a63] transition-colors cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -550,9 +387,9 @@ export function LoginCardSection({
                     required
                     checked={termsAgreed}
                     onChange={(e) => setTermsAgreed(e.target.checked)}
-                    className="h-4 w-4 mt-0.5 rounded-md border-white/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
+                    className="h-4 w-4 mt-0.5 rounded-md border-[#0b1324]/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
                   />
-                  <span className="text-[11px] text-neutral-400 leading-tight">
+                  <span className="text-[11px] text-[#5b6478] leading-tight">
                     Acepto los términos de servicio y la política de privacidad
                   </span>
                 </label>
@@ -560,13 +397,13 @@ export function LoginCardSection({
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-[#e2a927] text-[#0b1324] font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
                   {isLoading ? <Spinner size="sm" /> : <span>Crear cuenta</span>}
                 </Button>
               </form>
 
-              <div className="pt-1 text-center text-xs text-neutral-400">
+              <div className="pt-1 text-center text-xs text-[#5b6478]">
                 <span>¿Ya tienes cuenta? </span>
                 <button
                   type="button"
@@ -574,7 +411,7 @@ export function LoginCardSection({
                     play('tab');
                     setView('login');
                   }}
-                  className="text-white font-medium hover:underline cursor-pointer"
+                  className="text-[#0b1324] font-medium hover:underline cursor-pointer"
                 >
                   Iniciar sesión
                 </button>
@@ -586,28 +423,28 @@ export function LoginCardSection({
           {view === 'forgot-password' && (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-[#0b1324]">
                   Restablecer contraseña
                 </h1>
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-[#5b6478]">
                   Escribe tu correo para recibir las instrucciones.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Correo electrónico
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="tu@correo.com"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -615,7 +452,7 @@ export function LoginCardSection({
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-[#e2a927] text-[#0b1324] font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
                   {isLoading ? <Spinner size="sm" /> : <span>Enviar enlace de recuperación</span>}
                 </Button>
@@ -628,7 +465,7 @@ export function LoginCardSection({
                     play('tab');
                     setView('login');
                   }}
-                  className="text-xs text-neutral-400 hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
+                  className="text-xs text-[#5b6478] hover:text-[#0b1324] flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   <span>Volver al inicio de sesión</span>
@@ -641,45 +478,45 @@ export function LoginCardSection({
           {view === 'reset-password' && (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
               <div className="space-y-1.5 text-left">
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-[#0b1324]">
                   Set new password
                 </h1>
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-[#5b6478]">
                   Choose a secure password for your account.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Nueva contraseña
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="password"
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-left">
-                  <label className="text-xs font-medium text-neutral-300">
+                  <label className="text-xs font-medium text-[#3f4a63]">
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5b6478]" />
                     <input
                       type="password"
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#070d1a] border border-white/10 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-sm text-[#0b1324] placeholder:text-[#8a92a6] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all"
                     />
                   </div>
                 </div>
@@ -687,7 +524,7 @@ export function LoginCardSection({
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-[#e2a927] text-[#0b1324] font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md mt-2 flex items-center justify-center gap-2"
                 >
                   {isLoading ? <Spinner size="sm" /> : <span>Actualizar contraseña</span>}
                 </Button>
@@ -700,7 +537,7 @@ export function LoginCardSection({
                     play('tab');
                     setView('login');
                   }}
-                  className="text-xs text-neutral-400 hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
+                  className="text-xs text-[#5b6478] hover:text-[#0b1324] flex items-center justify-center gap-1 mx-auto transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   <span>Volver al inicio de sesión</span>
@@ -716,10 +553,10 @@ export function LoginCardSection({
                 <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center mb-2">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-[#0b1324]">
                   Two-factor auth
                 </h1>
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-[#5b6478]">
                   Enter the 6-digit code sent to your authenticator app.
                 </p>
               </div>
@@ -736,7 +573,7 @@ export function LoginCardSection({
                       value={digit}
                       onChange={(e) => handleOtpChange(i, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      className="w-12 h-13 rounded-xl bg-[#070d1a] border border-white/10 text-center font-mono font-bold text-lg text-white focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all tabular-nums"
+                      className="w-12 h-13 rounded-xl bg-[#f3f1ea] border border-[#0b1324]/10 text-center font-mono font-bold text-lg text-[#0b1324] focus:outline-none focus:border-[#0b1324]/30 focus:ring-1 focus:ring-white/20 transition-all tabular-nums"
                     />
                   ))}
                 </div>
@@ -744,20 +581,20 @@ export function LoginCardSection({
                 <Button
                   type="submit"
                   disabled={isLoading || otp.some((d) => !d)}
-                  className="w-full h-11 rounded-xl bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-[#e2a927] text-[#0b1324] font-semibold text-sm hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
                   {isLoading ? <Spinner size="sm" /> : <span>Verificar código</span>}
                 </Button>
               </form>
 
-              <div className="flex items-center justify-between text-xs text-neutral-400 pt-1">
+              <div className="flex items-center justify-between text-xs text-[#5b6478] pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     play('pop');
                     pillToast.info('Código reenviado', 'Se ha enviado un nuevo código SMS o push.');
                   }}
-                  className="hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                  className="hover:text-[#0b1324] transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <RefreshCw className="h-3 w-3" />
                   <span>Reenviar código</span>
@@ -769,7 +606,7 @@ export function LoginCardSection({
                     play('tab');
                     setView('login');
                   }}
-                  className="hover:text-white transition-colors cursor-pointer"
+                  className="hover:text-[#0b1324] transition-colors cursor-pointer"
                 >
                   Back to login
                 </button>
@@ -781,7 +618,7 @@ export function LoginCardSection({
       </main>
 
       {/* Footer System Status */}
-      <footer className="relative z-10 w-full flex items-center justify-between pt-6 text-[11px] text-neutral-500 font-mono border-t border-white/5">
+      <footer className="relative z-10 w-full flex items-center justify-between pt-6 text-[11px] text-[#5b6478] font-mono border-t border-[#0b1324]/5">
         <div className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>Sistemas en línea</span>
