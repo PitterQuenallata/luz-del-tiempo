@@ -1,0 +1,6 @@
+# Mismo fin de línea (LF) en Windows y Mac
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary

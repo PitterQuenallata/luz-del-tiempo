@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/*
+ * Fuentes elegidas por el cliente (combinación A): Clash Display para títulos,
+ * Satoshi para el texto y Fraunces como acento. Las clases de Tailwind
+ * (font-display, font-sans, font-poster, font-serif) leen estas variables.
+ */
+:root {
+  --f-display: "Clash Display", ui-sans-serif, system-ui, sans-serif;
+  --f-body: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --f-poster: "Clash Display", ui-sans-serif, sans-serif;
+  --f-accent: "Fraunces", Georgia, serif;
+  --f-display-weight: 600;
+  --f-poster-weight: 700;
+}
+
+/* Paleta del diseño "Opción 1 — Menú arriba" (claude.ai Design). */
+@theme {
+  --font-sans: var(--f-body);
+  --font-display: var(--f-display);
+  --font-poster: var(--f-poster);
+  --font-serif: var(--f-accent);
+
+  --color-noche-950: #070d1a;
+  --color-noche-900: #0b1324;
+  --color-noche-850: #0f1b38;
+  --color-noche-800: #1b2740;
+  --color-noche-700: #24324f;
+  --color-noche-600: #2f3d5c;
+
+  --color-oro-500: #e2a927;
+  --color-oro-400: #f0c35a;
+  --color-oro-200: #f6e3b8;
+
+  --color-niebla-100: #dbe3f3;
+  --color-niebla-200: #c3cde0;
+  --color-niebla-300: #b9c5dc;
+  --color-niebla-400: #a9b7d2;
+
+  --animate-marquee: marquee 30s linear infinite;
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-noche-900 font-sans text-white antialiased;
+  }
+  ::selection { @apply bg-oro-500 text-noche-900; }
+}
+
+@layer components {
+  /* Bandas azules con borde dorado, como Podcast / Noticias del diseño. */
+  .banda {
+    background: linear-gradient(90deg, #0f1c3a 0%, #17337a 55%, #0f1c3a 100%);
+    border-block: 1px solid rgb(226 169 39 / 0.35);
+  }
+  .banda-2 {
+    background: linear-gradient(90deg, #0d1832 0%, #152c66 50%, #0d1832 100%);
+    border-bottom: 1px solid rgb(226 169 39 / 0.35);
+  }
+  /* unslop: etiquetas en tipo oración, sin mayúsculas espaciadas; pesos 500–600. */
+  .eyebrow { @apply text-sm font-medium text-oro-400; }
+  .btn-oro {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-oro-500 px-4 text-sm font-semibold text-noche-900 transition-[background-color,transform] duration-150 hover:bg-oro-400 active:scale-[0.98];
+  }
+  .btn-borde {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-oro-500/70 px-4 text-sm font-medium text-oro-400 transition-[background-color,transform] duration-150 hover:bg-oro-500/10 active:scale-[0.98];
+  }
+  .chip-ver {
+    @apply rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-niebla-200 transition-colors hover:border-oro-500/60 hover:text-oro-400;
+  }
+}
+
+/* Ancho del contenido: crece con la pantalla para no quedar como una franja angosta en monitores grandes. */
+@utility contenedor {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 16px;
+  max-width: 1200px;
+  @media (width >= 40rem) { padding-inline: 24px; }
+  @media (width >= 96rem) { max-width: 1360px; padding-inline: 32px; }
+}
+
+/* Títulos principales: familia y peso según la combinación elegida. */
+@utility titulo {
+  font-family: var(--f-display);
+  font-weight: var(--f-display-weight);
+  letter-spacing: -0.01em;
+  /* Clash Display trae espacios entre palabras muy angostos. */
+  word-spacing: 0.08em;
+}
+/* Títulos tipo afiche (programas, actividades, áreas). */
+@utility poster {
+  font-family: var(--f-poster);
+  font-weight: var(--f-poster-weight);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+/* Fondo vivo (AmbientLight.tsx) */
+@keyframes deriva-a {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(18vw, 22vh); }
+}
+@keyframes deriva-b {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-22vw, -18vh); }
+}
+.ambient-a { animation: deriva-a 70s ease-in-out infinite; }
+.ambient-b { animation: deriva-b 90s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-marquee, .ambient-a, .ambient-b { animation: none; }
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.astro/
+.expo/
+.env
+*.log
+infra/data/
+
+# Imágenes solo para la demo (algunas son de referencia de otro ministerio): nunca al repositorio
+apps/web/public/demo/*
+!apps/web/public/demo/LEEME.md
+
+# Documentos del cliente (contrato, compromiso): datos personales y montos, nunca al repositorio
+*.pdf
+
+# Configuración local de Claude Code / editor
+.claude/
+.vscode/
+.DS_Store
+Thumbs.db
