@@ -25,7 +25,15 @@ app.use(
 );
 
 // Autenticación (Better Auth): /api/auth/*
-app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
+  const res = await auth.handler(c.req.raw);
+  if (res.status >= 500) {
+    // Better Auth no lanza excepción en estos casos: se registra aquí para verlo en la terminal
+    const cuerpo = await res.clone().text();
+    console.error(`[auth ${res.status}] ${c.req.method} ${c.req.path} -> ${cuerpo.slice(0, 500)}`);
+  }
+  return res;
+});
 
 app.route('/api/v1/me', meRoutes);
 app.route('/api/v1/usuarios', usuariosRoutes);
@@ -39,6 +47,11 @@ app.get('/api/v1/ready', async (c) => {
   } catch {
     return c.json({ status: 'not_ready', database: 'error' }, 503);
   }
+});
+
+app.onError((err, c) => {
+  console.error(`[api error] ${c.req.method} ${c.req.path}`, err);
+  return c.json({ error: 'error_interno', message: 'Error interno de la API. Revisa la terminal de pnpm dev.' }, 500);
 });
 
 const port = Number(process.env.API_PORT ?? 4000);
