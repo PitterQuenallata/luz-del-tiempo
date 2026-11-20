@@ -1,7 +1,8 @@
 // Cliente de la API 1 (apps/api). La sesión viaja en una cookie HttpOnly de Better Auth,
 // por eso todas las peticiones usan credentials: 'include'.
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000';
+// Vacío = mismo origen (Vite reenvía /api a la API). En producción se define VITE_API_URL.
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 export class ApiRequestError extends Error {
   public status: number;

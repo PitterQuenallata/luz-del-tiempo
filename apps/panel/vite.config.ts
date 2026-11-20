@@ -43,5 +43,18 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    // La API corre en localhost:4000. El panel la llama por su propio origen (/api),
+    // así funciona desde localhost, 127.0.0.1 o la IP de la red, y las cookies de sesión viajan.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: false,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setHeader('origin', 'http://localhost:4000');
+          });
+        },
+      },
+    },
   },
 });

@@ -362,6 +362,9 @@ export function LoginCardSection({
           {/* VIEW: 1. LOGIN */}
           {view === 'login' && (
             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex flex-col items-center text-center gap-3">
+                <img src="/brand/logo.png" alt="La Luz del Tiempo" draggable={false} className="h-16 w-16 object-contain select-none" />
+              </div>
               <div className="space-y-1.5 text-left">
                 <h1 className="text-2xl font-bold tracking-tight text-white">
                   Bienvenido de nuevo
@@ -425,7 +428,7 @@ export function LoginCardSection({
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="h-4 w-4 rounded-md border-white/20 bg-neutral-900 text-primary accent-primary cursor-pointer"
                     />
-                    <span className="text-xs text-neutral-400">Remember me</span>
+                    <span className="text-xs text-neutral-400">Recordarme</span>
                   </label>
 
                 </div>
@@ -445,7 +448,7 @@ export function LoginCardSection({
                   <div className="w-full border-t border-white/10" />
                 </div>
                 <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-wider">
-                  <span className="bg-[#0f1b38] px-2 text-neutral-500">OR</span>
+                  <span className="bg-[#0f1b38] px-2 text-neutral-500">O</span>
                 </div>
               </div>
 
