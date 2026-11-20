@@ -1,8 +1,23 @@
-// Cliente de la API 1 (apps/api). La sesión viaja en una cookie HttpOnly de Better Auth,
-// por eso todas las peticiones usan credentials: 'include'.
+// Cliente de la API 1 (apps/api). La sesión viaja en una cookie de Better Auth.
+// Vacío = mismo origen: Vite reenvía /api a la API. En producción se define VITE_API_URL.
 
-// Vacío = mismo origen (Vite reenvía /api a la API). En producción se define VITE_API_URL.
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+
+const MENSAJES_ERROR: Record<string, string> = {
+  correo_existente: 'Ya existe una cuenta con ese correo.',
+  sin_permiso: 'No tienes permiso para esta acción.',
+  no_autenticado: 'Tu sesión venció. Vuelve a iniciar sesión.',
+  datos_invalidos: 'Revisa los datos del formulario.',
+  auto_desactivacion: 'No puedes desactivar tu propia cuenta.',
+  rol_no_existe: 'El rol seleccionado no existe.',
+  permiso_invalido: 'Hay un permiso que no existe.',
+  clave_existente: 'Ya existe un rol con esa clave.',
+  nombre_requerido: 'El nombre es obligatorio.',
+  rol_de_sistema: 'Los roles de sistema no se pueden eliminar.',
+};
+
+const MENSAJE_SERVIDOR =
+  'El servidor no respondió bien. Revisa que la base de datos (Docker) y la API (pnpm dev) estén activas.';
 
 export class ApiRequestError extends Error {
   public status: number;
@@ -13,18 +28,6 @@ export class ApiRequestError extends Error {
     this.status = status;
   }
 }
-
-const MENSAJES_ERROR: Record<string, string> = {
-  correo_existente: 'Ya existe una cuenta con ese correo.',
-  sin_permiso: 'No tienes permiso para esta acción.',
-  rol_invalido: 'El rol seleccionado no es válido.',
-  rol_no_existe: 'El rol seleccionado no existe.',
-  datos_invalidos: 'Revisa los datos del formulario.',
-  auto_desactivacion: 'No puedes desactivar tu propia cuenta.',
-};
-
-const MENSAJE_SERVIDOR =
-  'El servidor no respondió bien. Revisa que la base de datos (Docker) y la API (pnpm dev) estén activas.';
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
@@ -40,12 +43,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     if (res.status >= 500) throw new ApiRequestError(MENSAJE_SERVIDOR, res.status);
-    const message =
-      (data && (data.message || MENSAJES_ERROR[data.error])) || `Error ${res.status}`;
+    const message = (data && (data.message || MENSAJES_ERROR[data.error])) || `Error ${res.status}`;
     throw new ApiRequestError(message, res.status);
   }
   return data as T;
 }
+
+const json = (body: unknown) => JSON.stringify(body);
 
 export interface SessionUser {
   id: string;
@@ -70,9 +74,12 @@ export interface ApiUsuario {
 }
 
 export interface ApiRole {
+  id: string;
   key: string;
   name: string;
+  description: string | null;
   scope: 'global' | 'station';
+  isSystem: boolean;
   miembros: number;
   permisos: string[];
 }
@@ -80,13 +87,7 @@ export interface ApiRole {
 export interface ApiPermiso {
   key: string;
   descripcion: string;
-  roles: string[];
-  aplicado: boolean;
-}
-
-export interface ApiRolesResponse {
-  roles: ApiRole[];
-  permisos: ApiPermiso[];
+  grupo: string;
 }
 
 export interface NuevoUsuarioInput {
@@ -97,13 +98,23 @@ export interface NuevoUsuarioInput {
   roleKey: string;
 }
 
+export interface NuevoRolInput {
+  key: string;
+  name: string;
+  description?: string;
+  permisos: string[];
+}
+
+export interface EditarRolInput {
+  name?: string;
+  description?: string | null;
+  permisos?: string[];
+}
+
 export const luzApi = {
   async signIn(email: string, password: string, rememberMe = true) {
     try {
-      return await request('/api/auth/sign-in/email', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
+      return await request('/api/auth/sign-in/email', { method: 'POST', body: json({ email, password, rememberMe }) });
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
         throw new ApiRequestError('Correo o contraseña incorrectos.', 401);
@@ -126,15 +137,33 @@ export const luzApi = {
     return data.usuarios;
   },
 
-  listRoles(): Promise<ApiRolesResponse> {
-    return request<ApiRolesResponse>('/api/v1/usuarios/roles');
-  },
-
   createUsuario(input: NuevoUsuarioInput) {
-    return request('/api/v1/usuarios', { method: 'POST', body: JSON.stringify(input) });
+    return request('/api/v1/usuarios', { method: 'POST', body: json(input) });
   },
 
-  updateUsuario(id: string, patch: { roleKey?: string; isActive?: boolean }) {
-    return request(`/api/v1/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  updateUsuario(id: string, patch: { name?: string; phone?: string | null; roleKey?: string; isActive?: boolean }) {
+    return request(`/api/v1/usuarios/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  async listRoles(): Promise<ApiRole[]> {
+    const data = await request<{ roles: ApiRole[] }>('/api/v1/roles');
+    return data.roles;
+  },
+
+  async listPermisos(): Promise<ApiPermiso[]> {
+    const data = await request<{ permisos: ApiPermiso[] }>('/api/v1/roles/permisos');
+    return data.permisos;
+  },
+
+  createRol(input: NuevoRolInput) {
+    return request('/api/v1/roles', { method: 'POST', body: json(input) });
+  },
+
+  updateRol(id: string, patch: EditarRolInput) {
+    return request(`/api/v1/roles/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  deleteRol(id: string) {
+    return request(`/api/v1/roles/${id}`, { method: 'DELETE' });
   },
 };

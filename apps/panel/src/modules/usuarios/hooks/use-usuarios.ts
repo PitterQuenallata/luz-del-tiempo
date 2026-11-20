@@ -4,10 +4,11 @@ import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { iniciales } from '../../../shared/lib/utils';
 import { Usuario } from '../types/usuarios.types';
 
-const USUARIOS_QUERY_KEY = ['usuarios'] as const;
-const ROLES_QUERY_KEY = ['roles'] as const;
+export const USUARIOS_KEY = ['usuarios'] as const;
+export const ROLES_KEY = ['roles'] as const;
 
-// Adapta la respuesta de la API al tipo que usa la tabla
+const mensaje = (err: unknown) => (err instanceof Error ? err.message : 'Inténtalo de nuevo.');
+
 export const toUsuario = (u: ApiUsuario): Usuario => ({
   id: u.id,
   name: u.name,
@@ -15,7 +16,7 @@ export const toUsuario = (u: ApiUsuario): Usuario => ({
   role: u.roleName ?? 'Sin rol',
   roleKey: u.roleKey ?? undefined,
   status: u.isActive ? 'Activo' : 'Inactivo',
-  subscription: '—',
+  subscription: '',
   avatarText: iniciales(u.name),
   joinedAt: new Date(u.createdAt).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' }),
   phone: u.phone ?? undefined,
@@ -23,59 +24,48 @@ export const toUsuario = (u: ApiUsuario): Usuario => ({
 
 export const useUsuarios = () =>
   useQuery({
-    queryKey: USUARIOS_QUERY_KEY,
+    queryKey: USUARIOS_KEY,
     queryFn: async () => (await luzApi.listUsuarios()).map(toUsuario),
   });
 
-// Roles y catálogo de permisos desde la API
-export const useRolesPermisos = () =>
-  useQuery({
-    queryKey: ROLES_QUERY_KEY,
-    queryFn: () => luzApi.listRoles(),
-    staleTime: 1000 * 60,
-  });
-
+// Roles (lista) para selectores y filtros
 export const useRoles = () => {
-  const query = useRolesPermisos();
-  return { ...query, data: query.data?.roles ?? [] };
+  const query = useQuery({ queryKey: ROLES_KEY, queryFn: () => luzApi.listRoles(), staleTime: 1000 * 60 });
+  return { ...query, data: query.data ?? [] };
 };
 
 export const useCreateUsuario = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: NuevoUsuarioInput) => luzApi.createUsuario(input),
-    onSuccess: (_data, input) => {
-      queryClient.invalidateQueries({ queryKey: USUARIOS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
+    onSuccess: (_d, input) => {
+      qc.invalidateQueries({ queryKey: USUARIOS_KEY });
+      qc.invalidateQueries({ queryKey: ROLES_KEY });
       pillToast.success('Usuario creado', `${input.email} ya puede ingresar al panel.`);
     },
-    onError: (err) => {
-      pillToast.error('No se pudo crear el usuario', err instanceof Error ? err.message : 'Inténtalo de nuevo.');
-    },
+    onError: (err) => pillToast.error('No se pudo crear el usuario', mensaje(err)),
   });
 };
 
 export const useUpdateUsuario = () => {
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { roleKey?: string; isActive?: boolean } }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; phone?: string | null; roleKey?: string; isActive?: boolean } }) =>
       luzApi.updateUsuario(id, patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: USUARIOS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: USUARIOS_KEY });
+      qc.invalidateQueries({ queryKey: ROLES_KEY });
       pillToast.success('Cambios guardados');
     },
-    onError: (err) => {
-      pillToast.error('No se pudieron guardar los cambios', err instanceof Error ? err.message : 'Inténtalo de nuevo.');
-    },
+    onError: (err) => pillToast.error('No se pudieron guardar los cambios', mensaje(err)),
   });
 };
 
-// Desactivar desde la tabla (no se borra el historial)
+// "Eliminar" desactiva la cuenta: no se borra el historial.
 export const useDeleteUsuario = () => {
-  const updateUsuario = useUpdateUsuario();
+  const update = useUpdateUsuario();
   return {
-    ...updateUsuario,
-    mutate: (id: string) => updateUsuario.mutate({ id, patch: { isActive: false } }),
+    ...update,
+    mutate: (id: string) => update.mutate({ id, patch: { isActive: false } }),
   };
 };

@@ -2,19 +2,18 @@ import React from 'react';
 import { Link } from '@tanstack/react-router';
 import { Users, UserCheck, UserX, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../shared/components/ui/card';
-import { useUsuarios, useRolesPermisos } from '../../usuarios/hooks/use-usuarios';
+import { useUsuarios, useRoles } from '../../usuarios/hooks/use-usuarios';
 import { useSession } from '../../auth/hooks/use-session';
 
 // Inicio: cifras reales de la API.
 export const DashboardPage: React.FC = () => {
   const { data: session } = useSession();
   const { data: usuarios = [] } = useUsuarios();
-  const { data: rolesData } = useRolesPermisos();
+  const roles = useRoles().data;
 
   const total = usuarios.length;
   const activos = usuarios.filter((u) => u.status === 'Activo').length;
   const inactivos = total - activos;
-  const roles = rolesData?.roles ?? [];
 
   const kpis = [
     { label: 'Usuarios', value: total, icon: Users, hint: 'Cuentas del panel' },

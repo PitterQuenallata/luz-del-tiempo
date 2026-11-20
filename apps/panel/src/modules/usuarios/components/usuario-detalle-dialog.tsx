@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
+import { Input } from '../../../shared/components/ui/input';
 import { Usuario } from '../types/usuarios.types';
 import { useRoles, useUpdateUsuario } from '../hooks/use-usuarios';
 import { useSession } from '../../auth/hooks/use-session';
@@ -10,30 +11,31 @@ interface UsuarioDetalleDialogProps {
   onClose: () => void;
 }
 
-// Detalle de un usuario: cambiar rol y activar o desactivar la cuenta.
+// Ver y editar un usuario: nombre, teléfono, rol y estado de la cuenta.
 export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usuario, onClose }) => {
-  const { data: roles } = useRoles();
+  const roles = useRoles().data;
   const { data: sesion } = useSession();
   const update = useUpdateUsuario();
 
   const esSuperadmin = sesion?.roleKey === 'superadmin';
   const esPropia = sesion?.id === usuario.id;
-  const esSuperadminObjetivo = usuario.roleKey === 'superadmin';
-  const puedeEditarRol = !esSuperadminObjetivo || esSuperadmin;
+  const puedeEditarRol = usuario.roleKey !== 'superadmin' || esSuperadmin;
 
+  const [name, setName] = useState(usuario.name);
+  const [phone, setPhone] = useState(usuario.phone ?? '');
   const [roleKey, setRoleKey] = useState(usuario.roleKey ?? '');
   const [activo, setActivo] = useState(usuario.status === 'Activo');
 
   const rolesAsignables = roles.filter((r) => r.key !== 'superadmin' || esSuperadmin);
-  const cambioRol = roleKey !== (usuario.roleKey ?? '');
-  const cambioEstado = activo !== (usuario.status === 'Activo');
-  const hayCambios = cambioRol || cambioEstado;
+  const cambios: { name?: string; phone?: string | null; roleKey?: string; isActive?: boolean } = {};
+  if (name.trim() !== usuario.name) cambios.name = name.trim();
+  if ((phone.trim() || null) !== (usuario.phone ?? null)) cambios.phone = phone.trim() || null;
+  if (roleKey && roleKey !== usuario.roleKey) cambios.roleKey = roleKey;
+  if (activo !== (usuario.status === 'Activo')) cambios.isActive = activo;
+  const hayCambios = Object.keys(cambios).length > 0;
 
   const guardar = async () => {
-    const patch: { roleKey?: string; isActive?: boolean } = {};
-    if (cambioRol) patch.roleKey = roleKey;
-    if (cambioEstado) patch.isActive = activo;
-    await update.mutateAsync({ id: usuario.id, patch });
+    await update.mutateAsync({ id: usuario.id, patch: cambios });
     onClose();
   };
 
@@ -60,22 +62,19 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
           </button>
         </div>
 
-        <div className="p-5 space-y-5 text-xs">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-muted-foreground mb-0.5">Teléfono</p>
-              <p className="font-mono">{usuario.phone ?? 'No registrado'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground mb-0.5">Alta</p>
-              <p className="font-mono">{usuario.joinedAt}</p>
-            </div>
-          </div>
-
+        <div className="p-5 space-y-4 text-xs">
           <div className="space-y-1.5">
-            <label htmlFor="detalle-rol" className="font-medium block">Rol</label>
+            <label htmlFor="det-nombre" className="font-medium block">Nombre</label>
+            <Input id="det-nombre" value={name} onChange={(e) => setName(e.target.value)} className="text-xs" />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="det-tel" className="font-medium block">Teléfono</label>
+            <Input id="det-tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+591 7xxxxxxx" className="text-xs font-mono" />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="det-rol" className="font-medium block">Rol</label>
             <select
-              id="detalle-rol"
+              id="det-rol"
               value={roleKey}
               disabled={!puedeEditarRol}
               onChange={(e) => setRoleKey(e.target.value)}
@@ -85,11 +84,8 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
                 <option key={r.key} value={r.key}>{r.name}</option>
               ))}
             </select>
-            {!puedeEditarRol && (
-              <p className="text-[11px] text-muted-foreground">Solo el superadmin puede modificar esta cuenta.</p>
-            )}
+            {!puedeEditarRol && <p className="text-[11px] text-muted-foreground">Solo el superadmin puede modificar esta cuenta.</p>}
           </div>
-
           <div className="space-y-1.5">
             <p className="font-medium">Estado de la cuenta</p>
             <div className="grid grid-cols-2 gap-2">
@@ -112,20 +108,12 @@ export const UsuarioDetalleDialog: React.FC<UsuarioDetalleDialogProps> = ({ usua
             </div>
             {esPropia && <p className="text-[11px] text-muted-foreground">No puedes desactivar tu propia cuenta.</p>}
           </div>
+          <p className="text-[11px] text-muted-foreground font-mono">Alta: {usuario.joinedAt}</p>
         </div>
 
         <div className="flex items-center justify-end gap-2 p-4 border-t border-border/60 bg-secondary/20">
-          <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            disabled={!hayCambios || update.isPending}
-            onClick={guardar}
-            className="text-xs"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">Cancelar</Button>
+          <Button type="button" variant="default" size="sm" disabled={!hayCambios || update.isPending} onClick={guardar} className="text-xs">
             {update.isPending ? 'Guardando…' : 'Guardar cambios'}
           </Button>
         </div>

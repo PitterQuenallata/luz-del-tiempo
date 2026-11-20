@@ -23,23 +23,23 @@ export interface ErrorPageProps {
 
 const ERROR_CONFIG: Record<string, { title: string; description: string; hint: string }> = {
   '404': {
-    title: 'Page Not Found',
-    description: "The page you're looking for might have been moved or doesn't exist.",
+    title: 'Página no encontrada',
+    description: 'La página que buscas pudo haberse movido o no existe.',
     hint: 'Ruta no encontrada o enlace desactualizado.',
   },
   '500': {
-    title: 'Internal Server Error',
-    description: "Something went wrong on our servers. We're actively looking into it.",
+    title: 'Error interno del servidor',
+    description: 'Algo salió mal en el servidor. Ya estamos revisándolo.',
     hint: 'Error interno en el procesamiento del servidor.',
   },
   '505': {
-    title: 'HTTP Version Not Supported',
-    description: 'The server does not support the HTTP protocol version used in the request.',
+    title: 'Versión HTTP no soportada',
+    description: 'El servidor no soporta la versión del protocolo HTTP usada en la solicitud.',
     hint: 'Protocolo de red no soportado por el gateway.',
   },
   '403': {
-    title: 'Access Forbidden',
-    description: "You don't have authorization or permission to access this secure zone.",
+    title: 'Acceso denegado',
+    description: 'No tienes permiso para entrar a esta zona.',
     hint: 'Permisos insuficientes en las políticas RBAC.',
   },
 };
@@ -87,7 +87,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
     if (onExplore) {
       onExplore();
     } else {
-      window.location.hash = '#/dashboard';
+      window.location.hash = '#/usuarios';
     }
   };
 
@@ -113,14 +113,14 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
     <div
       className={cn(
         'relative flex flex-col items-center justify-center w-full select-none overflow-hidden font-sans',
-        'bg-[#0A0A0A] text-white',
+        'bg-[#0b1324] text-white',
         fullscreen ? 'min-h-screen px-4 py-12' : 'min-h-[520px] p-8 rounded-3xl border border-white/10',
         className
       )}
       style={{
         backgroundImage: `
           radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.035) 0%, transparent 65%),
-          radial-gradient(circle at 50% 90%, rgba(0, 0, 0, 0.8) 0%, #0A0A0A 100%)
+          radial-gradient(circle at 50% 90%, rgba(0, 0, 0, 0.8) 0%, #0b1324 100%)
         `,
       }}
     >
@@ -171,10 +171,10 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
           <button
             type="button"
             onClick={handleGoHome}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#E4E4E7] text-[#0A0A0A] hover:bg-white active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#E4E4E7] text-[#0b1324] hover:bg-white active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer"
           >
             <Home className="w-4 h-4 stroke-[2.2]" />
-            <span>Go Home</span>
+            <span>Ir al inicio</span>
           </button>
 
           {/* Secondary Action: Explore */}
@@ -184,7 +184,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10 active:scale-[0.98] backdrop-blur-md transition-all duration-150 cursor-pointer"
           >
             <Compass className="w-4 h-4 stroke-[2.2]" />
-            <span>Explore</span>
+            <span>Usuarios</span>
           </button>
 
           {/* Retry Button for 500 / 505 Server Errors */}
@@ -196,7 +196,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
               title="Volver a intentar"
             >
               <RotateCcw className="w-4 h-4 stroke-[2]" />
-              <span className="hidden sm:inline">Retry</span>
+              <span className="hidden sm:inline">Reintentar</span>
             </button>
           )}
 
@@ -208,7 +208,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
+              <span>Volver</span>
             </button>
           )}
         </div>

@@ -36,12 +36,14 @@ interface UsuariosDirectoryTabProps {
   usuarios: Usuario[];
   onAddUsuario: (input: NuevoUsuarioInput) => void;
   onDeleteUsuario: (id: string) => void;
+  onActivateUsuario: (id: string) => void;
 }
 
 export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   usuarios,
   onAddUsuario,
   onDeleteUsuario,
+  onActivateUsuario,
 }) => {
   const { play } = useSound();
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
@@ -64,6 +66,15 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
 
   // Quick View Drawer State
   const [selectedUserForDrawer, setSelectedUserForDrawer] = useState<Usuario | null>(null);
+  const columns = useMemo(
+    () =>
+      usuariosColumns({
+        onEdit: (u) => setSelectedUserForDrawer(u),
+        onDeactivate: (u) => onDeleteUsuario(u.id),
+        onActivate: (u) => onActivateUsuario(u.id),
+      }),
+    [onDeleteUsuario, onActivateUsuario]
+  );
 
   // Filtered List
   const filteredUsers = useMemo(() => {
@@ -84,7 +95,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
   // Metrics
   const totalCount = usuarios.length;
   const activeCount = usuarios.filter((u) => u.status === 'Activo').length;
-  const pendingCount = usuarios.filter((u) => u.status === 'Pendiente').length;
   const inactiveCount = usuarios.filter((u) => u.status === 'Inactivo').length;
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -125,14 +135,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
 
         <Card className="border-border">
           <CardContent className="p-4 space-y-1">
-            <span className="text-xs text-muted-foreground block font-medium">Invitaciones Pendientes</span>
-            <div className="font-mono text-2xl font-bold text-amber-500 tabular-nums">{pendingCount}</div>
-            <span className="text-[11px] text-amber-500/80 font-mono">En espera de aceptación</span>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardContent className="p-4 space-y-1">
             <span className="text-xs text-muted-foreground block font-medium">Cuentas Inactivas</span>
             <div className="font-mono text-2xl font-bold text-muted-foreground tabular-nums">{inactiveCount}</div>
             <span className="text-[11px] text-muted-foreground font-mono">Suspendidos o en baja</span>
@@ -147,7 +149,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
             <div>
               <CardTitle className="text-base font-bold">Directorio & Control de Miembros</CardTitle>
               <CardDescription className="text-xs">
-                Administración de credenciales corporativas, roles de seguridad y asignación de planes
+                Administración de credenciales corporativas, roles de seguridad y asignación de roles
               </CardDescription>
             </div>
 
@@ -190,7 +192,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, correo o departamento..."
+                placeholder="Buscar por nombre o correo..."
                 className="pl-9 text-xs h-9 bg-background"
               />
             </div>
@@ -222,7 +224,6 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
               >
                 <option value="all">Todos los Estados</option>
                 <option value="Activo">Activos</option>
-                <option value="Pendiente">Pendientes</option>
                 <option value="Inactivo">Inactivos</option>
               </select>
 
@@ -265,7 +266,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
           {viewMode === 'table' ? (
             <div className="p-4">
               <DataTable
-                columns={usuariosColumns}
+                columns={columns}
                 data={filteredUsers}
                 searchKey="name"
                 searchPlaceholder="Filtrar en tabla..."
@@ -303,13 +304,7 @@ export const UsuariosDirectoryTab: React.FC<UsuariosDirectoryTabProps> = ({
                     </div>
 
                     <Badge
-                      variant={
-                        user.status === 'Activo'
-                          ? 'success'
-                          : user.status === 'Pendiente'
-                          ? 'warning'
-                          : 'secondary'
-                      }
+                      variant={user.status === 'Activo' ? 'success' : 'secondary'}
                       className="text-[10px] font-mono shrink-0"
                     >
                       {user.status}

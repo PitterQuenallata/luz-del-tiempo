@@ -23,13 +23,12 @@ export const AuthErrorFullscreenPage: React.FC<AuthErrorFullscreenPageProps> = (
   const code = determineCode();
 
   return (
-    <div className="w-full min-h-screen bg-[#0A0A0A]">
+    <div className="w-full min-h-screen bg-[#0b1324]">
       <ErrorPage
         code={code}
         fullscreen
-        showSwitcher
         onGoHome={() => navigate({ to: '/' })}
-        onExplore={() => navigate({ to: '/dashboard' })}
+        onExplore={() => navigate({ to: '/usuarios' })}
         onBack={() => {
           if (window.history.length > 1) {
             window.history.back();
