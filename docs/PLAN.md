@@ -63,6 +63,14 @@ En la pantalla de editar área hay una sección **"Programar evento"** con un in
 
 ---
 
+### 2.4 Contenido editable de la web (no solo áreas)
+Además de las áreas, el panel debe poder cambiar sin programar:
+- **Hero del inicio** (carrusel): imagen, título, subtítulo, botón y orden.
+- **Predicadores** y **autores** (foto, nombre, bio, redes/contacto), que se enlazan desde noticias, videos y actividades.
+- Otros bloques que cambian con el tiempo (banners de campaña, aviso de "En vivo", textos de "Quiénes somos" y "Donar").
+
+Todo esto se edita desde el panel y la web lo lee de la API.
+
 ## 3. Actividades (vista general)
 - `/actividades`: lista + calendario de todas las actividades (de áreas o sueltas).
 - Filtros por área y tipo. Estados automáticos: próximo / en curso / terminado.
