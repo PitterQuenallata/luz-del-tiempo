@@ -162,3 +162,291 @@ export const usuarioEditarSchema = telefonoRefine(
     isActive: z.boolean(),
   })
 );
+
+// ---------- Contenido de la web (docs/DATABASE.md §2) ----------
+
+export const AREA_TEMPLATES = ['hero', 'gallery', 'simple'] as const;
+export const AREA_ICONOS = ['health', 'music', 'bible', 'kids', 'family', 'radio'] as const;
+
+const slugSchema = z
+  .string()
+  .min(1, 'El enlace (slug) es obligatorio.')
+  .max(60, 'El enlace no puede pasar de 60 caracteres.')
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Usa solo minúsculas, números y guiones (ej. escuela-salud).');
+
+const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'El color debe tener formato #rrggbb.');
+
+// Portada: diapositiva del carrusel
+export const heroSchema = z.object({
+  eyebrow: z.string().trim().min(1, 'El texto superior es obligatorio.').max(60, 'Máximo 60 caracteres.'),
+  title: z.string().trim().min(1, 'El título es obligatorio.').max(120, 'Máximo 120 caracteres.'),
+  subtitle: z.string().trim().min(1, 'El subtítulo es obligatorio.').max(300, 'Máximo 300 caracteres.'),
+  ghost: z.tuple([
+    z.string().trim().max(30, 'Máximo 30 caracteres.'),
+    z.string().trim().max(30, 'Máximo 30 caracteres.'),
+    z.string().trim().max(30, 'Máximo 30 caracteres.'),
+  ]),
+  ctaLabel: z.string().trim().min(1, 'El texto del botón es obligatorio.').max(40, 'Máximo 40 caracteres.'),
+  ctaTo: z.string().trim().min(1, 'El enlace del botón es obligatorio.').max(200, 'Máximo 200 caracteres.'),
+  imageUrl: z.string().nullable(),
+  tint: colorSchema,
+  sortOrder: z.number().int().min(0),
+  isPublished: z.boolean(),
+});
+
+// Áreas
+export const areaSchema = z.object({
+  slug: slugSchema,
+  name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
+  template: z.enum(AREA_TEMPLATES, { errorMap: () => ({ message: 'Elige una plantilla.' }) }),
+  summary: z.string().trim().max(200, 'Máximo 200 caracteres.').nullable(),
+  content: z.string().trim().max(5000, 'Máximo 5000 caracteres.').nullable(),
+  color: colorSchema,
+  icon: z.enum(AREA_ICONOS, { errorMap: () => ({ message: 'Elige un ícono.' }) }),
+  coverUrl: z.string().nullable(),
+  whatsapp: z.string().trim().regex(/^\+?[0-9 ]{7,20}$/, 'Revisa el número de WhatsApp.').nullable(),
+  eventEnabled: z.boolean(),
+  isPublished: z.boolean(),
+  sortOrder: z.number().int().min(0),
+});
+
+// Personas: predicadores, autores y equipo
+export const personaSchema = z.object({
+  name: nombreSchema('El nombre'),
+  roleTitle: z.string().trim().min(2, 'El cargo es obligatorio.').max(80, 'Máximo 80 caracteres.'),
+  bio: z.string().trim().max(600, 'Máximo 600 caracteres.').nullable(),
+  photoUrl: z.string().nullable(),
+  sortOrder: z.number().int().min(0),
+  isPublished: z.boolean(),
+});
+
+export type HeroInput = z.infer<typeof heroSchema>;
+export type AreaInput = z.infer<typeof areaSchema>;
+export type PersonaInput = z.infer<typeof personaSchema>;
+
+// ---------- Gestión de contenido: noticias, actividades, videos, en vivo, emisoras, donaciones ----------
+
+const uuidSchema = z.string().uuid('Elige una opción válida.');
+const fechaIso = z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'Revisa la fecha.');
+const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Usa formato HH:MM.');
+const opcionalTexto = (max: number, mensaje: string) => z.string().trim().max(max, mensaje).nullable();
+
+export const POST_ESTADOS = ['draft', 'scheduled', 'published', 'archived'] as const;
+
+// Noticias
+export const postSchema = z
+  .object({
+    slug: slugSchema,
+    title: z.string().trim().min(2, 'El título debe tener al menos 2 letras.').max(140, 'Máximo 140 caracteres.'),
+    excerpt: opcionalTexto(300, 'Máximo 300 caracteres.'),
+    content: opcionalTexto(20000, 'Máximo 20 000 caracteres.'),
+    coverUrl: z.string().nullable(),
+    areaId: uuidSchema.nullable(),
+    status: z.enum(POST_ESTADOS),
+    publishedAt: fechaIso.nullable(),
+    authorPersonId: uuidSchema.nullable(),
+  })
+  .refine((d) => d.status === 'draft' || d.status === 'archived' || d.publishedAt, {
+    message: 'Pon la fecha de publicación.',
+    path: ['publishedAt'],
+  });
+
+export const ACTIVIDAD_TIPOS = [
+  'vacation_school', 'health_school', 'music_school', 'workshop', 'health_campaign', 'bible_campaign', 'bible_study', 'other',
+] as const;
+
+// Actividades
+export const actividadSchema = z
+  .object({
+    slug: slugSchema,
+    title: z.string().trim().min(2, 'El título debe tener al menos 2 letras.').max(140, 'Máximo 140 caracteres.'),
+    type: z.enum(ACTIVIDAD_TIPOS),
+    areaId: uuidSchema.nullable(),
+    summary: opcionalTexto(300, 'Máximo 300 caracteres.'),
+    content: opcionalTexto(20000, 'Máximo 20 000 caracteres.'),
+    coverUrl: z.string().nullable(),
+    startsAt: fechaIso,
+    endsAt: fechaIso.nullable(),
+    scheduleText: opcionalTexto(120, 'Máximo 120 caracteres.'),
+    isVirtual: z.boolean(),
+    locationName: opcionalTexto(120, 'Máximo 120 caracteres.'),
+    locationAddress: opcionalTexto(200, 'Máximo 200 caracteres.'),
+    registrationType: z.enum(['none', 'whatsapp', 'link']),
+    registrationValue: opcionalTexto(300, 'Máximo 300 caracteres.'),
+    capacity: z.number().int().positive('La capacidad debe ser mayor que cero.').nullable(),
+    presenterPersonId: uuidSchema.nullable(),
+    cost: opcionalTexto(80, 'Máximo 80 caracteres.'),
+    agenda: z.array(z.object({ day: z.string().trim().min(1), items: z.array(z.string().trim().min(1)).min(1) })),
+    isPublished: z.boolean(),
+  })
+  .refine((d) => !d.endsAt || Date.parse(d.endsAt) >= Date.parse(d.startsAt), {
+    message: 'La hora de fin no puede ser antes del inicio.',
+    path: ['endsAt'],
+  })
+  .refine((d) => d.registrationType === 'none' || (d.registrationValue && d.registrationValue.length > 0), {
+    message: 'Escribe el número de WhatsApp o el enlace de inscripción.',
+    path: ['registrationValue'],
+  });
+
+// Series de video y videos
+export const serieSchema = z.object({
+  slug: slugSchema,
+  name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(120, 'Máximo 120 caracteres.'),
+  description: opcionalTexto(500, 'Máximo 500 caracteres.'),
+  areaId: uuidSchema,
+  youtubePlaylistId: opcionalTexto(60, 'Máximo 60 caracteres.'),
+  sortOrder: z.number().int().min(0),
+});
+
+// Acepta el ID (11 caracteres) o un enlace de YouTube, y devuelve solo el ID
+export const youtubeIdDe = (texto: string): string | null => {
+  const t = texto.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
+  const m = t.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+};
+
+export const videoSchema = z.object({
+  youtubeId: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{11}$/, 'Pega el enlace de YouTube o su ID de 11 caracteres.'),
+  title: z.string().trim().min(2, 'El título debe tener al menos 2 letras.').max(160, 'Máximo 160 caracteres.'),
+  description: opcionalTexto(2000, 'Máximo 2000 caracteres.'),
+  areaId: uuidSchema,
+  seriesId: uuidSchema.nullable(),
+  isFeatured: z.boolean(),
+  isPublished: z.boolean(),
+  publishedAt: fechaIso.nullable(),
+});
+
+// En vivo: interruptor general, título y un enlace por plataforma
+export const PLATAFORMAS_EN_VIVO = ['youtube', 'tiktok', 'facebook', 'radio'] as const;
+export const PLATAFORMA_ETIQUETA: Record<(typeof PLATAFORMAS_EN_VIVO)[number], string> = {
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  facebook: 'Facebook',
+  radio: 'Radio',
+};
+
+export const transmisionSchema = z.object({
+  platform: z.enum(PLATAFORMAS_EN_VIVO),
+  url: z.string().trim().url('Revisa el enlace de la transmisión.'),
+});
+
+export const enVivoSchema = z
+  .object({
+    isLive: z.boolean(),
+    title: opcionalTexto(120, 'Máximo 120 caracteres.'),
+    streams: z.array(transmisionSchema).max(4),
+  })
+  .refine((d) => new Set(d.streams.map((t) => t.platform)).size === d.streams.length, {
+    message: 'Cada plataforma solo puede aparecer una vez.',
+    path: ['streams'],
+  })
+  .refine((d) => !d.isLive || d.streams.length > 0, {
+    message: 'Para estar en vivo agrega al menos un enlace.',
+    path: ['streams'],
+  });
+
+// Emisoras y programación
+export const emisoraSchema = z
+  .object({
+    slug: slugSchema,
+    name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
+    description: opcionalTexto(500, 'Máximo 500 caracteres.'),
+    genre: opcionalTexto(60, 'Máximo 60 caracteres.'),
+    kind: z.enum(['own', 'external']),
+    imageUrl: z.string().nullable(),
+    relleno: z.enum(['ninguno', 'musica', 'historias', 'musica_historias']),
+    isMain: z.boolean(),
+    areaId: uuidSchema.nullable(),
+    operatedByName: opcionalTexto(80, 'Máximo 80 caracteres.'),
+    visibleInMinistry: z.boolean(),
+    status: z.enum(['active', 'suspended', 'disabled']),
+    sortOrder: z.number().int().min(0),
+    contactName: opcionalTexto(80, 'Máximo 80 caracteres.'),
+    contactPhone: opcionalTexto(30, 'Máximo 30 caracteres.'),
+    contactEmail: z.string().trim().email('Revisa el correo.').nullable().or(z.literal('').transform(() => null)),
+    notes: opcionalTexto(1000, 'Máximo 1000 caracteres.'),
+  })
+  .refine((d) => d.kind !== 'external' || !d.isMain, {
+    message: 'Una emisora externa no puede ser la principal.',
+    path: ['isMain'],
+  });
+
+export const programaSchema = z.object({
+  name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(120, 'Máximo 120 caracteres.'),
+  description: opcionalTexto(500, 'Máximo 500 caracteres.'),
+  hostName: opcionalTexto(80, 'Máximo 80 caracteres.'),
+  areaId: uuidSchema.nullable(),
+  isActive: z.boolean(),
+});
+
+export const franjaSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    startTime: horaSchema,
+    endTime: horaSchema,
+    isLive: z.boolean(),
+  })
+  .refine((d) => d.endTime > d.startTime, {
+    message: 'La hora de fin debe ser después del inicio. Si cruza la medianoche, crea dos franjas.',
+    path: ['endTime'],
+  });
+
+// Donaciones: métodos y necesidades (ajustes del sitio)
+export const DONACION_METODOS = ['qr', 'bank', 'paypal', 'remittance'] as const;
+
+export const donacionMetodoSchema = z.object({
+  id: z.enum(DONACION_METODOS),
+  title: z.string().trim().min(2, 'El título es obligatorio.').max(80, 'Máximo 80 caracteres.'),
+  detail: z.string().trim().max(200, 'Máximo 200 caracteres.'),
+  lines: z.array(z.string().trim().min(1)).max(10, 'Máximo 10 líneas.'),
+});
+
+export const necesidadSchema = z.object({
+  title: z.string().trim().min(2, 'El título es obligatorio.').max(120, 'Máximo 120 caracteres.'),
+  detail: z.string().trim().max(400, 'Máximo 400 caracteres.'),
+});
+
+export type PostInput = z.infer<typeof postSchema>;
+export type ActividadInput = z.infer<typeof actividadSchema>;
+export type SerieInput = z.infer<typeof serieSchema>;
+export type VideoInput = z.infer<typeof videoSchema>;
+export type EnVivoInput = z.infer<typeof enVivoSchema>;
+export type TransmisionInput = z.infer<typeof transmisionSchema>;
+export type EmisoraInput = z.infer<typeof emisoraSchema>;
+export type ProgramaInput = z.infer<typeof programaSchema>;
+export type FranjaInput = z.infer<typeof franjaSchema>;
+export type DonacionMetodoInput = z.infer<typeof donacionMetodoSchema>;
+export type NecesidadInput = z.infer<typeof necesidadSchema>;
+
+export const listaMetodosDonacionSchema = z.array(donacionMetodoSchema).max(4, 'Máximo 4 formas de donar.');
+export const listaNecesidadesSchema = z.array(necesidadSchema).max(20, 'Máximo 20 necesidades.');
+
+// Etiquetas del relleno (lo que suena cuando no hay programa)
+export const RELLENO_ETIQUETA: Record<'ninguno' | 'musica' | 'historias' | 'musica_historias', string> = {
+  ninguno: 'Nada (franja vacía)',
+  musica: 'AutoDJ (música propia)',
+  historias: 'Historias',
+  musica_historias: 'AutoDJ e historias',
+};
+
+// ---------- Datos del ministerio (contacto y redes) ----------
+// Los campos vacíos no se muestran en la web.
+const urlOpcional = z.string().trim().max(300).refine((v) => v === '' || /^https?:\/\/\S+$/.test(v), 'Revisa el enlace (debe empezar con https://).');
+
+export const datosMinisterioSchema = z.object({
+  whatsapp: z.string().trim().max(20).refine((v) => v === '' || /^\+?[0-9 ]{7,20}$/.test(v), 'Revisa el número de WhatsApp (solo números, con código de país).'),
+  email: z.string().trim().max(120).refine((v) => v === '' || z.string().email().safeParse(v).success, 'Revisa el correo.'),
+  address: z.string().trim().max(200),
+  city: z.string().trim().max(80),
+  redes: z.object({
+    youtube: urlOpcional,
+    tiktok: urlOpcional,
+    facebook: urlOpcional,
+    appAndroid: urlOpcional,
+  }),
+});
+export type DatosMinisterioInput = z.infer<typeof datosMinisterioSchema>;

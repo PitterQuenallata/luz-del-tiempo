@@ -1,0 +1,1 @@
+ALTER TABLE "stations" ADD COLUMN "relleno" text DEFAULT 'musica' NOT NULL;

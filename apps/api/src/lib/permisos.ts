@@ -19,9 +19,9 @@ export const PERMISOS: PermisoDef[] = [
   { key: 'panel:acceso', descripcion: 'Entrar al panel', roles: ['superadmin', 'admin', 'editor', 'station_operator'], aplicado: true },
   { key: 'usuarios:gestionar', descripcion: 'Crear, editar y desactivar usuarios', roles: ['superadmin', 'admin'], aplicado: true },
   { key: 'superadmin:gestionar', descripcion: 'Asignar o modificar al superadmin', roles: ['superadmin'], aplicado: true },
-  { key: 'contenido:editar', descripcion: 'Noticias, áreas, actividades, videos y en vivo', roles: ['superadmin', 'admin', 'editor'], aplicado: false },
-  { key: 'donaciones:ver', descripcion: 'Donaciones', roles: ['superadmin', 'admin'], aplicado: false },
-  { key: 'estaciones:todas', descripcion: 'Ver y gestionar todas las estaciones', roles: ['superadmin', 'admin'], aplicado: false },
+  { key: 'contenido:editar', descripcion: 'Noticias, áreas, actividades, videos y en vivo', roles: ['superadmin', 'admin', 'editor'], aplicado: true },
+  { key: 'donaciones:ver', descripcion: 'Donaciones', roles: ['superadmin', 'admin'], aplicado: true },
+  { key: 'estaciones:todas', descripcion: 'Ver y gestionar todas las estaciones', roles: ['superadmin', 'admin'], aplicado: true },
   { key: 'estacion:propia', descripcion: 'Gestionar solo su estación', roles: ['station_operator'], aplicado: false },
   { key: 'servidores:configurar', descripcion: 'Servidores, Icecast/Liquidsoap y límites', roles: ['superadmin'], aplicado: false },
 ];

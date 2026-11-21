@@ -29,6 +29,41 @@
       "when": 1795195550055,
       "tag": "0003_steep_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795225857184,
+      "tag": "0004_unknown_sersi",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795227192370,
+      "tag": "0005_high_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795232148012,
+      "tag": "0006_wild_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795233675851,
+      "tag": "0007_easy_the_santerians",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795234866003,
+      "tag": "0008_low_power_pack",
+      "breakpoints": true
     }
   ]
 }
