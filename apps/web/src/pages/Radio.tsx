@@ -98,6 +98,7 @@ export default function Radio() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((s, i) => {
               const on = playingSlug === s.slug;
+              const { current: ahora, upcoming: proximos } = splitSchedule(schedule, s.slug);
               return (
                 <Reveal key={s.slug} delay={0.06 * i}>
                   <button
@@ -121,7 +122,16 @@ export default function Radio() {
                         {on && <Equalizer active color="#e2a927" className="h-4" />}
                       </span>
                       <span className="text-sm text-niebla-200">{s.description}</span>
-                      <span className="truncate text-xs text-niebla-300">Ahora: {s.nowPlaying}</span>
+                      {ahora && <span className="truncate text-xs text-niebla-300">Ahora: {ahora.programName}</span>}
+                      {proximos.length > 0 && (
+                        <span className="mt-1 flex flex-col gap-0.5 border-t border-white/10 pt-2 text-xs text-niebla-300">
+                          {proximos.slice(0, 2).map((u) => (
+                            <span key={u.start + u.programName} className="truncate">
+                              <span className="font-semibold tabular-nums text-oro-400">{u.start}</span> {u.programName}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </span>
                   </button>
                 </Reveal>

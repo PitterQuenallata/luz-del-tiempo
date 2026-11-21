@@ -73,15 +73,28 @@ export function NowPlayingStrip() {
               {player.status === "error" && isThis ? "Señal no disponible por ahora" : `${playing ? "Reproduciendo en vivo" : "En vivo ahora"} · ${selected.listeners} oyentes`}
               {upcoming[0] && ` · Después: ${upcoming[0].programName}`}
             </span>
-            {live?.isLive && (
-              <a href={live.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-2 self-start rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-white/80" />
-                  <span className="relative h-2 w-2 rounded-full bg-white" />
-                </span>
-                También en vivo en {live.platform === "tiktok" ? "TikTok" : live.platform === "facebook" ? "Facebook" : "YouTube"}: {live.title}
-                <ExternalLink size={13} />
-              </a>
+            {live?.isLive && live.streams.length > 0 && (
+              <div className="mt-1 flex flex-col gap-1.5">
+                {live.title && <span className="text-xs text-niebla-200">{live.title}</span>}
+                <div className="flex flex-wrap gap-2">
+                  {live.streams.map((t) => (
+                    <a
+                      key={t.platform}
+                      href={t.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inset-0 animate-ping rounded-full bg-white/80" />
+                        <span className="relative h-2 w-2 rounded-full bg-white" />
+                      </span>
+                      En vivo en {({ tiktok: "TikTok", facebook: "Facebook", radio: "la radio", youtube: "YouTube" } as const)[t.platform]}
+                      <ExternalLink size={13} />
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

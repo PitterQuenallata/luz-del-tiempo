@@ -39,9 +39,10 @@ export default function Actividad() {
       <header className="relative overflow-hidden">
         <span className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${area?.color ?? "#22376a"} 0%, #0b1324 110%)` }} />
         <span className="absolute top-6 right-6 opacity-15"><LogoMark className="h-40 w-40" /></span>
-        <SmartImage src={a.coverUrl} eager />
-        <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,19,36,0.94)_0%,rgba(11,19,36,0.7)_55%,rgba(11,19,36,0.35)_100%)]" />
-        <Reveal className="contenedor relative grid grid-cols-1 items-end gap-6 py-8 sm:py-10 lg:grid-cols-[1.3fr_1fr]">
+        {/* Fondo: la misma foto desenfocada, para no recortar la original */}
+        {a.coverUrl && <SmartImage src={a.coverUrl} eager className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />}
+        <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,19,36,0.96)_0%,rgba(11,19,36,0.8)_55%,rgba(11,19,36,0.55)_100%)]" />
+        <Reveal className="contenedor relative grid grid-cols-1 items-center gap-8 py-8 sm:py-10 lg:grid-cols-[1fr_auto]">
           <div className="flex min-w-0 flex-col gap-3">
             <span className="flex flex-wrap items-center gap-1 text-xs text-niebla-200">
               <Link to="/actividades" className="hover:text-oro-400">Actividades</Link>
@@ -53,11 +54,17 @@ export default function Actividad() {
             <div className="mt-1 flex flex-wrap gap-2">
               <RegisterButton a={a} />
             </div>
+            <div className="mt-4 flex flex-col gap-2">
+              <span className="text-sm text-niebla-200">Empieza en</span>
+              <Countdown iso={a.startsAt} />
+            </div>
           </div>
-          <div className="flex flex-col gap-2 lg:items-end">
-            <span className="text-sm text-niebla-200">Empieza en</span>
-            <Countdown iso={a.startsAt} />
-          </div>
+          {a.coverUrl && (
+            // Afiche en proporción 3:4, la misma que las tarjetas: la foto se ve completa
+            <div className="mx-auto aspect-[3/4] w-56 overflow-hidden rounded-2xl border border-white/10 shadow-2xl sm:w-64 lg:mx-0">
+              <SmartImage src={a.coverUrl} eager className="h-full w-full object-cover" />
+            </div>
+          )}
         </Reveal>
       </header>
 

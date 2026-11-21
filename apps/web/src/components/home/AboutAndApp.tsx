@@ -1,10 +1,14 @@
 import { Link } from "react-router";
+import { useSite } from "../../api";
 import { LogoMark, Wordmark } from "../layout/Logo";
 import { QrDemo } from "../ui/QrDemo";
 import { Reveal } from "../ui/Reveal";
 
 /** "Nuestro ministerio" + tarjeta de donación. */
 export function AboutDonate() {
+  const { data: site } = useSite();
+  const digitosWa = (site?.whatsapp ?? "").replace(/\D/g, "");
+  const waEnlace = digitosWa ? `https://wa.me/${digitosWa}` : "#";
   return (
     <section id="nosotros" className="bg-[linear-gradient(180deg,#2a3040_0%,#1c2233_100%)] pt-14 pb-16">
       <div className="contenedor flex flex-col gap-9">
@@ -33,7 +37,7 @@ export function AboutDonate() {
               <span className="font-semibold text-white">Banco Unión</span>
               <span className="tabular-nums">Cuenta 1-1234567 · Ministerio La Luz del Tiempo</span>
             </div>
-            <a href="https://wa.me/59170000000" target="_blank" rel="noreferrer" className="btn-oro self-stretch">Escribir por WhatsApp</a>
+            <a href={waEnlace} target="_blank" rel="noreferrer" className="btn-oro self-stretch">Escribir por WhatsApp</a>
           </Reveal>
         </div>
       </div>

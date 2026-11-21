@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
-import { useVideos } from "../api";
+import { useSite, useVideos } from "../api";
 import type { Video } from "../api/types";
 import { RowHeading } from "../components/ui/Reveal";
 import { VideoModal, ytThumb } from "../components/ui/VideoModal";
@@ -13,6 +13,7 @@ import { longDate } from "../lib/format";
  */
 export default function Videos() {
   const { data: videos = [] } = useVideos();
+  const { data: site } = useSite();
   const [open, setOpen] = useState<Video | null>(null);
   const featured = videos.find((v) => v.isFeatured) ?? videos[0];
 
@@ -54,7 +55,7 @@ export default function Videos() {
               <span className="text-sm text-niebla-300">{longDate(featured.publishedAt)}</span>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setOpen(featured)} className="btn-oro"><Play size={16} fill="currentColor" /> Ver ahora</button>
-                <a href="https://www.youtube.com/@laluzdeltiempo" target="_blank" rel="noreferrer" className="btn-borde">Ir al canal de YouTube</a>
+                <a href={site?.redes?.youtube ?? "#"} target="_blank" rel="noreferrer" className="btn-borde">Ir al canal de YouTube</a>
               </div>
             </div>
           </div>

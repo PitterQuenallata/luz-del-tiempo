@@ -23,5 +23,6 @@ function sinImagenesDemo(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), sinImagenesDemo()],
-  server: { port: 5173 },
+  // La web llama a /api y Vite lo reenvía a la API: así funciona desde otros equipos de la red
+  server: { port: 5173, proxy: { "/api": { target: "http://localhost:4000", changeOrigin: true } } },
 });

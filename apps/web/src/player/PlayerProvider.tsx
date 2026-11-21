@@ -56,6 +56,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const a = audioRef.current;
       const target = next ?? station;
       if (!a || !target) return;
+      // Emisora sin transmisión todavía: no se intenta reproducir
+      if (!target.streamUrl) {
+        setStatus("error");
+        return;
+      }
       if (!station || target.slug !== station.slug || status === "error") {
         // Streams en vivo: siempre conectar de nuevo para no quedar atrasados.
         a.src = target.streamUrl;

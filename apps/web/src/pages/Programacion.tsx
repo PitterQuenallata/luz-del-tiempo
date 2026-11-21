@@ -6,6 +6,7 @@ import { PageBody } from "../components/layout/PageHeader";
 import { Chips } from "../components/shared/Chips";
 import { nowBolivia } from "../lib/schedule";
 import { usePlayer } from "../player/PlayerProvider";
+import { GuiaSemanal } from "../components/shared/GuiaSemanal";
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -21,6 +22,7 @@ export default function Programacion() {
   const today = todayBolivia();
   const [day, setDay] = useState(today);
   const [station, setStation] = useState("todas");
+  const [vista, setVista] = useState<"dia" | "semana">("dia");
   const { data: items = [] } = useScheduleDay(day);
   const { data: stations = [] } = useStations();
   const player = usePlayer();
@@ -49,6 +51,21 @@ export default function Programacion() {
           <Chips label="Día" options={dayOptions} value={String(day)} onChange={(v) => setDay(Number(v))} />
         </div>
         <Chips label="Emisora" options={stationOptions} value={station} onChange={setStation} />
+        <Chips
+          label="Vista"
+          options={[{ id: "dia", label: "Día" }, { id: "semana", label: "Semana" }]}
+          value={vista}
+          onChange={(v) => setVista(v as "dia" | "semana")}
+        />
+
+        {vista === "semana" ? (
+          <GuiaSemanal
+            station={station}
+            colorDe={(slug) => stationOf(slug)?.color}
+            hoy={today}
+            ahora={now}
+          />
+        ) : (
 
         <motion.ul
           key={`${day}-${station}`}
@@ -89,6 +106,7 @@ export default function Programacion() {
             );
           })}
         </motion.ul>
+        )}
       </PageBody>
     </>
   );
