@@ -253,3 +253,8 @@ h1, h2, h3, h4, .font-heading {
   }
 }
 
+
+/* Calendario de programación: el relleno de fondo no bloquea el arrastre para agregar horarios */
+.programacion-fc .fc-bg-event {
+  pointer-events: none;
+}
