@@ -7,6 +7,7 @@ import { LogoMark } from "../layout/Logo";
 import { EstelasVuelo } from "../ui/Estelas";
 import { Sk, SkeletonRegion } from "../ui/Skeleton";
 import { SmartImage } from "../ui/SmartImage";
+import { EASE } from "../../lib/motion";
 
 const DURATION = 7000;
 
@@ -21,7 +22,7 @@ const RESPALDO: HeroSlide = {
   imageUrl: null,
   tint: "#22376a",
 };
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 function Cta({ slide }: { slide: HeroSlide }) {
   const cls = "btn-oro btn-brillo self-start text-sm";
@@ -187,7 +188,7 @@ export function HeroCarousel() {
                 <motion.div
                   key={i}
                   className="flex flex-col"
-                  variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease, delay: 0.25 } } }}
+                  variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease, delay: 0.15 } } }}
                 >
                   {el}
                 </motion.div>

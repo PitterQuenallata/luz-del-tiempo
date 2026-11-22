@@ -11,9 +11,10 @@ import { Chips } from "../components/shared/Chips";
 import { SmartImage } from "../components/ui/SmartImage";
 import { longDate } from "../lib/format";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
+import { EASE, stagger } from "../lib/motion";
 
 const cover = (a?: Area) => ({ background: `radial-gradient(circle at 30% 40%, ${a?.color ?? "#22376a"}aa, #0b1324 75%)` });
-const suave = [0.25, 0.1, 0.25, 1] as const;
+const suave = EASE;
 
 /** Las noticias como lista de schema.org (Google entiende que es una sección de noticias). */
 const jsonLd = (posts: Post[]) => ({
@@ -143,7 +144,7 @@ function NewsRow({ p, area, i }: { p: Post; area?: Area; i: number }) {
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.5, delay: Math.min(i, 4) * 0.05, ease: suave }}
+      transition={{ duration: 0.5, delay: stagger(i), ease: suave }}
     >
       <Link to={`/noticias/${p.slug}`} className="group -mx-2 flex gap-4 rounded-xl px-2 py-5 transition-colors duration-300 hover:bg-white/[0.03] sm:gap-6">
         <span className="relative grid aspect-[4/3] w-28 shrink-0 place-items-center overflow-hidden rounded-xl sm:w-48" style={cover(area)}>

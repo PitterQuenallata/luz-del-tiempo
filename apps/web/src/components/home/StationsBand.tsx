@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { fadeUp } from "../../lib/motion";
 import { useStations } from "../../api";
 import { usePlayer } from "../../player/PlayerProvider";
 import { Equalizer } from "../ui/Equalizer";
-import { BandHeading, Reveal } from "../ui/Reveal";
+import { BandHeading, Reveal, Stagger } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
 
@@ -86,12 +87,13 @@ export function StationsBand() {
             </AnimatePresence>
           </Reveal>
 
-          <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-3">
+          <Stagger className="flex min-w-0 flex-[1_1_300px] flex-col gap-3">
             {stations.map((s) => {
               const on = s.slug === current.slug;
               return (
-                <button
+                <motion.button
                   key={s.slug}
+                  variants={fadeUp}
                   type="button"
                   onClick={() => setPicked(s.slug)}
                   aria-pressed={on}
@@ -104,11 +106,12 @@ export function StationsBand() {
                     <span className="text-[13px] font-bold">{s.name}</span>
                     <span className="truncate text-xs text-niebla-200">{s.description}</span>
                   </span>
-                </button>
+                </motion.button>
               );
             })}
-            <button
+            <motion.button
               type="button"
+              variants={fadeUp}
               onClick={() => (isThis ? player.toggle() : player.play(current))}
               className="group mt-auto flex items-center justify-between gap-3 rounded-xl bg-oro-500 px-5 py-4 text-left text-noche-900 transition hover:bg-oro-400"
             >
@@ -118,8 +121,8 @@ export function StationsBand() {
                 <span className="text-xs font-medium">{playing ? "Reproduciendo en vivo" : "En vivo ahora"} · {current.listeners} oyentes</span>
               </span>
               <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold">{playing ? "Pausar" : "Oír"}</span>
-            </button>
-          </div>
+            </motion.button>
+          </Stagger>
         </div>
       </div>
     </section>

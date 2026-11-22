@@ -9,6 +9,7 @@ import { Layout } from "./components/layout/Layout";
 import "./index.css";
 import Home from "./pages/Home";
 import { PlayerProvider } from "./player/PlayerProvider";
+import { EASE } from "./lib/motion";
 
 // El inicio va en el paquete principal; las demás páginas se descargan aparte (menos JS al abrir la web en el celular).
 const paginas = {
@@ -77,7 +78,7 @@ createRoot(document.getElementById("root")!).render(
     {/* buster: cada versión publicada descarta la caché anterior, por si cambió la forma de los datos */}
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: DIA, buster: __BUILD_ID__ }}>
       {/* Movimiento por defecto: suave y sin rebote */}
-      <MotionConfig reducedMotion="user" transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}>
+      <MotionConfig reducedMotion="user" transition={{ duration: 0.5, ease: EASE }}>
         <PlayerProvider>
           <BrowserRouter>
             <Routes>

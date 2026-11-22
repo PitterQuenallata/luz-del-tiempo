@@ -9,6 +9,7 @@ import { LogoMark, Wordmark } from "../layout/Logo";
 import { Equalizer } from "../ui/Equalizer";
 import { PlayPauseIcon } from "../ui/PlayPauseIcon";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
+import { EASE } from "../../lib/motion";
 
 /** "Estamos presentando": lo que suena ahora + los próximos programas en la barra dorada. */
 export function NowPlayingStrip() {
@@ -50,7 +51,7 @@ export function NowPlayingStrip() {
         className="mx-auto max-w-[1152px] 2xl:max-w-[1296px] overflow-hidden rounded-xl border border-oro-500 bg-noche-800"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={{ delay: 0.05, duration: 0.5, ease: EASE }}
       >
         <div className="flex flex-wrap items-center gap-5 p-4 sm:p-5">
           <motion.div

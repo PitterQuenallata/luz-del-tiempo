@@ -193,6 +193,13 @@ a, button { -webkit-tap-highlight-color: transparent; }
   html { scroll-behavior: auto; }
   .animate-marquee, .ambient-a, .ambient-b, .pulso-vivo::before, .brillo-franja { animation: none; }
   .btn-brillo::after { display: none; }
+  /* Al pasar el mouse o tocar: se mantienen los cambios de color y brillo, pero nada se mueve, agranda ni gira */
+  [class*="hover:scale"], [class*="hover:-translate"], [class*="hover:translate"],
+  [class*="hover:-rotate"], [class*="hover:rotate"], [class*="active:scale"] {
+    scale: none !important;
+    translate: none !important;
+    rotate: none !important;
+  }
   /* Sin brillo que se desplaza: un pulso lento de opacidad indica que está cargando */
   .sk::after { display: none; }
   .sk { animation: sk-pulso 2s ease-in-out infinite; }

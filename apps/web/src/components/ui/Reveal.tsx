@@ -2,18 +2,33 @@ import { motion, type HTMLMotionProps } from "motion/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { EstelasMarca } from "./Estelas";
+import { DUR, EASE, OFFSET, fadeUp, staggerParent } from "../../lib/motion";
 
-/** Aparece suave al entrar en pantalla. */
-export function Reveal({ delay = 0, y = 10, ...props }: HTMLMotionProps<"div"> & { delay?: number; y?: number }) {
+/** Fade up: aparece suave al entrar en pantalla (una sola vez). */
+export function Reveal({ delay = 0, y = OFFSET, ...props }: HTMLMotionProps<"div"> & { delay?: number; y?: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.6, delay, ease: [0.25, 0.1, 0.25, 1] }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: DUR.base, delay, ease: EASE }}
       {...props}
     />
   );
+}
+
+/**
+ * Stagger: los hijos `StaggerItem` entran uno tras otro (50 ms entre cada uno) cuando el grupo
+ * aparece en pantalla. `mount` lo anima al montar, para lo que ya está visible arriba (cabeceras).
+ */
+export function Stagger({ step = 0.05, mount = false, ...props }: HTMLMotionProps<"div"> & { step?: number; mount?: boolean }) {
+  const trigger = mount ? { animate: "show" } : { whileInView: "show", viewport: { once: true, margin: "-40px" } };
+  return <motion.div initial="hidden" variants={staggerParent(step)} {...trigger} {...props} />;
+}
+
+/** Elemento de un `Stagger`: fade up con la curva y distancia comunes. */
+export function StaggerItem(props: HTMLMotionProps<"div">) {
+  return <motion.div variants={fadeUp} {...props} />;
 }
 
 /** Encabezado de fila: "Programación de hoy ............ [ver toda]". */

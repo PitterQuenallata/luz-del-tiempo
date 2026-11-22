@@ -12,6 +12,7 @@ import { LoadError, Sk, SkText } from "../components/ui/Skeleton";
 import { QrDemo } from "../components/ui/QrDemo";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { whatsappLink } from "../lib/format";
+import { stagger } from "../lib/motion";
 
 /**
  * Cabecera visual de cada forma de donar: el QR, una tarjeta bancaria o el
@@ -140,7 +141,7 @@ export default function Donar() {
                 </span>
               ))}
             {methods.map((m, i) => (
-              <Reveal key={m.id} delay={0.05 * i} className="h-full">
+              <Reveal key={m.id} delay={stagger(i)} className="h-full">
                 <Tilt className="h-full rounded-2xl" max={4}>
                 <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-noche-800 transition-colors duration-300 hover:border-oro-500/40">
                 <MethodVisual id={m.id} />
@@ -190,7 +191,7 @@ export default function Donar() {
               ))}
             {needs.map((n, i) => (
               <li key={n.title} className="border-b border-white/[0.08] py-7 first:pt-0 last:border-b-0">
-                <Reveal delay={0.05 * i} className="group flex gap-5">
+                <Reveal delay={stagger(i)} className="group flex gap-5">
                   <span className="font-serif text-3xl leading-none text-oro-500 italic tabular-nums transition-transform duration-500 group-hover:-translate-y-0.5" aria-hidden>{String(i + 1).padStart(2, "0")}</span>
                   <span className="flex flex-col gap-2">
                     <h3 className="titulo text-xl">{n.title}</h3>

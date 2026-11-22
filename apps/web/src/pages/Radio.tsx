@@ -13,8 +13,9 @@ import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton
 import { Tilt } from "../components/ui/Tilt";
 import { programProgress, splitSchedule } from "../lib/schedule";
 import { usePlayer } from "../player/PlayerProvider";
+import { EASE, stagger } from "../lib/motion";
 
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 /** Número que sube contando desde cero al aparecer. */
 function Contador({ value }: { value: number }) {
@@ -153,7 +154,7 @@ export default function Radio() {
             className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-noche-900/70 p-5 backdrop-blur"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.35, ease }}
+            transition={{ duration: 0.7, delay: 0.15, ease }}
           >
             <div className="flex flex-col gap-1">
               <span className="flex items-center gap-2 text-sm text-oro-400">
@@ -170,7 +171,7 @@ export default function Radio() {
                       className="absolute inset-y-0 left-0 rounded-full bg-oro-500"
                       initial={{ width: 0 }}
                       animate={{ width: `${programProgress(now) * 100}%` }}
-                      transition={{ duration: 1.2, delay: 0.6, ease }}
+                      transition={{ duration: 1.2, delay: 0.3, ease }}
                     />
                   </span>
                   {now.end}
@@ -202,7 +203,7 @@ export default function Radio() {
             {others.map((s, i) => {
               const on = playingSlug === s.slug;
               return (
-                <Reveal key={s.slug} delay={0.06 * i}>
+                <Reveal key={s.slug} delay={stagger(i)}>
                   <Tilt className="rounded-xl" max={5}>
                     <button
                       type="button"

@@ -9,6 +9,7 @@ import { Reveal } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
 import { Tilt } from "../components/ui/Tilt";
 import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
+import { stagger } from "../lib/motion";
 
 /** Las áreas como lista de schema.org, para que Google entienda la estructura del ministerio. */
 const jsonLd = (areas: Area[]) => ({
@@ -53,7 +54,7 @@ export default function Areas() {
         )}
         <div className={isPending ? "hidden" : "grid grid-cols-1 gap-4 md:grid-cols-2"}>
           {areas.map((a, i) => (
-            <Reveal key={a.slug} delay={0.06 * i}>
+            <Reveal key={a.slug} delay={stagger(i)}>
               <Tilt className="rounded-2xl" max={4}>
                 <Link
                   to={`/areas/${a.slug}`}

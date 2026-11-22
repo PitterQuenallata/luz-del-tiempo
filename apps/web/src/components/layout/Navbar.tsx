@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router";
 import { Logo } from "./Logo";
+import { EASE } from "../../lib/motion";
 
 export const NAV = [
   { to: "/radio", label: "Radio" },
@@ -37,7 +38,12 @@ export function Navbar() {
         scrolled || open ? "border-white/10 bg-noche-900/85 backdrop-blur-lg" : "border-white/[0.06] bg-noche-900"
       } ${hidden && !open ? "-translate-y-full" : "translate-y-0"}`}
     >
-      <nav className={`contenedor flex items-center justify-between gap-4 transition-[padding] duration-300 ${scrolled ? "py-1.5" : "py-2.5"}`}>
+      <motion.nav
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: EASE }}
+        className={`contenedor flex items-center justify-between gap-4 transition-[padding] duration-300 ${scrolled ? "py-1.5" : "py-2.5"}`}
+      >
         <Link to="/" aria-label="La Luz del Tiempo, inicio">
           <Logo />
         </Link>
@@ -83,7 +89,7 @@ export function Navbar() {
             {open ? <X /> : <Menu />}
           </button>
         </div>
-      </nav>
+      </motion.nav>
 
       <AnimatePresence>
         {open && (
@@ -92,7 +98,7 @@ export function Navbar() {
             initial={{ height: 0 }}
             animate={{ height: "auto" }}
             exit={{ height: 0 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.3, ease: EASE }}
           >
             <motion.ul
               className="contenedor space-y-1 py-4"

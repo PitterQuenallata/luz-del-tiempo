@@ -14,6 +14,7 @@ import { SmartImage } from "../components/ui/SmartImage";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
 import { longDate } from "../lib/format";
 import ComingSoon from "./ComingSoon";
+import { stagger } from "../lib/motion";
 
 /** Minutos de lectura a 200 palabras por minuto (mínimo 1). */
 const minutosLectura = (p: Post) => Math.max(1, Math.round(p.body.join(" ").split(/\s+/).length / 200));
@@ -106,7 +107,7 @@ export default function Noticia() {
         </Reveal>
         <article ref={article} className="flex flex-col gap-5 text-[17px] leading-[1.8] text-niebla-100">
           {post.body.map((p, i) => (
-            <Reveal key={i} delay={Math.min(i, 3) * 0.04}>
+            <Reveal key={i} delay={stagger(i)}>
               {/* Letra capital dorada en el primer párrafo, como en una revista */}
               <p className={i === 0 ? "first-letter:float-left first-letter:mt-1 first-letter:mr-2 first-letter:font-display first-letter:text-[3.4em] first-letter:leading-[0.8] first-letter:font-semibold first-letter:text-oro-400" : ""}>
                 {p}
@@ -126,7 +127,7 @@ export default function Noticia() {
             <h2 className="titulo text-xl">Más noticias</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {others.map((o, i) => (
-                <Reveal key={o.slug} delay={0.06 * i}>
+                <Reveal key={o.slug} delay={stagger(i)}>
                   <Link
                     to={`/noticias/${o.slug}`}
                     className="group block h-full rounded-xl border border-white/[0.08] p-4 transition-[background-color,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-oro-500/40 hover:bg-white/[0.04]"

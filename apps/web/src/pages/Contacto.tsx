@@ -9,6 +9,7 @@ import { Chips } from "../components/shared/Chips";
 import { Reveal } from "../components/ui/Reveal";
 import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { whatsappLink } from "../lib/format";
+import { stagger } from "../lib/motion";
 
 const TOPICS = ["Pedido de oración", "Saludo al aire", "Inscripción a una actividad", "Donaciones", "Otro"] as const;
 type Topic = (typeof TOPICS)[number];
@@ -108,7 +109,7 @@ export default function Contacto() {
             )}
             {isError && <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar los datos de contacto" />}
             {cards.map((c, i) => (
-              <Reveal key={c.title} delay={0.05 * i}>
+              <Reveal key={c.title} delay={stagger(i)}>
                 <a
                   href={c.href}
                   target="_blank"

@@ -8,6 +8,7 @@ import { BandHeading, Reveal } from "../ui/Reveal";
 import { VideoModal, ytThumb } from "../ui/VideoModal";
 import { SmartImage } from "../ui/SmartImage";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
+import { stagger } from "../../lib/motion";
 
 /** Banda azul "Videos y podcast": episodio grande + 3 anteriores + tarjeta dorada "Más contenido". */
 export function VideoBand() {
@@ -86,7 +87,7 @@ export function VideoBand() {
 
           <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
             {rest.slice(0, 3).map((v, i) => (
-              <Reveal key={v.youtubeId} delay={0.08 * i}>
+              <Reveal key={v.youtubeId} delay={stagger(i)}>
                 <motion.button type="button" onClick={() => setOpen(v)} className="group flex w-full items-center gap-4 text-left">
                   <motion.span layoutId={`band-${v.youtubeId}`} className="relative block h-16 w-28 shrink-0 overflow-hidden rounded-md bg-noche-800">
                     <SmartImage src={ytThumb(v.youtubeId)} alt={v.title} sizes="112px" />

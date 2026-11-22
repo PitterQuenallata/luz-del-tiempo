@@ -10,6 +10,7 @@ import { ActivityPoster, useCountdown } from "../components/shared/ActivityBits"
 import { Chips } from "../components/shared/Chips";
 import { eventJsonLd } from "../lib/eventos";
 import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
+import { EASE, stagger } from "../lib/motion";
 
 /** /actividades — Próximas actividades, escuelas y campañas (como "Todos los eventos" de SUMtv). */
 export default function Actividades() {
@@ -49,7 +50,7 @@ export default function Actividades() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-                transition={{ duration: 0.5, delay: 0.05 * (i % 4), ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.5, delay: stagger(i % 4), ease: EASE }}
               >
                 <ActivityPoster a={a} color={colorOf(a.areaSlug)} />
               </motion.div>

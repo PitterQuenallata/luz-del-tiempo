@@ -11,8 +11,9 @@ import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
 import { Tilt } from "../components/ui/Tilt";
 import { Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
+import { EASE, stagger } from "../lib/motion";
 
-const suave = [0.25, 0.1, 0.25, 1] as const;
+const suave = EASE;
 
 /** Página "Acerca de" de schema.org: el ministerio, sus áreas y su equipo. */
 function jsonLd(site: SiteInfo | undefined, areas: Area[], people: Person[]) {
@@ -85,7 +86,7 @@ export default function Nosotros() {
               </>
             )}
             {site?.history.map((p, i) => (
-              <Reveal key={i} delay={Math.min(i, 3) * 0.05}>
+              <Reveal key={i} delay={stagger(i)}>
                 <p>{p}</p>
               </Reveal>
             ))}
@@ -106,7 +107,7 @@ export default function Nosotros() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {areasPending && [0, 1, 2, 3].map((i) => <Sk key={i} className="h-[94px] rounded-xl" />)}
             {areas.map((a, i) => (
-              <Reveal key={a.slug} delay={0.05 * i}>
+              <Reveal key={a.slug} delay={stagger(i)}>
                 <Link
                   to={`/areas/${a.slug}`}
                   className="group flex h-full gap-4 rounded-xl border border-white/[0.08] p-4 transition-[background-color,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.04]"
@@ -141,7 +142,7 @@ export default function Nosotros() {
                 </span>
               ))}
             {people.map((p, i) => (
-              <Reveal key={p.name} delay={0.06 * i} className="h-full">
+              <Reveal key={p.name} delay={stagger(i)} className="h-full">
                 <Tilt className="h-full rounded-2xl" max={4}>
                   <div className="group flex h-full flex-col items-center gap-3 rounded-2xl border border-white/[0.08] p-4 text-center transition-colors duration-300 hover:border-oro-500/40 sm:p-5">
                     <span className="relative grid h-20 w-20 place-items-center overflow-hidden rounded-full border-2 border-oro-500/60 bg-noche-800 transition-[border-color,box-shadow] duration-300 group-hover:border-oro-400 group-hover:shadow-[0_0_0_6px_rgb(226_169_39/0.12)] sm:h-24 sm:w-24">

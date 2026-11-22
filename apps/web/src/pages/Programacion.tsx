@@ -10,12 +10,13 @@ import { LoadError, Sk } from "../components/ui/Skeleton";
 import { PlayPauseIcon } from "../components/ui/PlayPauseIcon";
 import { nowBolivia, programProgress } from "../lib/schedule";
 import { usePlayer } from "../player/PlayerProvider";
+import { EASE } from "../lib/motion";
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 /** La semana se muestra de lunes a domingo. */
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 /** Día de la semana en Bolivia (0 = domingo). */
 const todayBolivia = () => {

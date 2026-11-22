@@ -21,8 +21,9 @@ import { eventJsonLd } from "../lib/eventos";
 import { longDate, whatsappLink } from "../lib/format";
 import { usePlayer } from "../player/PlayerProvider";
 import ComingSoon from "./ComingSoon";
+import { EASE, stagger } from "../lib/motion";
 
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 /** El área como parte del ministerio, la ruta de migas y su próximo evento (schema.org). */
 function jsonLd(area: AreaT, event?: Activity) {
@@ -270,7 +271,7 @@ function AreaGallery({ area }: { area: AreaT }) {
         {photos.map((src, i) => (
           <Reveal
             key={src}
-            delay={0.06 * i}
+            delay={stagger(i)}
             className={i === 0 ? "col-span-2 aspect-[4/3] md:row-span-2 md:aspect-auto" : i === 3 ? "col-span-2 aspect-[2/1]" : "aspect-square"}
           >
             <GalleryPhoto

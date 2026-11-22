@@ -1,10 +1,12 @@
 import { Pause, Play } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { motion } from "motion/react";
+import { fadeUp } from "../../lib/motion";
 import { useSchedule, useStations } from "../../api";
 import { nowBolivia } from "../../lib/schedule";
 import { usePlayer } from "../../player/PlayerProvider";
 import { Equalizer } from "../ui/Equalizer";
-import { Reveal, RowHeading } from "../ui/Reveal";
+import { RowHeading, Stagger } from "../ui/Reveal";
 import { LoadError, Sk, SkeletonRegion } from "../ui/Skeleton";
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -67,7 +69,7 @@ export function LatestAndToday() {
     <section className="pt-14 pb-14">
       <div className="contenedor flex flex-col gap-5">
         <RowHeading title="Hoy en la radio" to="/programacion" label="ver la semana" />
-        <Reveal>
+        <Stagger>
           <div ref={rowRef} className="-mx-4 flex snap-x gap-3 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:scroll-px-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
             {items.map((r, i) => {
               const st = stationOf(r.stationSlug);
@@ -75,9 +77,10 @@ export function LatestAndToday() {
               const past = currentIdx >= 0 ? i < currentIdx : nextIdx >= 0 ? i < nextIdx : true;
               const playing = isNow && player.station?.slug === st?.slug && (player.status === "playing" || player.status === "loading");
               return (
-                <div
+                <motion.div
                   key={r.start + r.stationSlug}
                   ref={i === focusIdx ? nowRef : undefined}
+                  variants={fadeUp}
                   className={`relative flex w-[78%] shrink-0 snap-start flex-col gap-3 overflow-hidden rounded-xl border p-4 sm:w-64 ${
                     isNow ? "border-oro-500 bg-noche-800" : "border-white/[0.08]"
                   } ${past ? "opacity-45" : ""}`}
@@ -115,11 +118,11 @@ export function LatestAndToday() {
                       </button>
                     )}
                   </span>
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </Reveal>
+        </Stagger>
       </div>
     </section>
   );

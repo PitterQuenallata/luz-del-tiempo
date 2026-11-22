@@ -9,8 +9,9 @@ import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { RowHeading } from "../components/ui/Reveal";
 import { VideoModal, videoJsonLd, ytThumb } from "../components/ui/VideoModal";
 import { longDate } from "../lib/format";
+import { EASE, stagger } from "../lib/motion";
 
-const suave = [0.25, 0.1, 0.25, 1] as const;
+const suave = EASE;
 
 /**
  * /videos — Sin cabecera ni filtros: el episodio más reciente en grande y
@@ -190,7 +191,7 @@ function VideoRow({ title, videos, onOpen }: { title: string; videos: Video[]; o
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-30px" }}
-            transition={{ duration: 0.5, delay: Math.min(i, 4) * 0.05, ease: suave }}
+            transition={{ duration: 0.5, delay: stagger(i), ease: suave }}
             whileTap={{ scale: 0.97 }}
             className="group flex w-[72%] shrink-0 snap-start flex-col gap-3 text-left sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]"
             aria-label={`Ver video: ${v.title}`}

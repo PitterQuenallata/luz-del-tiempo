@@ -1,5 +1,6 @@
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { useRef } from "react";
+import { EASE } from "../../lib/motion";
 
 /**
  * ELEMENTO FIRMA del sitio: las tres estelas de los ángeles del logo.
@@ -8,7 +9,7 @@ import { useRef } from "react";
  *  - <EstelasVuelo>: las tres estelas cruzando la portada, dibujándose de izquierda a derecha.
  */
 
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 export function EstelasMarca({ className = "" }: { className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);

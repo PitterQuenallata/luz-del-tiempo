@@ -7,6 +7,7 @@ import { LogoMark } from "../layout/Logo";
 import { BandHeading, Reveal } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
 import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
+import { stagger } from "../../lib/motion";
 
 /**
  * "Actualidad en el ministerio". A propósito NO repite el esquema de la banda
@@ -105,7 +106,7 @@ export function NewsBand() {
           {rest.slice(0, 4).map((n, i) => {
             const area = areaOf(n.areaSlug);
             return (
-              <Reveal key={n.slug} delay={0.08 * i}>
+              <Reveal key={n.slug} delay={stagger(i)}>
                 <Link to={`/noticias/${n.slug}`} className="group flex h-full gap-4 rounded-xl border border-white/[0.08] p-3 transition-colors hover:bg-white/[0.04]">
                   <motion.span
                     className="w-1.5 shrink-0 rounded-full"
@@ -113,7 +114,7 @@ export function NewsBand() {
                     initial={{ scaleY: 0 }}
                     whileInView={{ scaleY: 1 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: 0.2 + 0.08 * i }}
+                    transition={{ duration: 0.6, delay: 0.1 + stagger(i) }}
                   />
                   <span className="flex min-w-0 flex-col gap-1.5 py-1">
                     <span className="text-xs text-niebla-300">{area?.name ?? "Ministerio"} · {longDate(n.publishedAt)}</span>

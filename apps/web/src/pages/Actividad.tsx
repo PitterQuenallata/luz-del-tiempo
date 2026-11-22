@@ -15,8 +15,9 @@ import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { descargarCalendario, eventJsonLd } from "../lib/eventos";
 import { longDate } from "../lib/format";
 import ComingSoon from "./ComingSoon";
+import { EASE, stagger } from "../lib/motion";
 
-const ease = [0.22, 1, 0.36, 1] as const;
+const ease = EASE;
 
 /** /actividades/:slug — Detalle (como la página de un evento de SUMtv: lugar, presentador, precio, horario diario). */
 export default function Actividad() {
@@ -103,7 +104,7 @@ export default function Actividad() {
           </div>
           <motion.div
             className="flex flex-col gap-2 lg:items-end"
-            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease, delay: 0.2 } } }}
+            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease, delay: 0.1 } } }}
           >
             <span className="text-sm text-niebla-200">Empieza en</span>
             <Countdown iso={a.startsAt} />
@@ -116,7 +117,7 @@ export default function Actividad() {
           {facts.map((f, i) => (
             <Reveal
               key={f.label}
-              delay={0.05 * i}
+              delay={stagger(i)}
               className="group flex gap-3 rounded-xl border border-white/[0.08] p-4 transition-colors duration-300 hover:border-oro-500/40 hover:bg-white/[0.03]"
             >
               <span className="mt-0.5 text-oro-400 transition-transform duration-300 group-hover:scale-110" aria-hidden>{f.icon}</span>
@@ -133,7 +134,7 @@ export default function Actividad() {
             <RowHeading title="Horario diario" />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {a.agenda.map((d, i) => (
-                <Reveal key={d.day} delay={0.06 * i} className="rounded-xl border border-white/[0.08] p-5">
+                <Reveal key={d.day} delay={stagger(i)} className="rounded-xl border border-white/[0.08] p-5">
                   <h3 className="titulo text-lg text-oro-400">{d.day}</h3>
                   {/* Línea de tiempo: cada punto se enciende al pasar el mouse por su fila */}
                   <ul className="mt-3 flex flex-col border-l border-white/10">

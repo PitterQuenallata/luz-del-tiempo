@@ -1,6 +1,9 @@
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
+import { motion } from "motion/react";
 import { Link } from "react-router";
+import { staggerParent } from "../../lib/motion";
+import { Stagger, StaggerItem } from "../ui/Reveal";
 
 /**
  * Cabecera común de las páginas internas. Compacta a propósito: ruta, título
@@ -31,8 +34,10 @@ export function PageHeader({
         }}
         aria-hidden
       />
-      <div className="contenedor relative flex flex-wrap items-end justify-between gap-x-8 gap-y-3 py-6 sm:py-8">
-        <div className="flex min-w-0 flex-col gap-2">
+      {/* Entrada en cascada al abrir la página: ruta, título, bajada y el dato de la derecha */}
+      <Stagger mount className="contenedor relative flex flex-wrap items-end justify-between gap-x-8 gap-y-3 py-6 sm:py-8">
+        <motion.div variants={staggerParent()} className="flex min-w-0 flex-col gap-2">
+          <StaggerItem>
           <nav aria-label="Ubicación" className="flex flex-wrap items-center gap-1 text-xs text-niebla-300">
             <Link to="/" className="hover:text-oro-400">Inicio</Link>
             {crumbs.map((c) => (
@@ -42,11 +47,18 @@ export function PageHeader({
               </span>
             ))}
           </nav>
-          <h1 className="titulo text-[clamp(28px,3.2vw,42px)] leading-[1.08]">{title}</h1>
-          {subtitle && <p className="max-w-2xl text-[15px] leading-relaxed text-niebla-200 sm:text-base">{subtitle}</p>}
-        </div>
-        {children}
-      </div>
+          </StaggerItem>
+          <StaggerItem>
+            <h1 className="titulo text-[clamp(28px,3.2vw,42px)] leading-[1.08]">{title}</h1>
+          </StaggerItem>
+          {subtitle && (
+            <StaggerItem>
+              <p className="max-w-2xl text-[15px] leading-relaxed text-niebla-200 sm:text-base">{subtitle}</p>
+            </StaggerItem>
+          )}
+        </motion.div>
+        {children && <StaggerItem className="max-sm:w-full">{children}</StaggerItem>}
+      </Stagger>
     </header>
   );
 }
