@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useLive, useSchedule, useStations } from "../../api";
@@ -20,6 +20,8 @@ export function NowPlayingStrip() {
   // Transmisión en otra plataforma (no la radio) para el aviso "También en vivo en…".
   const otraTransmision = live?.streams.find((s) => s.platform !== "radio");
   const [idx, setIdx] = useState(0);
+  // Se puede cerrar el aviso de transmisión; vuelve al recargar la página.
+  const [avisoCerrado, setAvisoCerrado] = useState(false);
 
   // Si ya hay una emisora sonando, la tira muestra esa.
   const selected = player.station ?? stations[idx];
@@ -88,7 +90,8 @@ export function NowPlayingStrip() {
               {player.status === "error" && isThis ? "Señal no disponible por ahora" : `${playing ? "Reproduciendo en vivo" : "En vivo ahora"} · ${selected.listeners} oyentes`}
               {upcoming[0] && ` · Después: ${upcoming[0].programName}`}
             </span>
-            {live?.isLive && otraTransmision && (
+            {live?.isLive && otraTransmision && !avisoCerrado && (
+              <div className="mt-1 flex items-center gap-2 self-start">
               <a href={otraTransmision.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-2 self-start rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inset-0 animate-ping rounded-full bg-white/80" />
@@ -97,6 +100,15 @@ export function NowPlayingStrip() {
                 También en vivo en {otraTransmision.platform === "tiktok" ? "TikTok" : otraTransmision.platform === "facebook" ? "Facebook" : "YouTube"}: {live.title}
                 <ExternalLink size={13} />
               </a>
+              <button
+                type="button"
+                onClick={() => setAvisoCerrado(true)}
+                aria-label="Cerrar aviso de transmisión"
+                className="grid h-7 w-7 place-items-center rounded-full border border-white/15 text-niebla-200 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <X size={14} aria-hidden />
+              </button>
+              </div>
             )}
           </div>
 
