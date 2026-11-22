@@ -1,6 +1,6 @@
-import { LayoutDashboard, Users, ScrollText, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, LucideIcon } from 'lucide-react';
 
-export type NavigationCategoryKey = 'principal' | 'administracion';
+export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion';
 
 export interface NavigationCategory {
   key: NavigationCategoryKey;
@@ -9,6 +9,8 @@ export interface NavigationCategory {
 
 export const navigationCategories: NavigationCategory[] = [
   { key: 'principal', title: 'Principal' },
+  { key: 'sitio', title: 'Sitio web' },
+  { key: 'radio', title: 'Radio' },
   { key: 'administracion', title: 'Administración' },
 ];
 
@@ -26,7 +28,15 @@ export interface NavItem {
 // Solo las secciones del alcance (docs/PLAN.md).
 export const navItems: NavItem[] = [
   { id: 'dashboard', title: 'Inicio', path: '/dashboard', icon: LayoutDashboard, category: 'principal', permiso: 'panel:acceso' },
+  { id: 'contenido', title: 'Portada y áreas', path: '/contenido', icon: Newspaper, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'noticias', title: 'Noticias', path: '/noticias', icon: FileText, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'actividades', title: 'Actividades', path: '/actividades', icon: CalendarDays, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'videos', title: 'Videos', path: '/videos', icon: Video, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'en-vivo', title: 'En vivo', path: '/en-vivo', icon: RadioTower, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: 'estaciones:todas' },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
+  { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },
   { id: 'logs', title: 'Auditoría', path: '/logs', icon: ScrollText, category: 'administracion', permiso: 'logs:ver' },
 ];
 

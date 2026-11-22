@@ -1,6 +1,6 @@
 # Base de datos — Ministerio La Luz del Tiempo
 
-> PostgreSQL 16+. 32 tablas en 4 grupos. Actualizado: 19/11/2026.
+> PostgreSQL 16+. 35 tablas en 4 grupos (incluye las 3 de Better Auth). Actualizado: 20/11/2026.
 > Convenciones: tablas y columnas en `snake_case` (inglés), PK `uuid` (`gen_random_uuid()`), fechas `timestamptz`, `created_at` / `updated_at` en casi todas.
 > Las tablas de autenticación siguen el formato de **Better Auth** (`users`, `sessions`, `accounts`, `verifications`, con `usePlural: true`).
 
@@ -26,7 +26,8 @@ classDiagram
   role_permissions "*" --> "1" permissions
   users "1" --> "*" user_permission_overrides
   user_permission_overrides "*" --> "1" permissions
-  users "*" --> "0..1" stations : operador
+  users "1" --> "*" station_members
+  stations "1" --> "*" station_members
   users "1" --> "*" sessions
   users "1" --> "*" accounts
 ```
@@ -42,14 +43,27 @@ classDiagram
 | phone | text | |
 | role_id | uuid | NULL = usuario de la app móvil (sin acceso al panel) |
 | role_scope | enum `global`/`station` | Copia del scope del rol (para validar con constraints) |
-| station_id | uuid FK → stations | Solo operadores. **1 usuario = 1 estación** |
 | is_active | bool | default true |
 | must_change_password | bool | Para contraseñas temporales |
 | last_login_at | timestamptz | |
 | created_by_id | text FK → users | |
 
 - FK compuesta `(role_id, role_scope) → roles(id, scope)`: no se puede "mentir" el scope.
-- CHECK `users_role_station_ck`: sin rol → sin estación; rol `station` → estación obligatoria; rol `global` → sin estación.
+- Las estaciones a las que pertenece un operador se guardan en `station_members` (ver abajo), no en `users`.
+
+### `station_members` (operadores por estación)
+| Columna | Tipo | Notas |
+|---|---|---|
+| user_id | text FK → users | ON DELETE CASCADE |
+| station_id | uuid FK → stations | ON DELETE CASCADE |
+| added_by_id | text FK → users | Quién lo asignó (bitácora) |
+| created_at | timestamptz | |
+
+PK compuesta `(user_id, station_id)`. Un usuario puede pertenecer a varias estaciones; una estación puede tener varios operadores.
+
+- Solo los usuarios con rol de scope `station` tienen filas aquí. Un rol global no tiene estaciones.
+- Una estación `external` tiene **como máximo un** miembro (trigger). Ver §6.
+- Un operador debe tener al menos una estación (se valida en la API al crear o quitar; la base lo refuerza con un trigger).
 
 ### `sessions`, `accounts`, `verifications`
 Estándar de Better Auth (token de sesión, IP, user agent; contraseña hasheada en `accounts.password`; códigos de verificación).
@@ -69,7 +83,7 @@ UNIQUE `(id, scope)` para la FK compuesta de `users`.
 ### `permissions`
 | Columna | Tipo | Notas |
 |---|---|---|
-| key | text PK | `modulo.accion`, ej. `posts.publish` |
+| key | text PK | `modulo:accion`, ej. `contenido:editar` (ver §5) |
 | module | text | Agrupa las casillas en el panel |
 | label | text | Texto que ve el admin |
 | super_admin_only | bool | Nunca se asigna a otro rol |
@@ -118,11 +132,38 @@ classDiagram
 
 Se convierten a WebP y se redimensionan al subir. **Los videos no se suben**: son enlaces de YouTube.
 
+### `people` (equipo, predicadores y autores)
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| name | text | |
+| role_title | text | "Pastor", "Administrador", "Predicador" |
+| bio | text | Corta (2–3 líneas) |
+| photo_media_id | uuid FK → media | |
+| whatsapp, email | text | Opcionales |
+| social | jsonb | Redes, ej. `{ "youtube": "…" }` |
+| show_on_about | bool | Aparece en `/nosotros` |
+| sort_order | int | |
+| is_active | bool | Se oculta sin borrar |
+| user_id | text FK → users, nullable | Si además tiene cuenta en el panel |
+
+### `hero_slides` (carrusel de portada)
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | uuid PK | |
+| eyebrow, title, subtitle | text | |
+| ghost_words | text[3] | Las 3 palabras grandes de fondo |
+| cta_label, cta_url | text | Botón (la URL puede ser interna o externa) |
+| image_media_id | uuid FK → media | 16:9 |
+| tint | text | Color de acento `#RRGGBB` |
+| sort_order | int | |
+| is_published | bool | |
+
 ### `areas`
 | Columna | Tipo | Notas |
 |---|---|---|
 | id | uuid PK | |
-| slug | text UNIQUE | `/salud`, `/musica` |
+| slug | text UNIQUE | `salud`, `musica`. La página pública es `/areas/salud` |
 | name | text | |
 | template | enum `hero`/`gallery`/`simple` | Las 3 plantillas |
 | summary | text | Frase corta para tarjetas |
@@ -155,6 +196,9 @@ Se convierten a WebP y se redimensionan al subir. **Los videos no se suben**: so
 | registration_type | enum `none`/`whatsapp`/`link` | |
 | registration_value | text | CHECK: obligatorio si no es `none` |
 | capacity | int | > 0, informativo |
+| presenter_person_id | uuid FK → people | Quién dirige la actividad |
+| cost | text | "Gratis", "Bs 50 por persona" (texto libre) |
+| agenda | jsonb | Horario por día: `[{ "day": "Sábado", "items": ["15:00 Bienvenida", …] }]` |
 | is_published, published_at | | |
 
 Índices: `(area_id, starts_at)`, `(is_published, starts_at)`.
@@ -167,10 +211,12 @@ Se convierten a WebP y se redimensionan al subir. **Los videos no se suben**: so
 | area_id | uuid FK | |
 | status | enum `draft`/`scheduled`/`published`/`archived` | |
 | published_at | timestamptz | CHECK: obligatorio si `scheduled` o `published` |
-| author_id | text FK | |
+| author_person_id | uuid FK → people | Autor público (predicador o redactor). No es necesariamente un usuario del panel |
+| created_by_id | text FK → users | Quién la redactó en el panel |
 
 ### `video_series`
-`id`, `slug`, `name`, `description`, `area_id`, `youtube_playlist_id`, `sort_order`.
+`id`, `slug`, `name`, `description`, `area_id` (**obligatorio**), `youtube_playlist_id`, `sort_order`.
+UNIQUE `(id, area_id)` para la FK compuesta de `videos`.
 
 ### `videos`
 | Columna | Tipo | Notas |
@@ -179,7 +225,8 @@ Se convierten a WebP y se redimensionan al subir. **Los videos no se suben**: so
 | youtube_id | text UNIQUE | CHECK `^[A-Za-z0-9_-]{11}$` (solo el ID, no la URL) |
 | title, description | text | Vienen de oEmbed |
 | duration_sec | int | |
-| area_id, series_id | uuid FK | |
+| area_id | uuid FK → areas | **Obligatorio** (todo video pertenece a un área) |
+| series_id | uuid, nullable | Opcional. FK compuesta `(series_id, area_id) → video_series(id, area_id)`: la serie debe ser de la misma área |
 | is_featured, is_published | bool | |
 | published_at | timestamptz | Fecha en YouTube |
 | source | enum `manual`/`sync` | Para la sincronización futura |
@@ -214,11 +261,13 @@ classDiagram
 | name, description, genre | text | |
 | logo_media_id | uuid FK → media | |
 | area_id | uuid FK → areas | Radio Salud → área Salud |
-| kind | enum `own`/`external` | Propia o de una radio externa |
+| is_main | bool | Solo una: la radio principal "Radio La Luz del Tiempo" (índice único parcial `WHERE is_main`) |
+| kind | enum `own`/`external` | `own` = estación del ministerio (puede haber varias). `external` = de otra radio: **máximo 1** (índice único parcial `WHERE kind = 'external'`) |
+| operated_by_name | text | Solo externas: "Operada por Radio Pepito". Se muestra en su página pública |
 | visible_in_ministry | bool | Las externas, por defecto no |
 | status | enum `active`/`suspended`/`disabled` | |
 | sort_order | int | |
-| mount_point | text UNIQUE | `/salud` (CHECK de formato) |
+| mount_point | text UNIQUE | Mount de Icecast, p. ej. `/salud` (no es una URL del sitio; CHECK de formato) |
 | source_password_enc | text | Contraseña de transmisión **cifrada** (AES-GCM en la API) |
 | autodj_enabled | bool | |
 | bitrate_kbps | smallint | 32–320, default 128 |
@@ -311,20 +360,27 @@ classDiagram
 
 ## 5. Catálogo de permisos y roles por defecto
 
+**Formato:** `modulo:accion`, igual que en el código (`apps/api/src/lib/permisos.ts`).
+
+**Qué se aplica hoy (Etapa 1):** el código usa permisos agrupados: `panel:acceso`, `usuarios:gestionar`, `logs:ver`, `roles:gestionar`, `superadmin:gestionar`, `contenido:editar`, `donaciones:ver`, `estaciones:todas`, `estacion:propia`, `servidores:configurar`. Esa es la referencia vigente.
+
+**Catálogo objetivo (Etapa 2):** la tabla de abajo es la granularidad a la que se llega cuando cada módulo exista. Un permiso agrupado (`contenido:editar`) se reparte en estos cuando haga falta, sin cambiar los roles.
+
 | Módulo | Permisos |
 |---|---|
-| Noticias | `posts.view` `posts.create` `posts.edit` `posts.publish` `posts.delete` |
-| Áreas | `areas.view` `areas.create` `areas.edit` `areas.delete` |
-| Actividades | `activities.view` `activities.manage` `activities.delete` |
-| Videos | `videos.view` `videos.manage` `videos.delete` |
-| En vivo | `live.manage` |
-| Imágenes | `media.upload` `media.delete` |
-| Estaciones | `stations.view`ᴱ `stations.create` `stations.edit`ᴱ `stations.delete` `stations.autodj`ᴱ `stations.credentials`ᴱ `stations.stats`ᴱ `stations.limits`ˢ `stations.suspend` |
-| Programación | `programs.view`ᴱ `programs.manage`ᴱ |
-| Donaciones | `donations.view` `donations.manage` `donations.reports` |
-| Oyentes | `contacts.view` `contacts.manage` `contacts.export` |
-| Notificaciones | `notifications.send` |
-| Administración | `users.view` `users.manage` `roles.manage` `settings.manage` `audit.view` `system.manage`ˢ |
+| Noticias | `posts:view` `posts:create` `posts:edit` `posts:publish` `posts:delete` |
+| Áreas | `areas:view` `areas:create` `areas:edit` `areas:delete` |
+| Actividades | `activities:view` `activities:manage` `activities:delete` |
+| Videos | `videos:view` `videos:manage` `videos:delete` |
+| En vivo | `live:manage` |
+| Equipo | `people:manage` |
+| Imágenes | `media:upload` `media:delete` |
+| Estaciones | `stations:view`ᴱ `stations:create` `stations:edit`ᴱ `stations:delete` `stations:autodj`ᴱ `stations:credentials`ᴱ `stations:stats`ᴱ `stations:limits`ˢ `stations:suspend` |
+| Programación | `programs:view`ᴱ `programs:manage`ᴱ |
+| Donaciones | `donations:view` `donations:manage` `donations:reports` |
+| Oyentes | `contacts:view` `contacts:manage` `contacts:export` |
+| Notificaciones | `notifications:send` |
+| Administración | `users:view` `users:manage` `roles:manage` `settings:manage` `audit:view` `system:manage`ˢ |
 
 ᴱ = de estación (el operador lo tiene solo sobre la suya) · ˢ = solo superadmin
 
@@ -343,12 +399,17 @@ Los roles del sistema no se borran. Sus casillas se pueden ajustar, salvo las de
 
 | Regla | Dónde se garantiza |
 |---|---|
-| Un operador tiene exactamente una estación; un rol global no tiene estación | CHECK + FK compuesta en `users` |
+| Un operador tiene al menos una estación; un rol global no tiene estaciones | Trigger + API sobre `station_members`; FK compuesta en `users` para el scope |
+| Solo puede existir **una** estación externa en el sistema, y tiene un solo operador | Índice único parcial en `stations` (`WHERE kind = 'external'`) + trigger en `station_members` |
 | Cuota del AutoDJ ≤ 10 GB y lo usado ≤ la cuota | CHECK en `stations`. La subida hace `UPDATE … storage_used_bytes + tamaño` en la misma transacción, así que falla sola si se pasa, incluso con subidas simultáneas |
 | No se puede bajar la cuota por debajo de lo ya usado | El mismo CHECK |
 | Recibos correlativos sin huecos y por año | `donation_receipt_counters` con UPSERT dentro de la transacción |
 | Las donaciones no se borran | Anulación con motivo (`voided_at` + `void_reason`) |
 | Solo el ID de YouTube, nunca la URL | CHECK de formato en `videos` |
+| El área es el padre de todo el contenido (noticias, actividades, series, videos, programas). Una serie y un video siempre pertenecen a un área, y si el video tiene serie, debe ser de la misma área | FK compuestas en `videos` y `video_series` |
+| Un área con contenido no se borra: se **archiva** (`is_published = false`) y su contenido queda oculto. Solo se elimina si está vacía; si tiene contenido, el panel ofrece mover el contenido a otra área | `is_published` + FK sin borrado en cascada (`ON DELETE RESTRICT`) en las tablas hijas |
+| El slug de un área archivada se reserva y no se reutiliza, para que los enlaces no den error | UNIQUE en `areas.slug`; no se libera al archivar |
+| Un área archivada no corta la radio asociada: solo se oculta del sitio | `stations.area_id` no depende de `is_published` |
 | Un evento que ya pasó deja de mostrarse | Consulta: `ends_at >= now()` (o `starts_at` si no tiene fin) |
 | Solo una fila de "En vivo" | CHECK `id = 1` |
 | Permisos de superadmin nunca en otro rol | Se ignoran en el código y el seed los limpia |

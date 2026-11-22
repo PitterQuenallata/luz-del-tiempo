@@ -63,6 +63,14 @@ const DashboardPage = withSuspense(lazy(() => import('../../modules/dashboard/pa
 const UsuariosPage = withSuspense(lazy(() => import('../../modules/usuarios/pages/usuarios-page').then((m) => ({ default: m.UsuariosPage }))));
 const AuthCardFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-card-fullscreen-page').then((m) => ({ default: m.AuthCardFullscreenPage }))));
 const NewPasswordPage = withSuspense(lazy(() => import('../../modules/auth/pages/new-password-page').then((m) => ({ default: m.NewPasswordPage }))));
+const DatosMinisterioPage = withSuspense(lazy(() => import('../../modules/sitio/pages/datos-ministerio-page').then((m) => ({ default: m.DatosMinisterioPage }))));
+const NoticiasPage = withSuspense(lazy(() => import('../../modules/noticias/pages/noticias-page').then((m) => ({ default: m.NoticiasPage }))));
+const ActividadesPage = withSuspense(lazy(() => import('../../modules/actividades/pages/actividades-page').then((m) => ({ default: m.ActividadesPage }))));
+const VideosPage = withSuspense(lazy(() => import('../../modules/videos/pages/videos-page').then((m) => ({ default: m.VideosPage }))));
+const EnVivoPage = withSuspense(lazy(() => import('../../modules/en-vivo/pages/en-vivo-page').then((m) => ({ default: m.EnVivoPage }))));
+const EmisorasPage = withSuspense(lazy(() => import('../../modules/radio/pages/emisoras-page').then((m) => ({ default: m.EmisorasPage }))));
+const DonacionesPage = withSuspense(lazy(() => import('../../modules/donaciones/pages/donaciones-page').then((m) => ({ default: m.DonacionesPage }))));
+const ContenidoPage = withSuspense(lazy(() => import('../../modules/contenido/pages/contenido-page').then((m) => ({ default: m.ContenidoPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
 const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-page').then((m) => ({ default: m.LogsPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
@@ -93,13 +101,8 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
     const isStandalonePage =
       location.pathname === '/login' ||
       location.pathname === '/new-password' ||
-      location.pathname === '/auth/split' ||
-      location.pathname === '/auth/404' ||
-      location.pathname === '/auth/505' ||
-      location.pathname === '/auth/500' ||
       location.pathname === '/403' ||
       location.pathname === '/404' ||
-      location.pathname === '/505' ||
       location.pathname === '/500';
 
     if (isStandalonePage) {
@@ -148,28 +151,58 @@ const usuariosRoute = createRoute({
   beforeLoad: exigirPermiso('usuarios:gestionar'),
 });
 
+const contenidoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/contenido',
+  component: ContenidoPage,
+  beforeLoad: exigirPermiso('contenido:editar'),
+});
+
+// Páginas de edición: cada una se abre con su propio enlace (no como ventana emergente).
+const paginaEdicion = (nombre: string) =>
+  withSuspense(lazy(() => import('../../modules/gestion/pages/edicion-pages').then((m) => ({ default: (m as unknown as Record<string, React.ComponentType>)[nombre] }))));
+
+const rutasGestion = [
+  { path: '/noticias', component: NoticiasPage, permiso: 'contenido:editar' },
+  { path: '/noticias/nueva', component: paginaEdicion('NoticiaEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/noticias/$id', component: paginaEdicion('NoticiaEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/datos-ministerio', component: DatosMinisterioPage, permiso: 'contenido:editar' },
+  { path: '/actividades', component: ActividadesPage, permiso: 'contenido:editar' },
+  { path: '/actividades/nueva', component: paginaEdicion('ActividadEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/actividades/$id', component: paginaEdicion('ActividadEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/videos', component: VideosPage, permiso: 'contenido:editar' },
+  { path: '/videos/nuevo', component: paginaEdicion('VideoEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/videos/series/nueva', component: paginaEdicion('SerieEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/videos/series/$id', component: paginaEdicion('SerieEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/videos/$id', component: paginaEdicion('VideoEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/en-vivo', component: EnVivoPage, permiso: 'contenido:editar' },
+  { path: '/emisoras', component: EmisorasPage, permiso: 'estaciones:todas' },
+  { path: '/emisoras/nueva', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/emisoras/$id', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/emisoras/$id/programas/nuevo', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/emisoras/$id/programas/$programaId', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/donaciones', component: DonacionesPage, permiso: 'donaciones:ver' },
+  { path: '/contenido/portada/nueva', component: paginaEdicion('HeroEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/contenido/portada/$id', component: paginaEdicion('HeroEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/contenido/areas/nueva', component: paginaEdicion('AreaEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/contenido/areas/$id', component: paginaEdicion('AreaEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/contenido/personas/nueva', component: paginaEdicion('PersonaEdicionPage'), permiso: 'contenido:editar' },
+  { path: '/contenido/personas/$id', component: paginaEdicion('PersonaEdicionPage'), permiso: 'contenido:editar' },
+];
+
+const rutasGestionNodos = rutasGestion.map((r) =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: r.path,
+    component: r.component,
+    beforeLoad: exigirPermiso(r.permiso),
+  }),
+);
+
 const authCardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: AuthCardFullscreenPage,
-});
-
-const auth404Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/auth/404',
-  component: () => <AuthErrorFullscreenPage forcedCode="404" />,
-});
-
-const auth505Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/auth/505',
-  component: () => <AuthErrorFullscreenPage forcedCode="505" />,
-});
-
-const auth500Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/auth/500',
-  component: () => <AuthErrorFullscreenPage forcedCode="500" />,
 });
 
 const perfilRoute = createRoute({
@@ -204,12 +237,6 @@ const direct404Route = createRoute({
   component: () => <AuthErrorFullscreenPage forcedCode="404" />,
 });
 
-const direct505Route = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/505',
-  component: () => <AuthErrorFullscreenPage forcedCode="505" />,
-});
-
 const direct500Route = createRoute({
   getParentRoute: () => rootRoute,
   path: '/500',
@@ -221,16 +248,14 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   usuariosRoute,
+  contenidoRoute,
+  ...rutasGestionNodos,
   newPasswordRoute,
   perfilRoute,
   logsRoute,
   authCardRoute,
-  auth404Route,
-  auth505Route,
-  auth500Route,
   forbiddenRoute,
   direct404Route,
-  direct505Route,
   direct500Route,
 ]);
 

@@ -2,6 +2,7 @@
 // Vacío = mismo origen: Vite reenvía /api a la API. En producción se define VITE_API_URL.
 
 import { normalizarNombre } from './../lib/validaciones';
+import type { DatosMinisterioInput, HeroInput, AreaInput, PersonaInput, PostInput, ActividadInput, SerieInput, VideoInput, EnVivoInput, EmisoraInput, ProgramaInput, FranjaInput, DonacionMetodoInput, NecesidadInput } from '@luz/shared';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -16,6 +17,7 @@ const MENSAJES_ERROR: Record<string, string> = {
   clave_existente: 'Ya existe un rol con esa clave.',
   nombre_requerido: 'El nombre es obligatorio.',
   rol_de_sistema: 'Los roles de sistema no se pueden eliminar.',
+  slug_existente: 'Ya existe un área con ese enlace.',
 };
 
 const MENSAJE_SERVIDOR =
@@ -157,6 +159,94 @@ export interface EditarRolInput {
   permisos?: string[];
 }
 
+// ---------- Contenido de la web ----------
+export interface ApiHero {
+  id: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  ghost: string[];
+  ctaLabel: string;
+  ctaTo: string;
+  imageUrl: string | null;
+  tint: string;
+  sortOrder: number;
+  isPublished: boolean;
+}
+
+export interface ApiFotoArea {
+  id: string;
+  imageUrl: string;
+  caption: string | null;
+  sortOrder: number;
+}
+
+export interface ApiArea {
+  id: string;
+  slug: string;
+  name: string;
+  template: 'hero' | 'gallery' | 'simple';
+  summary: string | null;
+  content: string | null;
+  color: string;
+  icon: string;
+  coverUrl: string | null;
+  whatsapp: string | null;
+  eventEnabled: boolean;
+  isPublished: boolean;
+  sortOrder: number;
+  fotosGaleria: number;
+  galeria?: ApiFotoArea[];
+}
+
+export interface ApiPersona {
+  id: string;
+  name: string;
+  roleTitle: string;
+  bio: string | null;
+  photoUrl: string | null;
+  sortOrder: number;
+  isPublished: boolean;
+}
+
+// ---------- Gestión de contenido (noticias, actividades, videos, en vivo, emisoras, donaciones) ----------
+export interface ApiNoticia {
+  id: string; slug: string; title: string; excerpt: string | null; content: string | null; coverUrl: string | null;
+  areaId: string | null; status: 'draft' | 'scheduled' | 'published' | 'archived'; publishedAt: string | null; authorPersonId: string | null;
+  createdAt: string; updatedAt: string;
+}
+export interface ApiActividad {
+  id: string; slug: string; areaId: string | null; type: string; title: string; summary: string | null; content: string | null;
+  coverUrl: string | null; startsAt: string; endsAt: string | null; scheduleText: string | null; isVirtual: boolean;
+  locationName: string | null; locationAddress: string | null; registrationType: 'none' | 'whatsapp' | 'link';
+  registrationValue: string | null; capacity: number | null; presenterPersonId: string | null; cost: string | null;
+  agenda: { day: string; items: string[] }[]; isPublished: boolean;
+}
+export interface ApiSerie {
+  id: string; slug: string; name: string; description: string | null; areaId: string; youtubePlaylistId: string | null; sortOrder: number;
+}
+export interface ApiVideo {
+  id: string; youtubeId: string; title: string; description: string | null; areaId: string; seriesId: string | null;
+  isFeatured: boolean; isPublished: boolean; publishedAt: string | null; createdAt: string;
+}
+export interface ApiEnVivo {
+  isLive: boolean; platform: 'youtube' | 'tiktok' | 'facebook' | 'radio' | null; url: string | null; title: string | null;
+  startedAt: string | null; updatedAt: string | null;
+}
+export interface ApiEmisora {
+  id: string; slug: string; name: string; description: string | null; genre: string | null; kind: 'own' | 'external'; imageUrl: string | null; relleno: 'ninguno' | 'musica' | 'historias' | 'musica_historias';
+  isMain: boolean; areaId: string | null; operatedByName: string | null; visibleInMinistry: boolean;
+  status: 'active' | 'suspended' | 'disabled'; sortOrder: number; contactName: string | null; contactPhone: string | null;
+  contactEmail: string | null; notes: string | null;
+}
+export interface ApiFranja { id: string; programId: string; dayOfWeek: number; startTime: string; endTime: string; isLive: boolean; }
+export interface ApiPrograma {
+  id: string; stationId: string; areaId: string | null; name: string; description: string | null; hostName: string | null;
+  isActive: boolean; franjas: ApiFranja[];
+}
+export interface ApiMetodoDonacion { id: 'qr' | 'bank' | 'paypal' | 'remittance'; title: string; detail: string; lines: string[]; }
+export interface ApiNecesidad { title: string; detail: string; }
+
 export const luzApi = {
   async signIn(email: string, password: string, rememberMe = true) {
     try {
@@ -252,4 +342,119 @@ export const luzApi = {
   deleteRol(id: string) {
     return request(`/api/v1/roles/${id}`, { method: 'DELETE' });
   },
+  // Contenido de la web
+  async listHero(): Promise<ApiHero[]> {
+    return (await request<{ slides: ApiHero[] }>('/api/v1/contenido/hero')).slides;
+  },
+
+  createHero(input: HeroInput) {
+    return request('/api/v1/contenido/hero', { method: 'POST', body: json(input) });
+  },
+
+  updateHero(id: string, patch: Partial<HeroInput>) {
+    return request(`/api/v1/contenido/hero/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  deleteHero(id: string) {
+    return request(`/api/v1/contenido/hero/${id}`, { method: 'DELETE' });
+  },
+
+  async listAreas(): Promise<ApiArea[]> {
+    return (await request<{ areas: ApiArea[] }>('/api/v1/contenido/areas')).areas;
+  },
+
+  async getArea(id: string): Promise<ApiArea> {
+    return (await request<{ area: ApiArea }>(`/api/v1/contenido/areas/${id}`)).area;
+  },
+
+  createArea(input: AreaInput) {
+    return request<{ area: ApiArea }>('/api/v1/contenido/areas', { method: 'POST', body: json(input) });
+  },
+
+  updateArea(id: string, patch: Partial<AreaInput>) {
+    return request(`/api/v1/contenido/areas/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  deleteArea(id: string) {
+    return request(`/api/v1/contenido/areas/${id}`, { method: 'DELETE' });
+  },
+
+  addFotoGaleria(areaId: string, imageUrl: string, caption?: string | null) {
+    return request(`/api/v1/contenido/areas/${areaId}/galeria`, { method: 'POST', body: json({ imageUrl, caption }) });
+  },
+
+  deleteFotoGaleria(areaId: string, fotoId: string) {
+    return request(`/api/v1/contenido/areas/${areaId}/galeria/${fotoId}`, { method: 'DELETE' });
+  },
+
+  async listPersonas(): Promise<ApiPersona[]> {
+    return (await request<{ personas: ApiPersona[] }>('/api/v1/contenido/personas')).personas;
+  },
+
+  createPersona(input: PersonaInput) {
+    return request('/api/v1/contenido/personas', { method: 'POST', body: json(input) });
+  },
+
+  updatePersona(id: string, patch: Partial<PersonaInput>) {
+    return request(`/api/v1/contenido/personas/${id}`, { method: 'PATCH', body: json(patch) });
+  },
+
+  deletePersona(id: string) {
+    return request(`/api/v1/contenido/personas/${id}`, { method: 'DELETE' });
+  },
+
+  getSitio(): Promise<{ datos: DatosMinisterioInput }> { return request('/api/v1/contenido/sitio'); },
+  setSitio(input: DatosMinisterioInput) { return request('/api/v1/contenido/sitio', { method: 'PUT', body: json(input) }); },
+
+  // Sube una imagen y devuelve su URL pública (la guarda la API en uploads/contenido)
+  // El servidor recorta a la proporción pedida, reduce y comprime (ver contenido.routes.ts)
+  async subirImagen(archivo: File, opciones: { ratio: number; maxAncho: number }): Promise<string> {
+    const cuerpo = new FormData();
+    cuerpo.append('imagen', archivo);
+    cuerpo.append('ratio', String(opciones.ratio));
+    cuerpo.append('maxAncho', String(opciones.maxAncho));
+    const res = await fetch(`${API_URL}/api/v1/contenido/imagenes`, { method: 'POST', body: cuerpo, credentials: 'include' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiRequestError(data?.message ?? `Error ${res.status}`, res.status);
+    return (data as { url: string }).url;
+  },
+  // Gestión de contenido
+  async listNoticias(): Promise<ApiNoticia[]> { return (await request<{ noticias: ApiNoticia[] }>('/api/v1/contenido/noticias')).noticias; },
+  createNoticia(input: PostInput) { return request('/api/v1/contenido/noticias', { method: 'POST', body: json(input) }); },
+  updateNoticia(id: string, input: PostInput) { return request(`/api/v1/contenido/noticias/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteNoticia(id: string) { return request(`/api/v1/contenido/noticias/${id}`, { method: 'DELETE' }); },
+
+  async listActividades(): Promise<ApiActividad[]> { return (await request<{ actividades: ApiActividad[] }>('/api/v1/contenido/actividades')).actividades; },
+  createActividad(input: ActividadInput) { return request('/api/v1/contenido/actividades', { method: 'POST', body: json(input) }); },
+  updateActividad(id: string, input: ActividadInput) { return request(`/api/v1/contenido/actividades/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteActividad(id: string) { return request(`/api/v1/contenido/actividades/${id}`, { method: 'DELETE' }); },
+
+  async listSeries(): Promise<ApiSerie[]> { return (await request<{ series: ApiSerie[] }>('/api/v1/contenido/series')).series; },
+  createSerie(input: SerieInput) { return request('/api/v1/contenido/series', { method: 'POST', body: json(input) }); },
+  updateSerie(id: string, input: SerieInput) { return request(`/api/v1/contenido/series/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteSerie(id: string) { return request(`/api/v1/contenido/series/${id}`, { method: 'DELETE' }); },
+
+  async listVideos(): Promise<ApiVideo[]> { return (await request<{ videos: ApiVideo[] }>('/api/v1/contenido/videos')).videos; },
+  createVideo(input: VideoInput | Record<string, unknown>) { return request('/api/v1/contenido/videos', { method: 'POST', body: json(input) }); },
+  updateVideo(id: string, input: VideoInput | Record<string, unknown>) { return request(`/api/v1/contenido/videos/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteVideo(id: string) { return request(`/api/v1/contenido/videos/${id}`, { method: 'DELETE' }); },
+
+  getEnVivo(): Promise<{ estado: ApiEnVivo; transmisiones: { platform: 'youtube' | 'tiktok' | 'facebook' | 'radio'; url: string }[] }> { return request('/api/v1/contenido/en-vivo'); },
+  setEnVivo(input: EnVivoInput) { return request('/api/v1/contenido/en-vivo', { method: 'PUT', body: json(input) }); },
+
+  async listEmisoras(): Promise<ApiEmisora[]> { return (await request<{ emisoras: ApiEmisora[] }>('/api/v1/radio/emisoras')).emisoras; },
+  createEmisora(input: EmisoraInput) { return request('/api/v1/radio/emisoras', { method: 'POST', body: json(input) }); },
+  updateEmisora(id: string, input: EmisoraInput) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteEmisora(id: string) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'DELETE' }); },
+
+  async listProgramas(emisoraId: string): Promise<ApiPrograma[]> { return (await request<{ programas: ApiPrograma[] }>(`/api/v1/radio/emisoras/${emisoraId}/programas`)).programas; },
+  createPrograma(emisoraId: string, input: ProgramaInput) { return request(`/api/v1/radio/emisoras/${emisoraId}/programas`, { method: 'POST', body: json(input) }); },
+  updatePrograma(id: string, input: ProgramaInput) { return request(`/api/v1/radio/programas/${id}`, { method: 'PATCH', body: json(input) }); },
+  deletePrograma(id: string) { return request(`/api/v1/radio/programas/${id}`, { method: 'DELETE' }); },
+  createFranja(programaId: string, input: FranjaInput) { return request(`/api/v1/radio/programas/${programaId}/franjas`, { method: 'POST', body: json(input) }); },
+  deleteFranja(id: string) { return request(`/api/v1/radio/franjas/${id}`, { method: 'DELETE' }); },
+
+  getDonaciones(): Promise<{ metodos: ApiMetodoDonacion[]; necesidades: ApiNecesidad[] }> { return request('/api/v1/donaciones'); },
+  setMetodosDonacion(metodos: DonacionMetodoInput[]) { return request('/api/v1/donaciones/metodos', { method: 'PUT', body: json(metodos) }); },
+  setNecesidades(necesidades: NecesidadInput[]) { return request('/api/v1/donaciones/necesidades', { method: 'PUT', body: json(necesidades) }); },
 };

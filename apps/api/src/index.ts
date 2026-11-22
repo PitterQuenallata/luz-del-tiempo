@@ -8,6 +8,11 @@ import { meRoutes } from './modules/auth/me.js';
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
 import { rolesRoutes } from './modules/roles/roles.routes.js';
 import { logsRoutes } from './modules/logs/logs.routes.js';
+import { contenidoRoutes } from './modules/contenido/contenido.routes.js';
+import { publicRoutes } from './modules/contenido/public.routes.js';
+import { gestionRoutes } from './modules/contenido/gestion.routes.js';
+import { radioRoutes } from './modules/radio/radio.routes.js';
+import { donacionesRoutes } from './modules/donaciones/donaciones.routes.js';
 
 const app = new Hono();
 
@@ -41,6 +46,11 @@ app.route('/api/v1/me', meRoutes);
 app.route('/api/v1/usuarios', usuariosRoutes);
 app.route('/api/v1/roles', rolesRoutes);
 app.route('/api/v1/logs', logsRoutes);
+app.route('/api/v1/contenido', contenidoRoutes);
+app.route('/api/v1/contenido', gestionRoutes);
+app.route('/api/v1/radio', radioRoutes);
+app.route('/api/v1/donaciones', donacionesRoutes);
+app.route('/api/v1/public', publicRoutes);
 
 app.get('/api/v1/health', (c) => c.json({ status: 'ok' }));
 

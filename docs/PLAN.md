@@ -1,6 +1,6 @@
 # Plan de desarrollo — Ministerio La Luz del Tiempo
 
-> Actualizado: 19/11/2026. El alcance creció: el cliente es un **ministerio completo** (radio, escuelas, campañas, videos, lives), no solo una radio.
+> Actualizado: 20/11/2026. El alcance creció: el cliente es un **ministerio completo** (radio, escuelas, campañas, videos, lives), no solo una radio.
 > Entregas del contrato: **Etapa 1: 04/12/2026** · **Entrega final: 21/12/2026**.
 
 ---
@@ -34,7 +34,7 @@ Todas usan el mismo fondo y estilo de la web; solo cambian imágenes, textos y l
 | **C — Simple** | Imagen pequeña + texto | Áreas nuevas con poco contenido |
 
 ### 2.2 Qué se configura en el panel (crear / editar área)
-- Nombre, slug (`/salud`), icono/color de acento.
+- Nombre, slug (`salud`; la página pública es `/areas/salud`), icono/color de acento.
 - Plantilla (A, B o C).
 - Imagen de portada + galería (se convierten a WebP y se redimensionan al subir).
 - **Contenido**: qué es, qué hace, a quién va dirigido (editor de texto enriquecido).
@@ -66,7 +66,8 @@ En la pantalla de editar área hay una sección **"Programar evento"** con un in
 ### 2.4 Contenido editable de la web (no solo áreas)
 Además de las áreas, el panel debe poder cambiar sin programar:
 - **Hero del inicio** (carrusel): imagen, título, subtítulo, botón y orden.
-- **Predicadores** y **autores** (foto, nombre, bio, redes/contacto), que se enlazan desde noticias, videos y actividades.
+- **Predicadores**, **autores** y **equipo** (foto, nombre, cargo, bio corta, redes/contacto), en la tabla `people`. Se enlazan desde noticias, videos y actividades. No necesariamente tienen cuenta en el panel.
+  - Etapa 1: lista de equipo en `/nosotros`. Perfil individual por persona: Fase 3.
 - Otros bloques que cambian con el tiempo (banners de campaña, aviso de "En vivo", textos de "Quiénes somos" y "Donar").
 
 Todo esto se edita desde el panel y la web lo lee de la API.
@@ -101,10 +102,12 @@ El ministerio podría prestar su streaming a **otras radios**. Para eso se crean
 | **Superadmin** | Desarrollador (Blakor.tech) | Todo, incluida la configuración de servidores, Icecast/Liquidsoap y los límites. |
 | **Admin** | Responsable del ministerio | Todo el contenido, usuarios, todas las estaciones y donaciones. No toca servidores. |
 | **Editor** | Equipo del ministerio | Noticias, áreas, actividades, videos y en vivo. Sin donaciones, oyentes ni usuarios. |
-| **Operador de estación** | Radio externa (o encargado de una estación propia) | **Solo su estación**. |
+| **Operador de estación** | Encargado de una estación del ministerio, o el usuario de la radio externa | **Solo su estación**. Las estaciones del ministerio pueden tener varios operadores; la externa tiene uno. |
 
 ### 6.2 Operador de estación
-- **Un usuario = una sola estación** (`station_id` obligatorio para este rol). Una estación puede tener más de un operador (por defecto se permite; se puede limitar a uno).
+- **Un operador puede tener una o más estaciones** (tabla `station_members`). En el alta se elige una estación; más adelante se pueden sumar otras.
+- **Estaciones del ministerio (Luz del Tiempo):** puede haber varias estaciones, y cada una puede tener varios operadores o editores.
+- **Estaciones externas (de otra radio):** una sola emisora por radio, con un solo usuario. Por ahora el sistema admite **como máximo 1 estación externa en total**, porque el VPS (Contabo) no tiene capacidad para alojar más. Se aplica en la base de datos; subirlo después es un cambio pequeño.
 - El admin lo crea desde **Panel → Usuarios → Nuevo operador**: nombre, correo, contraseña temporal y estación asignada (existente o nueva).
 - Al entrar ve un panel reducido con solo:
   - Datos de la estación: nombre, logo, descripción, género
@@ -127,12 +130,12 @@ El VPS es de 4 vCPU / 8 GB / 100 GB y lo paga el ministerio, así que cada estac
 - Activa / suspendida (si una radio deja de cumplir, se suspende sin borrarla).
 
 ### 6.4 Visibilidad
-Cada estación tiene `tipo: propia | externa` y `visible_en_ministerio: sí/no`.
+Cada estación tiene `kind`: `own` (del ministerio, puede haber varias) o `external` (de otra radio, máximo 1). Además, `visible_in_ministry: sí/no` y `operated_by_name` (solo externas, para mostrar "Operada por …").
 Por defecto las externas **no** aparecen en la web ni en la app del ministerio (solo usan el streaming), salvo que el admin lo active.
 
 ### 6.5 Implementación
-- Better Auth con plugin de admin/roles; la verificación del rol y del `station_id` se hace **en la API 1** (no solo ocultando botones en el panel).
-- Cada endpoint de estaciones filtra por `station_id` del usuario si es operador.
+- Better Auth con plugin de admin/roles; la verificación del rol y de la pertenencia a la estación (`station_members`) se hace **en la API 1** (no solo ocultando botones en el panel).
+- Cada endpoint de estaciones filtra por las estaciones del usuario (`station_members`) si es operador.
 - La API 2 (radio-api) solo recibe órdenes de la API 1, nunca del operador directamente.
 - Contraseñas de fuente de Icecast únicas por estación (mount por estación).
 - Registro de auditoría: quién cambió qué en cada estación.
@@ -141,24 +144,27 @@ Por defecto las externas **no** aparecen en la web ni en la app del ministerio (
 
 ## 7. Modelo de datos
 
-> ✅ Diseño completo en [`DATABASE.md`](DATABASE.md) (32 tablas, permisos, reglas). Lo de abajo es el resumen original.
+> ✅ **Fuente única de verdad: [`DATABASE.md`](DATABASE.md)** (tablas, columnas, reglas y permisos). Si este resumen y ese archivo no coinciden, manda `DATABASE.md`.
+> Convención: nombres de tablas y columnas en inglés (`snake_case`); etiquetas que ve el editor en español.
+
+Resumen de las tablas principales:
 
 ```
-areas          id, slug, nombre, plantilla(A|B|C), portada, galeria[], contenido,
-               color, icono, whatsapp, en_menu, orden, station_id?, yt_playlist?
-actividades    id, area_id?, tipo, titulo, descripcion, inicio, fin, horario_texto,
-               lugar, virtual_url, imagen, inscripcion_tipo(whatsapp|link), inscripcion_valor,
-               cupos?, notificar, publicado
-videos         id, youtube_id, titulo, miniatura, area_id?, serie_id?, destacado, publicado_en
-series         id, nombre, area_id?
-en_vivo        (fila única) activo, plataforma(youtube|tiktok|radio), url, titulo, desde
-stations       id, nombre, slug, logo, descripcion, tipo(propia|externa), visible_en_ministerio,
-               estado(activa|suspendida), mount, source_password, bitrate,
-               max_oyentes, cuota_mb (default 5120, máx 10240)
-users          (Better Auth) + role(superadmin|admin|editor|operador), station_id?
-audit_log      id, user_id, accion, entidad, entidad_id, cambios, fecha
+areas              padre de todo el contenido: slug, name, template(hero|gallery|simple), cover, color, is_published, event_enabled
+area_gallery       fotos de la plantilla "texto + galería"
+activities         escuelas, talleres, campañas; area_id opcional
+posts              noticias; area_id, author_person_id
+people             predicadores, autores y equipo (no necesariamente tienen cuenta en el panel)
+hero_slides        carrusel de portada
+videos             area_id obligatorio; series_id opcional (la serie debe ser de la misma área)
+video_series       area_id obligatorio
+live_status        fila única (en vivo)
+stations           own (ministerio, varias) | external (máx. 1); area_id; operated_by_name (externas)
+station_members    operadores ↔ estaciones (muchos a muchos)
+users              cuentas del panel; rol; sin station_id (ver station_members)
+audit_log          bitácora
 ```
-(+ posts, programas, donaciones, oyentes, notificaciones ya previstos)
+(+ programs, program_slots, donaciones, oyentes, notificaciones, site_settings: ver DATABASE.md)
 
 ---
 
@@ -169,6 +175,7 @@ Cada sección tiene su propia página con una cabecera común (como las subpági
 ```
 /                        Inicio (portada, en vivo, programación de hoy, videos, actividades, áreas, emisoras, noticias)
 /radio                   En vivo: reproductor grande + todas las emisoras visibles
+/radio/:slug            Página de una emisora (propia o externa, si el admin la publica). Las externas muestran "Operada por …"
 /programacion            Guía semanal: día por día, "Ahora" resaltado, filtro por emisora
 /videos                  Videos de YouTube con filtros por área y serie
 /noticias                Lista de noticias        /noticias/:slug   Noticia
