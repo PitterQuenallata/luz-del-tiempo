@@ -10,7 +10,18 @@ import type { Activity, Area, DonationMethod, LiveStatus, MinistryNeed, Person, 
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
 const USE_MOCK = !API_URL;
 
-const delay = <T,>(value: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(value), ms));
+/**
+ * Solo en desarrollo, para probar los esqueletos y los errores sin API:
+ *   ?demora=3000  → los datos de prueba tardan 3 s
+ *   ?error=1      → todas las consultas fallan
+ * (Conviene borrar la caché antes: localStorage.removeItem("luz-cache").)
+ */
+const params = import.meta.env.DEV ? new URLSearchParams(location.search) : null;
+const MOCK_MS = Number(params?.get("demora") ?? 250);
+const MOCK_ERROR = params?.get("error") === "1";
+
+const delay = <T,>(value: T, ms = MOCK_MS) =>
+  new Promise<T>((resolve, reject) => setTimeout(() => (MOCK_ERROR ? reject(new Error("Error simulado")) : resolve(value)), ms));
 
 async function get<T>(path: string, fallback: () => T): Promise<T> {
   if (USE_MOCK) return delay(fallback());

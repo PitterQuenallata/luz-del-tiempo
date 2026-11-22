@@ -10,6 +10,7 @@ import { AreaIcon } from "../components/ui/AreaIcon";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
 import { Tilt } from "../components/ui/Tilt";
+import { Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
 
 const suave = [0.25, 0.1, 0.25, 1] as const;
 
@@ -34,9 +35,9 @@ function jsonLd(site: SiteInfo | undefined, areas: Area[], people: Person[]) {
 
 /** /nosotros — Historia, misión, qué hacemos y el equipo (como "Acerca" + "Oradores" de SUMtv). */
 export default function Nosotros() {
-  const { data: site } = useSite();
-  const { data: areas = [] } = useAreas();
-  const { data: people = [] } = usePeople();
+  const { data: site, isPending: sitePending } = useSite();
+  const { data: areas = [], isPending: areasPending } = useAreas();
+  const { data: people = [], isPending: peoplePending } = usePeople();
 
   return (
     <>
@@ -61,13 +62,28 @@ export default function Nosotros() {
           transition={{ duration: 0.7, ease: suave }}
         >
           <span className="text-sm text-oro-400">Quiénes somos</span>
-          <h1 className="titulo max-w-4xl text-[clamp(28px,4.2vw,64px)] leading-[1.08]">{site?.mission}</h1>
+          {site ? (
+            <h1 className="titulo max-w-4xl text-[clamp(28px,4.2vw,64px)] leading-[1.08]">{site.mission}</h1>
+          ) : (
+            sitePending && (
+              <SkeletonRegion label="Cargando" className="flex max-w-4xl flex-col gap-2">
+                <Sk className="h-[clamp(28px,4.2vw,64px)] w-full" />
+                <Sk className="h-[clamp(28px,4.2vw,64px)] w-2/3" />
+              </SkeletonRegion>
+            )
+          )}
         </motion.div>
       </section>
 
       <PageBody>
         <section className="grid grid-cols-1 gap-10 md:grid-cols-[1.2fr_1fr]">
           <div className="flex flex-col gap-5 text-[17px] leading-[1.75] text-niebla-100">
+            {sitePending && (
+              <>
+                <SkText lines={4} line="h-4" />
+                <SkText lines={3} line="h-4" />
+              </>
+            )}
             {site?.history.map((p, i) => (
               <Reveal key={i} delay={Math.min(i, 3) * 0.05}>
                 <p>{p}</p>
@@ -88,6 +104,7 @@ export default function Nosotros() {
         <section className="flex flex-col gap-4">
           <RowHeading title="Qué hacemos" to="/areas" label="ver áreas" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {areasPending && [0, 1, 2, 3].map((i) => <Sk key={i} className="h-[94px] rounded-xl" />)}
             {areas.map((a, i) => (
               <Reveal key={a.slug} delay={0.05 * i}>
                 <Link
@@ -114,6 +131,15 @@ export default function Nosotros() {
         <section className="flex flex-col gap-4">
           <RowHeading title="Nuestro equipo" />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {peoplePending &&
+              [0, 1, 2, 3].map((i) => (
+                <span key={i} className="flex flex-col items-center gap-3 rounded-2xl border border-white/[0.08] p-4 sm:p-5" aria-hidden>
+                  <Sk className="h-20 w-20 rounded-full sm:h-24 sm:w-24" />
+                  <Sk className="h-4 w-3/4" />
+                  <Sk className="h-3 w-1/2" />
+                  <SkText lines={2} line="h-3" className="w-full" />
+                </span>
+              ))}
             {people.map((p, i) => (
               <Reveal key={p.name} delay={0.06 * i} className="h-full">
                 <Tilt className="h-full rounded-2xl" max={4}>

@@ -11,6 +11,7 @@ import { ReadingProgress } from "../components/ui/ReadingProgress";
 import { Reveal } from "../components/ui/Reveal";
 import { ShareButton } from "../components/ui/ShareButton";
 import { SmartImage } from "../components/ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
 import { longDate } from "../lib/format";
 import ComingSoon from "./ComingSoon";
 
@@ -57,11 +58,17 @@ function jsonLd(post: Post) {
 /** /noticias/:slug — Una noticia. */
 export default function Noticia() {
   const { slug = "" } = useParams();
-  const { data: post, isLoading } = usePost(slug);
+  const { data: post, isLoading, isError, refetch } = usePost(slug);
   const { data: posts = [] } = usePosts();
   const { data: areas = [] } = useAreas();
   const article = useRef<HTMLElement>(null);
-  if (isLoading) return <div className="min-h-[60vh]" />;
+  if (isLoading) return <NoticiaSkeleton />;
+  if (isError)
+    return (
+      <div className="contenedor py-10">
+        <LoadError onRetry={() => void refetch()} message="No pudimos cargar esta noticia" />
+      </div>
+    );
   if (!post) return <ComingSoon title="Noticia no encontrada" />;
 
   const area = areas.find((a) => a.slug === post.areaSlug);
@@ -134,5 +141,31 @@ export default function Noticia() {
         )}
       </PageBody>
     </>
+  );
+}
+
+/** Esqueleto de una noticia: cabecera, portada 16:9 y párrafos en la columna de lectura (760 px). */
+function NoticiaSkeleton() {
+  return (
+    <SkeletonRegion label="Cargando la noticia">
+      <span className="block border-b border-white/[0.06]">
+        <span className="contenedor flex flex-col gap-3 py-6 sm:py-8">
+          <Sk className="h-3 w-32" />
+          {/* En celular el título largo ocupa 3 líneas y la bajada 2; desde tablet, menos */}
+          <Sk className="h-[clamp(28px,3.2vw,42px)] w-4/5 max-w-2xl" />
+          <Sk className="h-[clamp(28px,3.2vw,42px)] w-full max-w-2xl sm:hidden" />
+          <Sk className="h-[clamp(28px,3.2vw,42px)] w-1/2 md:hidden" />
+          <Sk className="h-4 w-full max-w-xl" />
+          <Sk className="h-4 w-3/5 max-w-xl md:hidden" />
+          <Sk className="h-3.5 w-56" />
+          <Sk className="h-3.5 w-28 sm:hidden" />
+        </span>
+      </span>
+      <span className="contenedor flex max-w-[760px] flex-col gap-6 py-8 sm:py-10">
+        <Sk className="aspect-[16/9] rounded-2xl" />
+        <SkText lines={4} line="h-4" />
+        <SkText lines={3} line="h-4" />
+      </span>
+    </SkeletonRegion>
   );
 }

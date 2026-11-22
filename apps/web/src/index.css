@@ -161,8 +161,39 @@ a, button { -webkit-tap-highlight-color: transparent; }
   30%, 100% { transform: translateX(100%); }
 }
 
+/*
+ * Esqueletos de carga (Skeleton.tsx y SmartImage.tsx): fondo apenas más claro que la página
+ * y un brillo diagonal que lo recorre. El brillo usa transform (no repinta), así no carga el celular.
+ */
+@layer components {
+  .sk {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(255 255 255 / 0.07);
+  border-radius: 0.5rem;
+  isolation: isolate;
+}
+  .sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.09) 45%, rgb(226 169 39 / 0.07) 50%, rgb(255 255 255 / 0.09) 55%, transparent 80%);
+  transform: translateX(-100%);
+  animation: sk-brillo 1.6s ease-in-out infinite;
+}
+}
+@keyframes sk-brillo {
+  to { transform: translateX(100%); }
+}
+@keyframes sk-pulso {
+  50% { opacity: 0.55; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .animate-marquee, .ambient-a, .ambient-b, .pulso-vivo::before, .brillo-franja { animation: none; }
   .btn-brillo::after { display: none; }
+  /* Sin brillo que se desplaza: un pulso lento de opacidad indica que está cargando */
+  .sk::after { display: none; }
+  .sk { animation: sk-pulso 2s ease-in-out infinite; }
 }

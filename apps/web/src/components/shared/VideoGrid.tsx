@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Video } from "../../api/types";
 import { longDate } from "../../lib/format";
 import { VideoModal, ytThumb } from "../ui/VideoModal";
+import { SmartImage } from "../ui/SmartImage";
 
 /** Grilla de videos de YouTube con fachada liviana: el reproductor solo carga al abrir. */
 export function VideoGrid({ videos, prefix = "grid" }: { videos: Video[]; prefix?: string }) {
@@ -14,12 +15,11 @@ export function VideoGrid({ videos, prefix = "grid" }: { videos: Video[]; prefix
         {videos.map((v) => (
           <button key={v.youtubeId} type="button" onClick={() => setOpen(v)} className="group flex flex-col gap-3 text-left" aria-label={`Ver video: ${v.title}`}>
             <motion.span layoutId={`${prefix}-${v.youtubeId}`} className="relative block aspect-video overflow-hidden rounded-xl bg-noche-800">
-              <img
+              <SmartImage
                 src={ytThumb(v.youtubeId)}
                 alt={v.title}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-105 group-hover:brightness-110"
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                className="absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-105 group-hover:brightness-110"
               />
               <span className="absolute inset-0 grid place-items-center">
                 <span className="grid h-12 w-12 place-items-center rounded-full bg-oro-500 text-noche-900 shadow-lg transition-[background-color,transform] duration-300 group-hover:scale-110 group-hover:bg-oro-400">

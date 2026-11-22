@@ -5,9 +5,22 @@ import { useSlides } from "../../api";
 import type { HeroSlide } from "../../api/types";
 import { LogoMark } from "../layout/Logo";
 import { EstelasVuelo } from "../ui/Estelas";
+import { Sk, SkeletonRegion } from "../ui/Skeleton";
 import { SmartImage } from "../ui/SmartImage";
 
 const DURATION = 7000;
+
+/** Si las diapositivas no cargan (sin conexión, API caída), la portada no queda vacía: muestra la radio. */
+const RESPALDO: HeroSlide = {
+  id: "respaldo",
+  eyebrow: "Radio en vivo",
+  title: "Una luz que no se apaga",
+  subtitle: "Música, prédicas y salud las 24 horas, sin anuncios",
+  ghost: ["La Luz", "del", "Tiempo"],
+  cta: { label: "Escuchar ahora", to: "#envivo" },
+  imageUrl: null,
+  tint: "#22376a",
+};
 const ease = [0.22, 1, 0.36, 1] as const;
 
 function Cta({ slide }: { slide: HeroSlide }) {
@@ -48,7 +61,8 @@ function TituloPorPalabras({ text }: { text: string }) {
  * Se pausa con el mouse encima, con el foco del teclado dentro o con la pestaña oculta.
  */
 export function HeroCarousel() {
-  const { data: slides = [] } = useSlides();
+  const { data, isPending, isError } = useSlides();
+  const slides = data?.length ? data : isError ? [RESPALDO] : [];
   const [index, setIndex] = useState(0);
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -181,10 +195,29 @@ export function HeroCarousel() {
             </motion.div>
           )}
         </AnimatePresence>
+        {/* Cargando: esqueleto con las mismas medidas del texto (antetítulo, título en dos líneas, bajada y botón) */}
+        {isPending && (
+          <SkeletonRegion label="Cargando portada" className="flex w-full max-w-[640px] flex-col gap-4 pt-14 pb-6 md:py-14">
+            <Sk className="h-5 w-28" />
+            <span className="flex flex-col gap-2">
+              <Sk className="h-[clamp(36px,4.4vw,80px)] w-[92%]" />
+              <Sk className="h-[clamp(36px,4.4vw,80px)] w-3/5" />
+            </span>
+            <Sk className="h-6 w-4/5 max-w-lg" />
+            <Sk className="h-11 w-36 rounded-lg" />
+          </SkeletonRegion>
+        )}
       </motion.div>
 
       {/* Puntos con barra de progreso. El botón mide 44 px de alto para el dedo, aunque el punto se vea chico. */}
       <div className="contenedor relative flex pb-3">
+        {/* Mientras carga, tres puntos de esqueleto ocupan el mismo alto (44 px) */}
+        {isPending &&
+          [40, 6, 6].map((w, i) => (
+            <span key={i} className="grid h-11 min-w-9 place-items-center px-1.5 first:-ml-1.5" aria-hidden>
+              <Sk className="h-1.5 rounded-full" style={{ width: w }} />
+            </span>
+          ))}
         {slides.map((s, i) => (
           <button
             key={s.id}

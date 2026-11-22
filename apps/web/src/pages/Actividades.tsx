@@ -9,10 +9,11 @@ import { Seo } from "../components/Seo";
 import { ActivityPoster, useCountdown } from "../components/shared/ActivityBits";
 import { Chips } from "../components/shared/Chips";
 import { eventJsonLd } from "../lib/eventos";
+import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 
 /** /actividades — Próximas actividades, escuelas y campañas (como "Todos los eventos" de SUMtv). */
 export default function Actividades() {
-  const { data: activities = [] } = useActivities();
+  const { data: activities = [], isPending, isError, refetch } = useActivities();
   const { data: areas = [] } = useAreas();
   const [type, setType] = useState<"todas" | ActivityType>("todas");
 
@@ -28,7 +29,7 @@ export default function Actividades() {
         jsonLd={activities.length ? { "@context": "https://schema.org", "@graph": activities.map(eventJsonLd) } : undefined}
       />
       <PageHeader title="Actividades y escuelas" subtitle="Escuelas, talleres, campañas de salud y estudios bíblicos. Inscríbete por WhatsApp">
-        {activities[0] && <NextUp a={activities[0]} />}
+        {activities[0] ? <NextUp a={activities[0]} /> : isPending && <Sk className="h-[92px] w-full max-w-sm rounded-2xl sm:w-72" />}
       </PageHeader>
       <PageBody className="gap-6">
         <Chips
@@ -38,7 +39,7 @@ export default function Actividades() {
           onChange={setType}
         />
         {/* Al filtrar, los afiches que salen se encogen y los que quedan se acomodan deslizándose */}
-        <motion.div layout className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <motion.div layout className={isPending ? "hidden" : "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"}>
           <AnimatePresence mode="popLayout" initial={false}>
             {list.map((a, i) => (
               <motion.div
@@ -55,7 +56,15 @@ export default function Actividades() {
             ))}
           </AnimatePresence>
         </motion.div>
-        {list.length === 0 && <p className="py-12 text-center text-niebla-300">No hay actividades de este tipo por ahora</p>}
+        {isPending && (
+          <SkeletonRegion label="Cargando actividades" className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Sk key={i} className="aspect-[3/4] rounded-xl" />
+            ))}
+          </SkeletonRegion>
+        )}
+        {isError && <LoadError onRetry={() => void refetch()} message="No pudimos cargar las actividades" />}
+        {!isPending && !isError && list.length === 0 && <p className="py-12 text-center text-niebla-300">No hay actividades de este tipo por ahora</p>}
       </PageBody>
     </>
   );

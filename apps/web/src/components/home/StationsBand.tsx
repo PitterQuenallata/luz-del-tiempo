@@ -5,14 +5,44 @@ import { usePlayer } from "../../player/PlayerProvider";
 import { Equalizer } from "../ui/Equalizer";
 import { BandHeading, Reveal } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
 
 /** Banda "Nuestras emisoras": tarjeta grande de la emisora elegida + lista para cambiar. */
 export function StationsBand() {
-  const { data: stations = [] } = useStations();
+  const { data: stations = [], isPending, isError, refetch } = useStations();
   const player = usePlayer();
   const [picked, setPicked] = useState<string | null>(null);
   const current = stations.find((s) => s.slug === (picked ?? player.station?.slug)) ?? stations[0];
-  if (!current) return null;
+  if (!current) {
+    if (!isPending && !isError) return null;
+    return (
+      <section id="emisoras" className="banda-2 pt-10 pb-12">
+        <div className="contenedor flex flex-col gap-5">
+          <BandHeading
+            eyebrow="Nuestras emisoras"
+            text="Señales al aire las 24 horas. Elige una y escucha."
+            action={<a href="#envivo" className="btn-oro min-h-9 text-xs">Ir al reproductor</a>}
+          />
+          {isError ? (
+            <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar las emisoras" />
+          ) : (
+            <SkeletonRegion label="Cargando emisoras" className="flex flex-wrap items-stretch gap-5">
+              <Sk className="aspect-video min-w-0 flex-[2_1_520px] rounded-xl" />
+              <span className="flex min-w-0 flex-[1_1_300px] flex-col gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <span key={i} className="flex items-center gap-4 rounded-lg border border-transparent p-1.5">
+                    <Sk className="h-16 w-28 shrink-0 rounded-md" />
+                    <SkText lines={2} line="h-3" className="flex-1" />
+                  </span>
+                ))}
+                <Sk className="mt-auto h-[88px] rounded-xl bg-oro-500/20" />
+              </span>
+            </SkeletonRegion>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   const isThis = player.station?.slug === current.slug;
   const playing = isThis && (player.status === "playing" || player.status === "loading");

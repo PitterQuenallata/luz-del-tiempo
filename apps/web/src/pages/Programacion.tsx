@@ -6,6 +6,7 @@ import { PageBody } from "../components/layout/PageHeader";
 import { absoluta, Seo } from "../components/Seo";
 import { Chips } from "../components/shared/Chips";
 import { Equalizer } from "../components/ui/Equalizer";
+import { LoadError, Sk } from "../components/ui/Skeleton";
 import { PlayPauseIcon } from "../components/ui/PlayPauseIcon";
 import { nowBolivia, programProgress } from "../lib/schedule";
 import { usePlayer } from "../player/PlayerProvider";
@@ -52,7 +53,7 @@ export default function Programacion() {
   const today = todayBolivia();
   const [day, setDay] = useState(today);
   const [station, setStation] = useState("todas");
-  const { data: items = [] } = useScheduleDay(day);
+  const { data: items = [], isPending, isError, refetch } = useScheduleDay(day);
   const { data: stations = [] } = useStations();
   const player = usePlayer();
   const now = nowBolivia();
@@ -108,7 +109,31 @@ export default function Programacion() {
               exit="exit"
               aria-label={`Programas del ${DAYS[day]}`}
             >
-              {rows.length === 0 && <li className="p-8 text-center text-niebla-300">No hay programas para este filtro</li>}
+              {/* Cargando: filas de esqueleto con la misma grilla que las reales (2 columnas en celular, fila desde tablet) */}
+              {isPending &&
+                Array.from({ length: 4 }, (_, i) => (
+                  <li key={i} className="grid grid-cols-[64px_1fr] gap-x-4 gap-y-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0 sm:flex sm:items-center sm:gap-x-6 sm:px-5" aria-hidden>
+                    <span className="flex flex-col gap-1.5 sm:w-36 sm:shrink-0">
+                      <Sk className="h-6 w-14 sm:w-28" />
+                      <Sk className="h-3 w-10 sm:hidden" />
+                    </span>
+                    <span className="flex flex-col gap-2 sm:flex-[1_1_240px]">
+                      <Sk className="h-5 w-3/4 max-w-xs" />
+                      <Sk className="h-3.5 w-1/2 max-w-[180px]" />
+                    </span>
+                    <span className="col-start-2 flex gap-2">
+                      <Sk className="h-6 w-20 rounded-full" />
+                      <Sk className="h-6 w-28 rounded-full" />
+                    </span>
+                  </li>
+                ))}
+              {isPending && <li className="sr-only" role="status">Cargando programas…</li>}
+              {isError && (
+                <li className="p-4">
+                  <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar la programación" />
+                </li>
+              )}
+              {!isPending && !isError && rows.length === 0 && <li className="p-8 text-center text-niebla-300">No hay programas para este filtro</li>}
               {rows.map((r) => {
                 const st = stationOf(r.stationSlug);
                 const isToday = day === today;

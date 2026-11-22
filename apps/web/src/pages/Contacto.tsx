@@ -7,6 +7,7 @@ import { PageBody, PageHeader } from "../components/layout/PageHeader";
 import { absoluta, Seo } from "../components/Seo";
 import { Chips } from "../components/shared/Chips";
 import { Reveal } from "../components/ui/Reveal";
+import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { whatsappLink } from "../lib/format";
 
 const TOPICS = ["Pedido de oración", "Saludo al aire", "Inscripción a una actividad", "Donaciones", "Otro"] as const;
@@ -44,7 +45,7 @@ const campo =
  * El formulario no guarda nada en un servidor: arma el mensaje y abre WhatsApp.
  */
 export default function Contacto() {
-  const { data: site } = useSite();
+  const { data: site, isPending, isError, refetch } = useSite();
   const [name, setName] = useState("");
   const [topic, setTopic] = useState<Topic>(TOPICS[0]);
   const [message, setMessage] = useState("");
@@ -90,6 +91,22 @@ export default function Contacto() {
       <PageBody>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-[1fr_1.2fr] md:gap-10">
           <div className="flex min-w-0 flex-col gap-3">
+            {isPending && (
+              <SkeletonRegion label="Cargando datos de contacto" className="flex flex-col gap-3">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="flex items-center gap-4 rounded-xl border border-white/[0.08] p-4">
+                    <Sk className="h-11 w-11 shrink-0 rounded-xl" />
+                    <span className="flex flex-1 flex-col gap-2">
+                      <Sk className="h-3 w-16" />
+                      <Sk className="h-4 w-3/4" />
+                      <Sk className="h-4 w-1/2 sm:hidden" />
+                      <Sk className="h-3 w-28" />
+                    </span>
+                  </span>
+                ))}
+              </SkeletonRegion>
+            )}
+            {isError && <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar los datos de contacto" />}
             {cards.map((c, i) => (
               <Reveal key={c.title} delay={0.05 * i}>
                 <a

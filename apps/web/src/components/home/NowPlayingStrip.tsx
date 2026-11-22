@@ -8,10 +8,11 @@ import { usePlayer } from "../../player/PlayerProvider";
 import { LogoMark, Wordmark } from "../layout/Logo";
 import { Equalizer } from "../ui/Equalizer";
 import { PlayPauseIcon } from "../ui/PlayPauseIcon";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
 
 /** "Estamos presentando": lo que suena ahora + los próximos programas en la barra dorada. */
 export function NowPlayingStrip() {
-  const { data: stations = [] } = useStations();
+  const { data: stations = [], isPending, isError, refetch } = useStations();
   const { data: schedule = [] } = useSchedule();
   const { data: live } = useLive();
   const player = usePlayer();
@@ -19,7 +20,17 @@ export function NowPlayingStrip() {
 
   // Si ya hay una emisora sonando, la tira muestra esa.
   const selected = player.station ?? stations[idx];
-  if (!selected) return <div className="h-40" />;
+  if (!selected) {
+    if (isError)
+      return (
+        <section id="envivo" className="scroll-mt-24 px-4 pt-7 sm:px-6">
+          <div className="mx-auto max-w-[1152px] 2xl:max-w-[1296px]">
+            <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar las emisoras" />
+          </div>
+        </section>
+      );
+    return isPending ? <NowPlayingSkeleton /> : null;
+  }
 
   const { current, upcoming } = splitSchedule(schedule, selected.slug);
   const nextAll = splitSchedule(schedule).upcoming.slice(0, 3);
@@ -117,6 +128,31 @@ export function NowPlayingStrip() {
           </div>
         </div>
       </motion.div>
+    </section>
+  );
+}
+
+/** Esqueleto de la tira: misma caja, mismas columnas y misma barra dorada por breakpoint. */
+function NowPlayingSkeleton() {
+  return (
+    <section id="envivo" className="scroll-mt-24 px-4 pt-7 sm:px-6">
+      <SkeletonRegion label="Cargando la radio en vivo" className="mx-auto max-w-[1152px] overflow-hidden rounded-xl border border-oro-500/40 bg-noche-800 2xl:max-w-[1296px]">
+        <div className="flex flex-wrap items-center gap-5 p-4 sm:p-5">
+          <Sk className="h-28 w-full shrink-0 sm:w-[200px]" />
+          <span className="flex min-h-[123px] min-w-0 flex-[1_1_320px] sm:min-h-[112px] flex-col justify-center gap-2.5">
+            <Sk className="h-4 w-48" />
+            <Sk className="h-6 w-3/4" />
+            <Sk className="h-3.5 w-2/3" />
+            <SkText lines={2} line="h-3" className="max-w-md" />
+          </span>
+          <span className="flex min-w-[130px] flex-[1_1_100%] flex-row flex-wrap gap-1.5 sm:flex-[0_1_160px] sm:flex-col">
+            <Sk className="h-11 flex-1 rounded-lg sm:flex-none" />
+            <Sk className="h-11 flex-1 rounded-lg sm:flex-none" />
+            <Sk className="h-11 flex-1 rounded-md sm:flex-none" />
+          </span>
+        </div>
+        <Sk className="h-9 rounded-none bg-oro-500/25" />
+      </SkeletonRegion>
     </section>
   );
 }

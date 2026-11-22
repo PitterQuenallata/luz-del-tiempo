@@ -16,6 +16,7 @@ import { Lightbox } from "../components/ui/Lightbox";
 import { PlayPauseIcon } from "../components/ui/PlayPauseIcon";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
 import { eventJsonLd } from "../lib/eventos";
 import { longDate, whatsappLink } from "../lib/format";
 import { usePlayer } from "../player/PlayerProvider";
@@ -59,9 +60,15 @@ function jsonLd(area: AreaT, event?: Activity) {
  */
 export default function Area() {
   const { slug = "" } = useParams();
-  const { data: area, isLoading } = useArea(slug);
+  const { data: area, isLoading, isError, refetch } = useArea(slug);
   const { data: activities = [] } = useActivities();
-  if (isLoading) return <div className="min-h-[60vh]" />;
+  if (isLoading) return <DetailSkeleton label="Cargando el área" />;
+  if (isError)
+    return (
+      <div className="contenedor py-10">
+        <LoadError onRetry={() => void refetch()} message="No pudimos cargar esta área" />
+      </div>
+    );
   if (!area) return <ComingSoon title="Área no encontrada" />;
 
   const event = area.eventEnabled ? activities.find((a) => a.areaSlug === area.slug) : undefined;
@@ -347,5 +354,24 @@ function Related({ area }: { area: AreaT }) {
         </section>
       )}
     </>
+  );
+}
+
+/** Esqueleto de un detalle (área): portada con título abajo y el texto en dos columnas desde tablet. */
+function DetailSkeleton({ label }: { label: string }) {
+  return (
+    <SkeletonRegion label={label}>
+      <span className="relative flex min-h-[clamp(300px,42vh,400px)] items-end bg-white/[0.03] md:min-h-[clamp(260px,34vh,380px)]">
+        <span className="contenedor flex flex-col gap-3 py-8">
+          <Sk className="h-3 w-32" />
+          <Sk className="h-[clamp(34px,4.4vw,60px)] w-2/3 max-w-md" />
+          <Sk className="h-4 w-4/5 max-w-xl" />
+        </span>
+      </span>
+      <span className="contenedor grid grid-cols-1 gap-8 pt-8 pb-10 md:grid-cols-[1.4fr_1fr]">
+        <SkText lines={5} line="h-4" />
+        <Sk className="h-11 w-40 rounded-lg" />
+      </span>
+    </SkeletonRegion>
   );
 }

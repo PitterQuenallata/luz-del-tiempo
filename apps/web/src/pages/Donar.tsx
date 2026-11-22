@@ -8,6 +8,7 @@ import { absoluta, Seo } from "../components/Seo";
 import { BrandLogo } from "../components/ui/BrandLogo";
 import { CopyLine } from "../components/ui/CopyLine";
 import { Tilt } from "../components/ui/Tilt";
+import { LoadError, Sk, SkText } from "../components/ui/Skeleton";
 import { QrDemo } from "../components/ui/QrDemo";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { whatsappLink } from "../lib/format";
@@ -61,8 +62,8 @@ function MethodVisual({ id }: { id: DonationMethod["id"] }) {
 
 /** /donar — Formas de donar y necesidades del ministerio (como "Donaciones" de SUMtv, sin pago con tarjeta). */
 export default function Donar() {
-  const { data: methods = [] } = useDonationMethods();
-  const { data: needs = [] } = useNeeds();
+  const { data: methods = [], isPending: methodsPending, isError: methodsError, refetch: refetchMethods } = useDonationMethods();
+  const { data: needs = [], isPending: needsPending } = useNeeds();
   const { data: site } = useSite();
   const wa = site ? whatsappLink(site.whatsapp, "Hola, quiero hacer una donación al ministerio") : "#";
   const qr = methods.find((m) => m.id === "qr");
@@ -102,6 +103,8 @@ export default function Donar() {
               <a href="#formas" className="btn-borde max-sm:flex-1">Formas de donar</a>
             </div>
           </Reveal>
+          {/* El QR reserva su tarjeta (mismo tamaño) mientras cargan las formas de donar */}
+          {methodsPending && <Sk className="h-[358px] w-[270px] justify-self-center rounded-2xl" />}
           {qr && (
             <Reveal delay={0.1} className="relative flex flex-col items-center gap-3 justify-self-center rounded-2xl border border-oro-500/30 bg-noche-800 p-6 text-center shadow-[0_20px_60px_-30px_rgb(226_169_39/0.5)]">
               {/* El QR flota despacio: invita a escanearlo sin distraer */}
@@ -123,7 +126,19 @@ export default function Donar() {
 
         <section id="formas" className="flex scroll-mt-24 flex-col gap-4">
           <RowHeading title="Formas de donar" />
+          {methodsError && <LoadError compact onRetry={() => void refetchMethods()} message="No pudimos cargar las formas de donar" />}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {methodsPending &&
+              [0, 1, 2, 3].map((i) => (
+                <span key={i} className="flex min-h-[300px] flex-col overflow-hidden rounded-2xl border border-white/[0.08]" aria-hidden>
+                  <Sk className="h-32 rounded-none" />
+                  <span className="flex flex-col gap-2.5 p-5">
+                    <Sk className="h-5 w-2/3" />
+                    <SkText lines={2} line="h-3" />
+                    <Sk className="mt-2 h-3.5 w-1/2" />
+                  </span>
+                </span>
+              ))}
             {methods.map((m, i) => (
               <Reveal key={m.id} delay={0.05 * i} className="h-full">
                 <Tilt className="h-full rounded-2xl" max={4}>
@@ -162,6 +177,17 @@ export default function Donar() {
             </p>
           </Reveal>
           <ol className="flex flex-col">
+            {needsPending &&
+              [0, 1, 2, 3].map((i) => (
+                // Los textos de las necesidades son largos: ~300 px por ítem en celular, ~200 px en laptop/PC
+                <li key={i} className="flex min-h-[300px] gap-5 border-b border-white/[0.08] py-7 first:pt-0 last:border-b-0 lg:min-h-[200px]" aria-hidden>
+                  <Sk className="h-8 w-9" />
+                  <span className="flex flex-1 flex-col gap-2.5">
+                    <Sk className="h-6 w-1/2" />
+                    <SkText lines={5} line="h-3.5" />
+                  </span>
+                </li>
+              ))}
             {needs.map((n, i) => (
               <li key={n.title} className="border-b border-white/[0.08] py-7 first:pt-0 last:border-b-0">
                 <Reveal delay={0.05 * i} className="group flex gap-5">

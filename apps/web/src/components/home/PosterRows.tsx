@@ -9,6 +9,7 @@ import { AreaIcon } from "../ui/AreaIcon";
 import { RowHeading } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
 import { Tilt } from "../ui/Tilt";
+import { LoadError, Sk, SkeletonRegion } from "../ui/Skeleton";
 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6 } } };
 
@@ -17,11 +18,11 @@ const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transiti
  * La visibilidad se mide en un envoltorio que NO se desliza: con `whileInView`
  * sobre el contenedor deslizable, Motion no disparaba la animación en celular.
  */
-function PosterGrid({ children }: { children: React.ReactNode }) {
+function PosterGrid({ children, hidden = false }: { children: React.ReactNode; hidden?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
   return (
-    <div ref={ref}>
+    <div ref={ref} className={hidden ? "hidden" : undefined}>
       <motion.div
         initial="hidden"
         animate={inView ? "show" : "hidden"}
@@ -34,10 +35,21 @@ function PosterGrid({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Cuatro afiches 3:4 de esqueleto: mismo ancho por breakpoint (62 % / 40 % / grilla de 4) y misma proporción. */
+function PosterSkeleton({ label }: { label: string }) {
+  return (
+    <SkeletonRegion label={label} className="-mx-4 flex gap-4 overflow-hidden px-4 pb-2 md:mx-0 md:grid md:grid-cols-4 md:px-0">
+      {[0, 1, 2, 3].map((i) => (
+        <Sk key={i} className="aspect-[3/4] w-[62%] max-w-[260px] shrink-0 sm:w-[40%] md:w-auto md:max-w-none" />
+      ))}
+    </SkeletonRegion>
+  );
+}
+
 const shade = (hex: string) => `linear-gradient(160deg, ${hex} 0%, #0b1324 115%)`;
 
 export function ActivitiesRow() {
-  const { data: activities = [] } = useActivities();
+  const { data: activities = [], isPending, isError, refetch } = useActivities();
   const { data: areas = [] } = useAreas();
   const colorOf = (slug: string | null) => areas.find((a) => a.slug === slug)?.color ?? "#2c4580";
 
@@ -45,7 +57,9 @@ export function ActivitiesRow() {
     <section className="pt-10 pb-6">
       <div className="contenedor flex flex-col gap-4">
         <RowHeading title="Actividades y escuelas" to="/actividades" label="ver calendario" />
-        <PosterGrid>
+        {isPending && <PosterSkeleton label="Cargando actividades" />}
+        {isError && <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar las actividades" />}
+        <PosterGrid hidden={isPending || isError}>
           {activities.slice(0, 4).map((a) => {
             const { day, month } = dayMonth(a.startsAt);
             return (
@@ -79,12 +93,14 @@ export function ActivitiesRow() {
 }
 
 export function AreasRow() {
-  const { data: areas = [] } = useAreas();
+  const { data: areas = [], isPending, isError, refetch } = useAreas();
   return (
     <section className="pt-6 pb-12">
       <div className="contenedor flex flex-col gap-4">
         <RowHeading title="Áreas del ministerio" to="/areas" />
-        <PosterGrid>
+        {isPending && <PosterSkeleton label="Cargando áreas" />}
+        {isError && <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar las áreas" />}
+        <PosterGrid hidden={isPending || isError}>
           {areas.map((a) => (
             <motion.div key={a.slug} variants={item} className="w-[62%] max-w-[260px] shrink-0 snap-start sm:w-[40%] md:w-auto md:max-w-none">
               <Tilt className="rounded-lg">

@@ -5,6 +5,7 @@ import { nowBolivia } from "../../lib/schedule";
 import { usePlayer } from "../../player/PlayerProvider";
 import { Equalizer } from "../ui/Equalizer";
 import { Reveal, RowHeading } from "../ui/Reveal";
+import { LoadError, Sk, SkeletonRegion } from "../ui/Skeleton";
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
@@ -14,7 +15,7 @@ const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
  * La fila se desliza sola hasta el programa actual.
  */
 export function LatestAndToday() {
-  const { data: schedule = [] } = useSchedule();
+  const { data: schedule = [], isPending, isError, refetch } = useSchedule();
   const { data: stations = [] } = useStations();
   const player = usePlayer();
   const rowRef = useRef<HTMLDivElement>(null);
@@ -33,7 +34,34 @@ export function LatestAndToday() {
     if (row && card) row.scrollTo({ left: Math.max(0, card.offsetLeft - row.offsetLeft - 16), behavior: "smooth" });
   }, [focusIdx, items.length]);
 
-  if (!items.length) return null;
+  if (!items.length) {
+    if (!isPending && !isError) return null;
+    return (
+      <section className="pt-14 pb-14">
+        <div className="contenedor flex flex-col gap-5">
+          <RowHeading title="Hoy en la radio" to="/programacion" label="ver la semana" />
+          {isError ? (
+            <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar la programación de hoy" />
+          ) : (
+            // Tarjetas con el mismo ancho (78 % en celular, 256 px desde tablet) y el mismo alto que las reales
+            <SkeletonRegion label="Cargando la programación de hoy" className="-mx-4 flex gap-3 overflow-hidden px-4 pb-2 sm:mx-0 sm:px-0">
+              {Array.from({ length: 5 }, (_, i) => (
+                <span key={i} className="flex h-[178px] w-[78%] shrink-0 flex-col gap-3 rounded-xl border border-white/[0.08] p-4 sm:w-64">
+                  <span className="flex items-center justify-between">
+                    <Sk className="h-7 w-16" />
+                    <Sk className="h-4 w-14" />
+                  </span>
+                  <Sk className="h-4 w-4/5" />
+                  <Sk className="h-3.5 w-1/2" />
+                  <Sk className="mt-auto h-5 w-24 rounded-full" />
+                </span>
+              ))}
+            </SkeletonRegion>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="pt-14 pb-14">

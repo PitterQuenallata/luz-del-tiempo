@@ -1,16 +1,17 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
-/** Fotos que ya se mostraron en esta visita: al volver a una página aparecen sin fundido. */
+/** Fotos que ya se mostraron en esta visita: al volver a una página aparecen sin fundido ni esqueleto. */
 const vistas = new Set<string>();
 
 /**
- * Imagen que se retira sola si el archivo no existe (o falla al cargar), para
- * que debajo quede el diseño sin foto (degradado, logo). Así la web se ve
- * completa antes y después de tener las imágenes de la demo.
- * Se coloca encima del fondo con `absolute inset-0` por defecto.
+ * Imagen con sus tres estados:
+ * - cargando: un esqueleto con brillo (shimmer) ocupa exactamente su lugar, sin mover nada (CLS 0);
+ * - lista: aparece con un fundido corto (o directo, si ya estaba en la caché del navegador);
+ * - error: si falla, prueba `fallbackSrc`; si también falla, se retira y queda el diseño
+ *   que tenga debajo (degradado, logo, ícono). Así la web se ve completa con o sin fotos.
  *
- * Solo las fotos que de verdad llegan por la red aparecen con un fundido corto;
- * las que ya están en la caché del navegador se muestran de inmediato, sin parpadeo.
+ * Se coloca con `absolute inset-0` sobre un contenedor con posición (relative/absolute) y medidas
+ * propias (aspect-ratio, alto fijo…): el contenedor reserva el espacio, no la imagen.
  */
 export function SmartImage({
   src,
@@ -18,6 +19,8 @@ export function SmartImage({
   className = "absolute inset-0 h-full w-full object-cover",
   eager = false,
   sizes,
+  fallbackSrc,
+  skeleton = true,
 }: {
   src: string | null | undefined;
   alt?: string;
@@ -25,33 +28,51 @@ export function SmartImage({
   eager?: boolean;
   /** Ancho con que se muestra (p. ej. "(min-width: 768px) 25vw, 62vw"), para cuando la API entregue varios tamaños. */
   sizes?: string;
+  /** Segunda opción si la primera falla (p. ej. miniatura de YouTube en calidad menor). */
+  fallbackSrc?: string;
+  /** false para imágenes decorativas (fondos difuminados) que no necesitan esqueleto. */
+  skeleton?: boolean;
 }) {
   const ref = useRef<HTMLImageElement>(null);
+  const [current, setCurrent] = useState(src);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(() => !!src && vistas.has(src));
 
-  // Antes de pintar: si el navegador ya la tiene en caché, se muestra directo.
+  // Si cambia la foto (otra diapositiva, otra emisora), se reinicia el estado.
+  if (current !== src && !(fallbackSrc && current === fallbackSrc)) {
+    setCurrent(src);
+    setFailed(false);
+    setLoaded(!!src && vistas.has(src));
+  }
+
+  // Antes de pintar: si el navegador ya la tiene en caché, se muestra directo, sin esqueleto.
   useLayoutEffect(() => {
     const img = ref.current;
     if (img?.complete && img.naturalWidth > 0) setLoaded(true);
-  }, [src]);
+  }, [current]);
 
-  if (!src || failed) return null;
+  if (!current || failed) return null;
   return (
-    <img
-      ref={ref}
-      src={src}
-      alt={alt}
-      sizes={sizes}
-      loading={eager ? "eager" : "lazy"}
-      fetchPriority={eager ? "high" : "auto"}
-      decoding="async"
-      onLoad={() => {
-        vistas.add(src);
-        setLoaded(true);
-      }}
-      onError={() => setFailed(true)}
-      className={`${className} transition-opacity duration-300 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
-    />
+    <>
+      {skeleton && !loaded && <span className="sk absolute inset-0 rounded-none" aria-hidden />}
+      <img
+        ref={ref}
+        src={current}
+        alt={alt}
+        sizes={sizes}
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        decoding="async"
+        onLoad={() => {
+          vistas.add(current);
+          setLoaded(true);
+        }}
+        onError={() => {
+          if (fallbackSrc && current !== fallbackSrc) setCurrent(fallbackSrc);
+          else setFailed(true);
+        }}
+        className={`${className} transition-opacity duration-300 ease-out ${loaded ? "opacity-100" : "opacity-0"}`}
+      />
+    </>
   );
 }

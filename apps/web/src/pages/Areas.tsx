@@ -8,6 +8,7 @@ import { AreaIcon } from "../components/ui/AreaIcon";
 import { Reveal } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
 import { Tilt } from "../components/ui/Tilt";
+import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 
 /** Las áreas como lista de schema.org, para que Google entienda la estructura del ministerio. */
 const jsonLd = (areas: Area[]) => ({
@@ -24,7 +25,7 @@ const jsonLd = (areas: Area[]) => ({
 
 /** /areas — Todas las áreas del ministerio. */
 export default function Areas() {
-  const { data: areas = [] } = useAreas();
+  const { data: areas = [], isPending, isError, refetch } = useAreas();
   return (
     <>
       <Seo
@@ -37,7 +38,20 @@ export default function Areas() {
         subtitle="Más que una radio: salud, música, la Palabra y los niños. Conoce lo que hace cada área y sus próximos eventos"
       />
       <PageBody>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {isError && <LoadError onRetry={() => void refetch()} message="No pudimos cargar las áreas" />}
+        {isPending && (
+          <SkeletonRegion label="Cargando áreas" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className="flex min-h-[clamp(240px,62vw,300px)] flex-col justify-end gap-3 rounded-2xl bg-white/[0.03] p-5 sm:min-h-[280px] sm:p-6">
+                <Sk className="h-4 w-36" />
+                <Sk className="h-8 w-40" />
+                <Sk className="h-3.5 w-4/5 max-w-md" />
+                <Sk className="mt-2 h-4 w-32" />
+              </span>
+            ))}
+          </SkeletonRegion>
+        )}
+        <div className={isPending ? "hidden" : "grid grid-cols-1 gap-4 md:grid-cols-2"}>
           {areas.map((a, i) => (
             <Reveal key={a.slug} delay={0.06 * i}>
               <Tilt className="rounded-2xl" max={4}>

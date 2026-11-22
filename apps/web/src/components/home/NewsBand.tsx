@@ -6,6 +6,7 @@ import { longDate } from "../../lib/format";
 import { LogoMark } from "../layout/Logo";
 import { BandHeading, Reveal } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../ui/Skeleton";
 
 /**
  * "Actualidad en el ministerio". A propósito NO repite el esquema de la banda
@@ -13,10 +14,51 @@ import { SmartImage } from "../ui/SmartImage";
  * partida en dos (imagen | texto) y debajo una fila de tarjetas.
  */
 export function NewsBand() {
-  const { data: posts = [] } = usePosts();
+  const { data: posts = [], isPending, isError, refetch } = usePosts();
   const { data: areas = [] } = useAreas();
   const [main, ...rest] = posts;
-  if (!main) return null;
+  if (!main) {
+    if (!isPending && !isError) return null;
+    return (
+      <section className="pt-14 pb-16">
+        <div className="contenedor flex flex-col gap-6">
+          <BandHeading
+            eyebrow="Actualidad en el ministerio"
+            text="Lo que está pasando en la radio, las campañas y las escuelas"
+            action={<Link to="/noticias" className="chip-ver">ver todas</Link>}
+          />
+          {isError ? (
+            <LoadError compact onRetry={() => void refetch()} message="No pudimos cargar las noticias" />
+          ) : (
+            <SkeletonRegion label="Cargando noticias" className="flex flex-col gap-6">
+              <span className="grid grid-cols-1 overflow-hidden rounded-xl border border-white/[0.08] md:grid-cols-[1.25fr_1fr]">
+                <Sk className="aspect-[16/10] rounded-none md:aspect-auto md:min-h-[340px]" />
+                <span className="flex flex-col justify-center gap-4 p-6 sm:p-8">
+                  <Sk className="h-3 w-32" />
+                  <SkText lines={3} line="h-7" />
+                  <SkText lines={3} line="h-4" />
+                </span>
+              </span>
+              <span className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {[0, 1].map((i) => (
+                  // 152 px en celular y tablet (el resumen ocupa más líneas); 107 px desde laptop
+                  <span key={i} className="flex h-[152px] gap-4 overflow-hidden rounded-xl border border-white/[0.08] p-3 lg:h-[107px]">
+                    <Sk className="w-1.5 rounded-full" />
+                    <span className="flex flex-1 flex-col gap-2.5 py-1 lg:gap-2">
+                      <Sk className="h-3 w-40" />
+                      <Sk className="h-5 w-4/5" />
+                      <SkText lines={2} line="h-3" className="lg:hidden" />
+                      <Sk className="hidden h-3 w-3/4 lg:block" />
+                    </span>
+                  </span>
+                ))}
+              </span>
+            </SkeletonRegion>
+          )}
+        </div>
+      </section>
+    );
+  }
   const areaOf = (slug: string | null) => areas.find((a) => a.slug === slug);
   const mainArea = areaOf(main.areaSlug);
 

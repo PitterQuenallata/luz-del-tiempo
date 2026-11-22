@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useVideos } from "../api";
 import type { Video } from "../api/types";
 import { Seo } from "../components/Seo";
+import { SmartImage } from "../components/ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { RowHeading } from "../components/ui/Reveal";
 import { VideoModal, videoJsonLd, ytThumb } from "../components/ui/VideoModal";
 import { longDate } from "../lib/format";
@@ -15,7 +17,7 @@ const suave = [0.25, 0.1, 0.25, 1] as const;
  * debajo una fila deslizable por serie (como YouTube / plataformas de video).
  */
 export default function Videos() {
-  const { data: videos = [] } = useVideos();
+  const { data: videos = [], isPending, isError, refetch } = useVideos();
   const [open, setOpen] = useState<Video | null>(null);
   const featured = videos.find((v) => v.isFeatured) ?? videos[0];
 
@@ -35,12 +37,53 @@ export default function Videos() {
         jsonLd={videos.length ? { "@context": "https://schema.org", "@graph": sorted.map(videoJsonLd) } : undefined}
       />
 
+      {isPending && (
+        <SkeletonRegion label="Cargando videos">
+          {/* Episodio destacado: video 16:9 y texto, lado a lado desde laptop */}
+          <span className="contenedor grid grid-cols-1 items-center gap-6 py-6 sm:gap-8 sm:py-10 lg:grid-cols-[1.35fr_1fr]">
+            <Sk className="aspect-video rounded-2xl" />
+            <span className="flex flex-col gap-3">
+              <Sk className="h-5 w-44" />
+              <Sk className="h-[clamp(26px,3vw,46px)] w-11/12" />
+              <Sk className="h-[clamp(26px,3vw,46px)] w-2/3" />
+              <Sk className="h-3.5 w-32" />
+              <span className="mt-2 flex gap-2">
+                <Sk className="h-11 w-32 rounded-lg" />
+                <Sk className="h-11 w-40 rounded-lg" />
+              </span>
+            </span>
+          </span>
+          {/* Filas por serie: 72 % del ancho en celular, 3 por fila en tablet, 4 en laptop/PC */}
+          <span className="contenedor flex flex-col gap-10 py-8 sm:py-10">
+            {[0, 1].map((r) => (
+              <span key={r} className="flex flex-col gap-4">
+                <Sk className="h-6 w-40" />
+                <span className="-mx-4 flex gap-4 overflow-hidden px-4 sm:mx-0 sm:px-0">
+                  {[0, 1, 2, 3].map((i) => (
+                    <span key={i} className="flex w-[72%] shrink-0 flex-col gap-3 sm:w-[calc((100%-2rem)/3)] lg:w-[calc((100%-3rem)/4)]">
+                      <Sk className="aspect-video rounded-xl" />
+                      <Sk className="h-4 w-4/5" />
+                      <Sk className="h-3 w-1/3" />
+                    </span>
+                  ))}
+                </span>
+              </span>
+            ))}
+          </span>
+        </SkeletonRegion>
+      )}
+      {isError && (
+        <div className="contenedor py-10">
+          <LoadError onRetry={() => void refetch()} message="No pudimos cargar los videos" />
+        </div>
+      )}
+
       {featured && (
         <section className="relative isolate overflow-hidden">
-          <img
+          <SmartImage
             src={ytThumb(featured.youtubeId, "maxres")}
-            onError={(e) => (e.currentTarget.src = ytThumb(featured.youtubeId))}
-            alt=""
+            fallbackSrc={ytThumb(featured.youtubeId)}
+            skeleton={false}
             className="absolute inset-0 -z-10 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
           />
           <span className="absolute inset-0 -z-10 bg-gradient-to-b from-noche-900/40 via-noche-900/70 to-noche-900" />
@@ -53,12 +96,13 @@ export default function Videos() {
               className="group relative block aspect-video overflow-hidden rounded-2xl bg-black text-left shadow-2xl"
               aria-label={`Ver: ${featured.title}`}
             >
-              <img
+              <SmartImage
                 src={ytThumb(featured.youtubeId, "maxres")}
-                onError={(e) => (e.currentTarget.src = ytThumb(featured.youtubeId))}
+                fallbackSrc={ytThumb(featured.youtubeId)}
                 alt={featured.title}
-                fetchPriority="high"
-                className="h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-[1.03] group-hover:brightness-110"
+                eager
+                sizes="(min-width: 1024px) 58vw, 100vw"
+                className="absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-[1.03] group-hover:brightness-110"
               />
               <span className="absolute inset-0 grid place-items-center">
                 <span className="pulso-vivo grid h-16 w-16 place-items-center rounded-full bg-oro-500 text-noche-900 shadow-xl transition-[background-color,transform] duration-300 group-hover:scale-110 group-hover:bg-oro-400 sm:h-20 sm:w-20">
@@ -91,7 +135,7 @@ export default function Videos() {
         </section>
       )}
 
-      <div className="contenedor flex flex-col gap-10 py-8 sm:py-10">
+      <div className={isPending || isError ? "hidden" : "contenedor flex flex-col gap-10 py-8 sm:py-10"}>
         <VideoRow title="Lo más reciente" videos={latest} onOpen={setOpen} />
         {[...series.entries()].map(([name, list]) => (
           <VideoRow key={name} title={name} videos={list} onOpen={setOpen} />
@@ -152,12 +196,11 @@ function VideoRow({ title, videos, onOpen }: { title: string; videos: Video[]; o
             aria-label={`Ver video: ${v.title}`}
           >
             <span className="relative block aspect-video overflow-hidden rounded-xl bg-noche-800">
-              <img
+              <SmartImage
                 src={ytThumb(v.youtubeId)}
                 alt={v.title}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-105 group-hover:brightness-110"
+                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 72vw"
+                className="absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-105 group-hover:brightness-110"
               />
               {/* En celular el botón de play se ve siempre; con mouse aparece al pasar encima */}
               <span className="absolute inset-0 grid place-items-center transition-opacity duration-300 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">

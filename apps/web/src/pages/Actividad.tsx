@@ -11,6 +11,7 @@ import { Countdown, RegisterButton } from "../components/shared/ActivityBits";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { ShareButton } from "../components/ui/ShareButton";
 import { SmartImage } from "../components/ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion } from "../components/ui/Skeleton";
 import { descargarCalendario, eventJsonLd } from "../lib/eventos";
 import { longDate } from "../lib/format";
 import ComingSoon from "./ComingSoon";
@@ -20,9 +21,15 @@ const ease = [0.22, 1, 0.36, 1] as const;
 /** /actividades/:slug — Detalle (como la página de un evento de SUMtv: lugar, presentador, precio, horario diario). */
 export default function Actividad() {
   const { slug = "" } = useParams();
-  const { data: a, isLoading } = useActivity(slug);
+  const { data: a, isLoading, isError, refetch } = useActivity(slug);
   const { data: areas = [] } = useAreas();
-  if (isLoading) return <div className="min-h-[60vh]" />;
+  if (isLoading) return <ActividadSkeleton />;
+  if (isError)
+    return (
+      <div className="contenedor py-10">
+        <LoadError onRetry={() => void refetch()} message="No pudimos cargar esta actividad" />
+      </div>
+    );
   if (!a) return <ComingSoon title="Actividad no encontrada" />;
   const area = areas.find((x) => x.slug === a.areaSlug);
 
@@ -161,5 +168,40 @@ export default function Actividad() {
         </Reveal>
       </PageBody>
     </>
+  );
+}
+
+/** Esqueleto de una actividad: portada con título y cuenta regresiva (lado a lado desde laptop) y la grilla de datos. */
+function ActividadSkeleton() {
+  return (
+    <SkeletonRegion label="Cargando la actividad">
+      <span className="block bg-white/[0.03]">
+        <span className="contenedor grid grid-cols-1 items-end gap-6 pt-28 pb-8 sm:py-10 md:pt-10 lg:grid-cols-[1.3fr_1fr]">
+          <span className="flex flex-col gap-3">
+            <Sk className="h-3 w-48" />
+            <Sk className="h-[clamp(30px,4vw,52px)] w-4/5" />
+            <Sk className="h-4 w-3/5" />
+            <span className="mt-1 flex flex-wrap gap-2">
+              <Sk className="h-11 w-44 rounded-lg" />
+              <Sk className="h-11 w-28 rounded-lg" />
+              <Sk className="h-11 w-32 rounded-lg" />
+            </span>
+          </span>
+          <span className="flex flex-col gap-2 lg:items-end">
+          <Sk className="h-4 w-24" />
+          <span className="grid w-full max-w-md grid-cols-4 gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Sk key={i} className="h-[72px] rounded-xl sm:h-[82px]" />
+            ))}
+          </span>
+          </span>
+        </span>
+      </span>
+      <span className="contenedor grid grid-cols-1 gap-3 py-8 sm:grid-cols-2 sm:py-10 lg:grid-cols-3">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Sk key={i} className="h-[74px] rounded-xl" />
+        ))}
+      </span>
+    </SkeletonRegion>
   );
 }

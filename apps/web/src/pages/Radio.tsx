@@ -9,6 +9,7 @@ import { Equalizer } from "../components/ui/Equalizer";
 import { PlayPauseIcon } from "../components/ui/PlayPauseIcon";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
+import { LoadError, Sk, SkeletonRegion, SkText } from "../components/ui/Skeleton";
 import { Tilt } from "../components/ui/Tilt";
 import { programProgress, splitSchedule } from "../lib/schedule";
 import { usePlayer } from "../player/PlayerProvider";
@@ -51,7 +52,7 @@ function jsonLd(stations: Station[]) {
  * si no hay ninguna, esa sección no aparece.
  */
 export default function Radio() {
-  const { data: stations = [] } = useStations();
+  const { data: stations = [], isPending, isError, refetch } = useStations();
   const { data: schedule = [] } = useSchedule();
   const player = usePlayer();
 
@@ -65,7 +66,19 @@ export default function Radio() {
       jsonLd={stations.length ? jsonLd(stations) : undefined}
     />
   );
-  if (!main) return <>{seo}<div className="min-h-[70vh]" /></>;
+  if (!main)
+    return (
+      <>
+        {seo}
+        {isError ? (
+          <div className="contenedor py-10">
+            <LoadError onRetry={() => void refetch()} message="No pudimos cargar la radio" />
+          </div>
+        ) : isPending ? (
+          <RadioSkeleton />
+        ) : null}
+      </>
+    );
 
   const playingSlug = player.status === "playing" || player.status === "loading" ? player.station?.slug : null;
   const mainPlaying = playingSlug === main.slug;
@@ -230,5 +243,45 @@ export default function Radio() {
         </section>
       )}
     </>
+  );
+}
+
+/** Esqueleto de /radio: misma portada (grilla 1,5 : 1 desde laptop) y la grilla de emisoras de 1/2/3 columnas. */
+function RadioSkeleton() {
+  return (
+    <SkeletonRegion label="Cargando la radio">
+      <section className="contenedor grid min-h-[clamp(420px,58vh,620px)] grid-cols-1 items-end gap-6 pt-24 pb-8 md:gap-10 md:py-10 lg:grid-cols-[1.5fr_1fr]">
+        <span className="flex flex-col gap-4">
+          <Sk className="h-7 w-56 rounded-full" />
+          <span className="flex flex-col gap-2">
+            <Sk className="h-[clamp(36px,5.2vw,80px)] w-[90%]" />
+            <Sk className="h-[clamp(36px,5.2vw,80px)] w-1/2" />
+          </span>
+          <Sk className="h-5 w-4/5 max-w-lg" />
+          <Sk className="mt-2 h-[72px] w-60 rounded-full" />
+        </span>
+        <span className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-noche-900/70 p-5">
+          <Sk className="h-4 w-28" />
+          <Sk className="h-6 w-3/4" />
+          <SkText lines={2} line="h-3.5" className="border-t border-white/10 pt-3" />
+          <Sk className="h-11 w-44 rounded-lg" />
+        </span>
+      </section>
+      <section className="contenedor flex flex-col gap-4 py-10">
+        <Sk className="h-6 w-32" />
+        <span className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="flex flex-col overflow-hidden rounded-xl border border-white/[0.08]">
+              <Sk className="aspect-[16/8] rounded-none" />
+              <span className="flex flex-col gap-2 p-4">
+                <Sk className="h-5 w-1/2" />
+                <SkText lines={2} line="h-3" />
+                <Sk className="h-3 w-1/2" />
+              </span>
+            </span>
+          ))}
+        </span>
+      </section>
+    </SkeletonRegion>
   );
 }
