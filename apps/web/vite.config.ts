@@ -66,6 +66,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), sinImagenesDemo(), seo(env.VITE_SITE_URL ?? "")],
     // En desarrollo es fijo (la caché sobrevive a las recargas); al compilar cambia en cada versión.
     define: { __BUILD_ID__: JSON.stringify(mode === "development" ? "dev" : Date.now().toString(36)) },
-    server: { port: 5173 },
+    // La web llama a /api y Vite lo reenvía a la API: así funciona desde otros equipos de la red
+  server: { port: 5173, proxy: { "/api": { target: "http://localhost:4000", changeOrigin: true } } },
   };
 });

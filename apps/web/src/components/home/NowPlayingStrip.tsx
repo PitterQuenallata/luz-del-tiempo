@@ -17,6 +17,8 @@ export function NowPlayingStrip() {
   const { data: schedule = [] } = useSchedule();
   const { data: live } = useLive();
   const player = usePlayer();
+  // Transmisión en otra plataforma (no la radio) para el aviso "También en vivo en…".
+  const otraTransmision = live?.streams.find((s) => s.platform !== "radio");
   const [idx, setIdx] = useState(0);
 
   // Si ya hay una emisora sonando, la tira muestra esa.
@@ -86,13 +88,13 @@ export function NowPlayingStrip() {
               {player.status === "error" && isThis ? "Señal no disponible por ahora" : `${playing ? "Reproduciendo en vivo" : "En vivo ahora"} · ${selected.listeners} oyentes`}
               {upcoming[0] && ` · Después: ${upcoming[0].programName}`}
             </span>
-            {live?.isLive && (
-              <a href={live.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-2 self-start rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500">
+            {live?.isLive && otraTransmision && (
+              <a href={otraTransmision.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-2 self-start rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inset-0 animate-ping rounded-full bg-white/80" />
                   <span className="relative h-2 w-2 rounded-full bg-white" />
                 </span>
-                También en vivo en {live.platform === "tiktok" ? "TikTok" : live.platform === "facebook" ? "Facebook" : "YouTube"}: {live.title}
+                También en vivo en {otraTransmision.platform === "tiktok" ? "TikTok" : otraTransmision.platform === "facebook" ? "Facebook" : "YouTube"}: {live.title}
                 <ExternalLink size={13} />
               </a>
             )}

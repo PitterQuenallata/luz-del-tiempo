@@ -92,9 +92,12 @@ export type Post = {
   body: string[];
 };
 
-export type LiveStatus =
-  | { isLive: false }
-  | { isLive: true; platform: "youtube" | "tiktok" | "facebook" | "radio"; url: string; title: string };
+/** Transmisión en vivo: el aviso general y un enlace por plataforma (puede haber varias a la vez). */
+export type LiveStatus = {
+  isLive: boolean;
+  title: string;
+  streams: { platform: "youtube" | "tiktok" | "facebook" | "radio"; url: string }[];
+};
 
 /** Franja de la programación de hoy (program_slots + programs). */
 export type ScheduleItem = {
@@ -104,6 +107,8 @@ export type ScheduleItem = {
   host: string | null;
   stationSlug: string;
   isLive: boolean;
+  /** Contenido de relleno (música, historias) en una franja sin programa. */
+  relleno: boolean;
 };
 
 /** Diapositiva de la portada (destacados que elige el equipo en el panel). */
@@ -153,7 +158,15 @@ export type MinistryNeed = {
 };
 
 /** Datos generales (site_settings). */
+export type SiteRedes = {
+  youtube: string;
+  tiktok: string;
+  facebook: string;
+  appAndroid: string;
+};
+
 export type SiteInfo = {
+  redes?: Partial<SiteRedes>;
   whatsapp: string;
   whatsappDisplay: string;
   email: string;
