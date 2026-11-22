@@ -37,9 +37,9 @@ export function NowPlayingStrip() {
     <section id="envivo" className="scroll-mt-24 px-4 pt-7 sm:px-6">
       <motion.div
         className="mx-auto max-w-[1152px] 2xl:max-w-[1296px] overflow-hidden rounded-xl border border-oro-500 bg-noche-800"
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ delay: 0.15, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
       >
         <div className="flex flex-wrap items-center gap-5 p-4 sm:p-5">
           <motion.div

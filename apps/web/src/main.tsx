@@ -1,4 +1,6 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { MotionConfig } from "motion/react";
 import { lazy, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -8,31 +10,74 @@ import "./index.css";
 import Home from "./pages/Home";
 import { PlayerProvider } from "./player/PlayerProvider";
 
-// El inicio va en el paquete principal; las demás páginas se descargan al visitarlas (menos JS en el celular).
-const Actividad = lazy(() => import("./pages/Actividad"));
-const Actividades = lazy(() => import("./pages/Actividades"));
-const Area = lazy(() => import("./pages/Area"));
-const Areas = lazy(() => import("./pages/Areas"));
-const ComingSoon = lazy(() => import("./pages/ComingSoon"));
-const Contacto = lazy(() => import("./pages/Contacto"));
-const Donar = lazy(() => import("./pages/Donar"));
-const Noticia = lazy(() => import("./pages/Noticia"));
-const Noticias = lazy(() => import("./pages/Noticias"));
-const Nosotros = lazy(() => import("./pages/Nosotros"));
-const Programacion = lazy(() => import("./pages/Programacion"));
-const Radio = lazy(() => import("./pages/Radio"));
-const Videos = lazy(() => import("./pages/Videos"));
+// El inicio va en el paquete principal; las demás páginas se descargan aparte (menos JS al abrir la web en el celular).
+const paginas = {
+  Actividad: () => import("./pages/Actividad"),
+  Actividades: () => import("./pages/Actividades"),
+  Area: () => import("./pages/Area"),
+  Areas: () => import("./pages/Areas"),
+  ComingSoon: () => import("./pages/ComingSoon"),
+  Contacto: () => import("./pages/Contacto"),
+  Donar: () => import("./pages/Donar"),
+  Noticia: () => import("./pages/Noticia"),
+  Noticias: () => import("./pages/Noticias"),
+  Nosotros: () => import("./pages/Nosotros"),
+  Programacion: () => import("./pages/Programacion"),
+  Radio: () => import("./pages/Radio"),
+  Videos: () => import("./pages/Videos"),
+};
+const Actividad = lazy(paginas.Actividad);
+const Actividades = lazy(paginas.Actividades);
+const Area = lazy(paginas.Area);
+const Areas = lazy(paginas.Areas);
+const ComingSoon = lazy(paginas.ComingSoon);
+const Contacto = lazy(paginas.Contacto);
+const Donar = lazy(paginas.Donar);
+const Noticia = lazy(paginas.Noticia);
+const Noticias = lazy(paginas.Noticias);
+const Nosotros = lazy(paginas.Nosotros);
+const Programacion = lazy(paginas.Programacion);
+const Radio = lazy(paginas.Radio);
+const Videos = lazy(paginas.Videos);
+
+// Cuando la página ya cargó y el navegador está libre, se bajan las demás en segundo plano:
+// así, al tocar un enlace, la página nueva aparece al instante (sin pantalla vacía).
+const precargar = () => Object.values(paginas).forEach((cargar) => void cargar().catch(() => {}));
+window.addEventListener("load", () => ("requestIdleCallback" in window ? requestIdleCallback(precargar, { timeout: 4000 }) : setTimeout(precargar, 2000)), { once: true });
 
 // index.html trae título y descripción fijos para quien no ejecuta JavaScript (buscadores, WhatsApp).
 // Ya en el navegador, cada página pone los suyos con <Seo>; se quitan los fijos para que no queden duplicados.
 document.querySelectorAll("[data-estatico]").forEach((el) => el.remove());
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000 } } });
+/**
+ * Caché de datos: lo que se descargó (emisoras, programación, actividades…) se guarda en el
+ * navegador por 24 horas. Al recargar o volver a la web, todo se muestra al instante con lo guardado
+ * y se actualiza en segundo plano si tiene más de 5 minutos.
+ */
+const DIA = 24 * 60 * 60 * 1000;
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 5 * 60_000, gcTime: DIA, refetchOnWindowFocus: false } },
+});
+
+// En modo privado o con el almacenamiento bloqueado, localStorage puede fallar: entonces la web funciona sin caché.
+const storage = (() => {
+  try {
+    const s = window.localStorage;
+    s.setItem("luz-prueba", "1");
+    s.removeItem("luz-prueba");
+    return s;
+  } catch {
+    return undefined;
+  }
+})();
+const persister = createSyncStoragePersister({ storage, key: "luz-cache", throttleTime: 1000 });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user">
+    {/* buster: cada versión publicada descarta la caché anterior, por si cambió la forma de los datos */}
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: DIA, buster: __BUILD_ID__ }}>
+      {/* Movimiento por defecto: suave y sin rebote */}
+      <MotionConfig reducedMotion="user" transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}>
         <PlayerProvider>
           <BrowserRouter>
             <Routes>
@@ -56,6 +101,6 @@ createRoot(document.getElementById("root")!).render(
           </BrowserRouter>
         </PlayerProvider>
       </MotionConfig>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 );

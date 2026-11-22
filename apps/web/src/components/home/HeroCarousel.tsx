@@ -160,9 +160,9 @@ export function HeroCarousel() {
               role="group"
               aria-roledescription="diapositiva"
               aria-label={`${index + 1} de ${slides.length}`}
-              variants={{ show: { transition: { staggerChildren: 0.09 } }, exit: { opacity: 0, x: -30, transition: { duration: 0.3 } } }}
+              variants={{ show: { transition: { staggerChildren: 0.09 } }, exit: { opacity: 0, transition: { duration: 0.35 } } }}
             >
-              <motion.span className="eyebrow" variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
+              <motion.span className="eyebrow" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
                 {slide.eyebrow}
               </motion.span>
               <TituloPorPalabras text={slide.title} />
@@ -173,7 +173,7 @@ export function HeroCarousel() {
                 <motion.div
                   key={i}
                   className="flex flex-col"
-                  variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease, delay: 0.25 } } }}
+                  variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease, delay: 0.25 } } }}
                 >
                   {el}
                 </motion.div>

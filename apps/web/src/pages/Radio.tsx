@@ -127,7 +127,7 @@ export default function Radio() {
                 {mainPlaying && <Equalizer active color="#e2a927" bars={6} className="h-7" />}
               </div>,
             ].map((el, i) => (
-              <motion.div key={i} className="flex flex-col" variants={{ hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
+              <motion.div key={i} className="flex flex-col" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
                 {el}
               </motion.div>
             ))}
@@ -138,7 +138,7 @@ export default function Radio() {
 
           <motion.div
             className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-noche-900/70 p-5 backdrop-blur"
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.35, ease }}
           >

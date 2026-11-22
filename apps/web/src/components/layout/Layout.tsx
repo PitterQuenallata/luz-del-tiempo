@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useLocation, useOutlet } from "react-router";
 import { AmbientLight } from "./AmbientLight";
 import { BackToTop } from "./BackToTop";
@@ -14,23 +14,23 @@ function FrozenOutlet() {
   return frozen;
 }
 
+/**
+ * Cambio de página: un fundido corto y sin desplazamiento (antes subía y bajaba 12 px, se sentía brusco).
+ * La vuelta al inicio de la página ocurre cuando la vieja ya se fue, para que no se vea el salto.
+ */
 export function Layout() {
   const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-  }, [pathname]);
 
   return (
     <>
       <AmbientLight />
       <Navbar />
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false} onExitComplete={() => window.scrollTo({ top: 0 })}>
         <motion.main
           key={pathname}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.28, ease: "easeOut" } }}
+          exit={{ opacity: 0, transition: { duration: 0.16, ease: "easeIn" } }}
         >
           <Suspense fallback={<div className="min-h-[70vh]" />}>
             <FrozenOutlet />

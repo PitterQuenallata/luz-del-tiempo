@@ -64,6 +64,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "VITE_");
   return {
     plugins: [react(), tailwindcss(), sinImagenesDemo(), seo(env.VITE_SITE_URL ?? "")],
+    // En desarrollo es fijo (la caché sobrevive a las recargas); al compilar cambia en cada versión.
+    define: { __BUILD_ID__: JSON.stringify(mode === "development" ? "dev" : Date.now().toString(36)) },
     server: { port: 5173 },
   };
 });

@@ -89,14 +89,14 @@ export default function Actividad() {
                 <ShareButton title={a.title} text={a.summary} />
               </div>,
             ].map((el, i) => (
-              <motion.div key={i} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
+              <motion.div key={i} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease } } }}>
                 {el}
               </motion.div>
             ))}
           </div>
           <motion.div
             className="flex flex-col gap-2 lg:items-end"
-            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease, delay: 0.2 } } }}
+            variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease, delay: 0.2 } } }}
           >
             <span className="text-sm text-niebla-200">Empieza en</span>
             <Countdown iso={a.startsAt} />

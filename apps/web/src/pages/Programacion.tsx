@@ -99,9 +99,9 @@ export default function Programacion() {
               key={`${day}-${station}`}
               custom={dir}
               variants={{
-                enter: (d: number) => ({ opacity: 0, x: 24 * d }),
+                enter: (d: number) => ({ opacity: 0, x: 12 * d }),
                 show: { opacity: 1, x: 0, transition: { duration: 0.3, ease, staggerChildren: 0.035 } },
-                exit: (d: number) => ({ opacity: 0, x: -24 * d, transition: { duration: 0.18 } }),
+                exit: (d: number) => ({ opacity: 0, x: -12 * d, transition: { duration: 0.18 } }),
               }}
               initial="enter"
               animate="show"

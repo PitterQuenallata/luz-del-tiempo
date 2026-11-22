@@ -10,7 +10,7 @@ import { RowHeading } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
 import { Tilt } from "../ui/Tilt";
 
-const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.6 } } };
+const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.6 } } };
 
 /**
  * Fila tipo afiches (3:4) que en celular se desliza de lado.

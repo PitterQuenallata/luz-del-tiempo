@@ -44,10 +44,10 @@ export default function Actividades() {
               <motion.div
                 key={a.slug}
                 layout
-                initial={{ opacity: 0, y: 24, scale: 0.96 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
-                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
                 transition={{ duration: 0.5, delay: 0.05 * (i % 4), ease: [0.22, 1, 0.36, 1] }}
               >
                 <ActivityPoster a={a} color={colorOf(a.areaSlug)} />

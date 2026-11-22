@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
  * Tarjeta que se inclina un poco hacia el mouse, con un brillo que lo sigue.
  * Solo con mouse (en celular no hay "encima"); respeta "reducir movimiento".
  */
-export function Tilt({ children, className = "", max = 7 }: { children: ReactNode; className?: string; max?: number }) {
+export function Tilt({ children, className = "", max = 5 }: { children: ReactNode; className?: string; max?: number }) {
   const reduce = useReducedMotion();
   const px = useMotionValue(0.5);
   const py = useMotionValue(0.5);
-  const spring = { stiffness: 220, damping: 20, mass: 0.4 };
+  const spring = { stiffness: 150, damping: 22, mass: 0.5 };
   const rotateY = useSpring(useTransform(px, [0, 1], [-max, max]), spring);
   const rotateX = useSpring(useTransform(py, [0, 1], [max, -max]), spring);
   const glowX = useTransform(px, (v) => `${v * 100}%`);

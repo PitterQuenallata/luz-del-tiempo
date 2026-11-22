@@ -44,7 +44,7 @@ export function StationsBand() {
                 <span className="relative font-serif text-[15px] text-oro-400">Emisora</span>
                 <motion.span
                   className="relative font-serif text-[clamp(40px,7vw,84px)] leading-none font-semibold uppercase"
-                  initial={{ y: 20, opacity: 0 }}
+                  initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.15 }}
                 >
