@@ -40,9 +40,9 @@ export function NewsBand() {
                 style={{ background: `radial-gradient(circle at 30% 40%, ${mainArea?.color ?? "#22376a"}aa, #0b1324 75%)` }}
               />
               <div className="absolute inset-0 grid place-items-center">
-                <LogoMark className="h-32 w-32 opacity-60" />
+                <LogoMark sizes="128px" className="h-32 w-32 opacity-60" />
               </div>
-              <SmartImage src={main.coverUrl} className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
+              <SmartImage src={main.coverUrl} alt={main.title} className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
               <span className="absolute top-4 left-4 rounded bg-oro-500 px-2 py-1 text-xs font-semibold text-noche-900">
                 {mainArea?.name ?? "Ministerio"}
               </span>
@@ -75,7 +75,7 @@ export function NewsBand() {
                   />
                   <span className="flex min-w-0 flex-col gap-1.5 py-1">
                     <span className="text-xs text-niebla-300">{area?.name ?? "Ministerio"} · {longDate(n.publishedAt)}</span>
-                    <span className="titulo text-lg leading-snug group-hover:text-oro-400">{n.title}</span>
+                    <h3 className="titulo text-lg leading-snug group-hover:text-oro-400">{n.title}</h3>
                     <span className="line-clamp-2 text-sm text-niebla-200">{n.excerpt}</span>
                   </span>
                 </Link>

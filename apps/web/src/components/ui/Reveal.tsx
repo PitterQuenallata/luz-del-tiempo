@@ -22,7 +22,7 @@ export function RowHeading({ title, to, label = "ver todos" }: { title: string; 
     <div className="flex items-center justify-between gap-3">
       <span className="flex items-center gap-3">
         <EstelasMarca />
-        <span className="titulo text-xl">{title}</span>
+        <h2 className="titulo text-xl">{title}</h2>
       </span>
       {to && <Link to={to} className="chip-ver">{label}</Link>}
     </div>
@@ -38,7 +38,7 @@ export function BandHeading({ eyebrow, text, action }: { eyebrow: string; text: 
           <EstelasMarca />
           <span className="eyebrow">{eyebrow}</span>
         </span>
-        <span className="titulo max-w-xl text-[clamp(20px,2.4vw,26px)] leading-tight">{text}</span>
+        <h2 className="titulo max-w-xl text-[clamp(20px,2.4vw,26px)] leading-tight">{text}</h2>
       </div>
       {action}
     </Reveal>

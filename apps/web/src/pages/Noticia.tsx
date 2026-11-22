@@ -33,7 +33,7 @@ export default function Noticia() {
       </PageHeader>
       <PageBody className="max-w-[760px]">
         <Reveal className="relative grid aspect-[16/9] place-items-center overflow-hidden rounded-2xl" style={{ background: `radial-gradient(circle at 30% 40%, ${area?.color ?? "#22376a"}aa, #0b1324 75%)` }}>
-          <LogoMark className="h-28 w-28 opacity-50" />
+          <LogoMark sizes="128px" className="h-28 w-28 opacity-50" />
           <SmartImage src={post.coverUrl} eager />
         </Reveal>
         <article className="flex flex-col gap-5 text-[17px] leading-[1.75] text-niebla-100">

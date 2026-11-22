@@ -28,16 +28,16 @@ export function Footer() {
               <span className="mb-1 font-bold text-white">{c.title}</span>
               {c.links.map((l) =>
                 "to" in l ? (
-                  <Link key={l.label} to={l.to} className="py-1.5 hover:text-oro-400">{l.label}</Link>
+                  <Link key={l.label} to={l.to} className="py-2.5 transition-colors hover:text-oro-400 sm:py-1.5">{l.label}</Link>
                 ) : (
-                  <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="py-1.5 hover:text-oro-400">{l.label}</a>
+                  <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="py-2.5 transition-colors hover:text-oro-400 sm:py-1.5">{l.label}</a>
                 ),
               )}
             </div>
           ))}
           <div className="flex flex-col gap-0.5">
             <span className="mb-1 font-bold text-white">Contáctenos</span>
-            <a href="https://wa.me/59170000000" target="_blank" rel="noreferrer" className="py-1.5 tabular-nums hover:text-oro-400">WhatsApp +591 700 00000</a>
+            <a href="https://wa.me/59170000000" target="_blank" rel="noreferrer" className="py-2.5 tabular-nums transition-colors hover:text-oro-400 sm:py-1.5">WhatsApp +591 700 00000</a>
             <span className="py-1.5">laluzdeltiempo.bolivia.bo</span>
           </div>
         </div>

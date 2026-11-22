@@ -41,7 +41,7 @@ export function VideoBand() {
             </motion.button>
             <span className="mt-3 flex flex-col gap-1">
               <span className="text-sm text-oro-400">{main.seriesName}</span>
-              <span className="titulo text-xl leading-snug">{main.title}</span>
+              <h3 className="titulo text-xl leading-snug">{main.title}</h3>
             </span>
           </Reveal>
 

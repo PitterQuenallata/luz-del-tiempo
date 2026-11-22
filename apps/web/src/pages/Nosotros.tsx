@@ -19,7 +19,7 @@ export default function Nosotros() {
       {/* Sin cabecera: foto del equipo a todo el ancho y la misión encima */}
       <section className="relative isolate flex min-h-[clamp(340px,52vh,560px)] items-end overflow-hidden">
         <span className="absolute inset-0 -z-10 grid place-items-center bg-[radial-gradient(circle_at_60%_40%,#22376a,#0b1324_75%)]">
-          <LogoMark className="h-40 w-40 opacity-40" />
+          <LogoMark sizes="160px" className="h-40 w-40 opacity-40" />
         </span>
         <SmartImage src="/demo/nosotros-equipo.jpg" eager className="absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%]" />
         <span className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,#0b1324_0%,rgba(11,19,36,0.75)_45%,rgba(11,19,36,0.2)_100%)]" />

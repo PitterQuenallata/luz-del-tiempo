@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { ExternalLink, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -86,8 +86,24 @@ export function NowPlayingStrip() {
           </div>
 
           <div className="flex min-w-[130px] flex-[1_1_100%] flex-row flex-wrap gap-1.5 sm:flex-[0_1_160px] sm:flex-col">
-            <button type="button" onClick={() => (isThis ? player.toggle() : player.play(selected))} className="btn-oro flex-1">
-              {playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+            <button
+              type="button"
+              onClick={() => (isThis ? player.toggle() : player.play(selected))}
+              className={`btn-oro btn-brillo flex-1 ${playing ? "" : "pulso-vivo"}`}
+              aria-pressed={playing}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={playing ? "pause" : "play"}
+                  className="grid place-items-center"
+                  initial={{ scale: 0.4, rotate: -90, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  exit={{ scale: 0.4, rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+                </motion.span>
+              </AnimatePresence>
               {playing ? "Pausar" : "Escuchar en vivo"}
             </button>
             <button type="button" onClick={cycle} className="btn-borde flex-1">Cambiar emisora</button>

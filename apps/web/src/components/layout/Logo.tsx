@@ -3,9 +3,20 @@
  * `logo.png` es la versión transparente sacada de `logo-negro.webp`;
  * cuando el diseñador entregue el SVG oficial, basta con cambiar el `src`.
  */
-export function LogoMark({ className = "h-11 w-11" }: { className?: string }) {
+export function LogoMark({ className = "h-11 w-11", sizes = "56px" }: { className?: string; sizes?: string }) {
+  // Versiones chicas en WebP: el PNG de 512 px pesa 108 KB y casi siempre se muestra a menos de 60 px.
   return (
-    <img src="/brand/logo.png" alt="" className={`${className} shrink-0 object-contain`} draggable={false} />
+    <img
+      src="/brand/logo-192.webp"
+      srcSet="/brand/logo-96.webp 96w, /brand/logo-192.webp 192w, /brand/logo.png 512w"
+      sizes={sizes}
+      width={96}
+      height={96}
+      alt=""
+      decoding="async"
+      className={`${className} shrink-0 object-contain`}
+      draggable={false}
+    />
   );
 }
 
@@ -34,8 +45,8 @@ export function Wordmark({ size = "md", className = "" }: { size?: keyof typeof 
 export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
   const big = size === "lg";
   return (
-    <span className="flex items-center gap-2.5" aria-label="La Luz del Tiempo">
-      <LogoMark className={big ? "h-20 w-20" : "h-12 w-12"} />
+    <span className="flex items-center gap-2.5" role="img" aria-label="La Luz del Tiempo">
+      <LogoMark className={big ? "h-20 w-20" : "h-12 w-12"} sizes={big ? "80px" : "48px"} />
       <Wordmark size={big ? "lg" : "md"} />
     </span>
   );

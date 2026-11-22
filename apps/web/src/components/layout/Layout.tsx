@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useLocation, useOutlet } from "react-router";
 import { AmbientLight } from "./AmbientLight";
 import { BackToTop } from "./BackToTop";
@@ -32,7 +32,9 @@ export function Layout() {
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.3 }}
         >
-          <FrozenOutlet />
+          <Suspense fallback={<div className="min-h-[70vh]" />}>
+            <FrozenOutlet />
+          </Suspense>
         </motion.main>
       </AnimatePresence>
       <Footer />

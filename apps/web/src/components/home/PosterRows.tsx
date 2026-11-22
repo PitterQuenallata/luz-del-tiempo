@@ -8,6 +8,7 @@ import { dayMonth } from "../../lib/format";
 import { AreaIcon } from "../ui/AreaIcon";
 import { RowHeading } from "../ui/Reveal";
 import { SmartImage } from "../ui/SmartImage";
+import { Tilt } from "../ui/Tilt";
 
 const item = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0, transition: { duration: 0.6 } } };
 
@@ -49,9 +50,10 @@ export function ActivitiesRow() {
             const { day, month } = dayMonth(a.startsAt);
             return (
               <motion.div key={a.slug} variants={item} className="w-[62%] max-w-[260px] shrink-0 snap-start sm:w-[40%] md:w-auto md:max-w-none">
+                <Tilt className="rounded-lg">
                 <Link to={`/actividades/${a.slug}`} className="group relative flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-lg p-4 text-center">
                   <span className="absolute inset-0 transition-[filter] duration-300 group-hover:brightness-110" style={{ background: shade(colorOf(a.areaSlug)) }} />
-                  <SmartImage src={a.coverUrl} className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
+                  <SmartImage src={a.coverUrl} alt={a.title} sizes="(min-width: 768px) 25vw, 62vw" className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
                   <span className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,19,36,0.55)_0%,rgba(11,19,36,0.15)_40%,rgba(11,19,36,0.85)_100%)]" />
                   <span className="relative flex items-start justify-between text-left">
                     <span className="text-xs font-bold text-white/80">{ACTIVITY_TYPE_LABEL[a.type]}</span>
@@ -66,6 +68,7 @@ export function ActivitiesRow() {
                     <span className="flex items-center gap-1.5"><MapPin size={13} /> {a.isVirtual ? "Virtual" : a.locationName}</span>
                   </span>
                 </Link>
+                </Tilt>
               </motion.div>
             );
           })}
@@ -84,9 +87,10 @@ export function AreasRow() {
         <PosterGrid>
           {areas.map((a) => (
             <motion.div key={a.slug} variants={item} className="w-[62%] max-w-[260px] shrink-0 snap-start sm:w-[40%] md:w-auto md:max-w-none">
+              <Tilt className="rounded-lg">
               <Link to={`/areas/${a.slug}`} className="group relative flex aspect-[3/4] flex-col items-center justify-between overflow-hidden rounded-lg px-4 py-6 text-center">
                 <span className="absolute inset-0 transition-[filter] duration-300 group-hover:brightness-110" style={{ background: shade(a.color) }} />
-                <SmartImage src={a.coverUrl} className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
+                <SmartImage src={a.coverUrl} alt={`Ministerio de ${a.name}`} sizes="(min-width: 768px) 25vw, 62vw" className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
                 <span className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,19,36,0.55)_0%,rgba(11,19,36,0.15)_40%,rgba(11,19,36,0.85)_100%)]" />
                 <span className="absolute -right-8 -bottom-8 text-white/10">
                   <AreaIcon icon={a.icon} size={170} strokeWidth={1} />
@@ -95,6 +99,7 @@ export function AreasRow() {
                 <span className="relative poster text-[clamp(30px,3.4vw,42px)] leading-none uppercase">{a.name}</span>
                 <span className="relative text-xs font-semibold text-white/85">{a.eventEnabled ? "Con evento próximo" : "Conocer más"}</span>
               </Link>
+              </Tilt>
             </motion.div>
           ))}
         </PosterGrid>

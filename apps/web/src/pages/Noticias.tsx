@@ -38,7 +38,7 @@ export default function Noticias() {
             <Reveal>
               <Link to={`/noticias/${lead.slug}`} className="group grid grid-cols-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-noche-800 lg:grid-cols-[1.4fr_1fr]">
                 <span className="relative grid aspect-[16/9] place-items-center overflow-hidden lg:aspect-auto lg:min-h-[380px]" style={cover(areaOf(lead.areaSlug))}>
-                  <LogoMark className="h-28 w-28 opacity-50" />
+                  <LogoMark sizes="128px" className="h-28 w-28 opacity-50" />
                   <SmartImage src={lead.coverUrl} eager className="absolute inset-0 h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-110" />
                   <span className="absolute top-4 left-4 rounded bg-oro-500 px-2 py-1 text-xs font-semibold text-noche-900">Lo más reciente</span>
                 </span>

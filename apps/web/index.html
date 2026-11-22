@@ -2,21 +2,82 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1324" />
-    <meta name="description" content="Ministerio La Luz del Tiempo: radio en vivo 24/7, salud, música, escuelas y estudios bíblicos." />
-    <link rel="icon" href="/brand/logo.png" type="image/png" />
+    <title>La Luz del Tiempo · Radio cristiana en vivo 24/7 desde Bolivia</title>
+    <meta name="description" content="Ministerio La Luz del Tiempo: radio cristiana en vivo las 24 horas, sin anuncios. Música, prédicas, salud, escuelas y estudios bíblicos desde Bolivia." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <!-- SITE_URL (entre signos de porcentaje) lo reemplaza vite.config.ts con VITE_SITE_URL (sin él, las etiquetas que piden URL absoluta se quitan) -->
+    <link rel="canonical" href="%SITE_URL%/" data-requiere-url />
+
+    <!-- Al compartir por WhatsApp, Facebook o X -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_BO" />
+    <meta property="og:site_name" content="La Luz del Tiempo" />
+    <meta property="og:title" content="La Luz del Tiempo · Radio cristiana en vivo 24/7" />
+    <meta property="og:description" content="Música, prédicas y salud las 24 horas, sin anuncios. Escúchanos en vivo desde Bolivia." />
+    <meta property="og:url" content="%SITE_URL%/" data-requiere-url />
+    <meta property="og:image" content="%SITE_URL%/brand/og.jpg" data-requiere-url />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Logo de La Luz del Tiempo: globo dorado con tres ángeles" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="La Luz del Tiempo · Radio cristiana en vivo 24/7" />
+    <meta name="twitter:description" content="Música, prédicas y salud las 24 horas, sin anuncios." />
+    <meta name="twitter:image" content="%SITE_URL%/brand/og.jpg" data-requiere-url />
+
+    <link rel="icon" href="/brand/logo-96.webp" type="image/webp" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <link rel="preload" href="/brand/logo-96.webp" as="image" type="image/webp" />
+
     <!-- Fuentes elegidas por el cliente: Clash Display (títulos) + Satoshi (texto) + Fraunces (acentos).
-         Un enlace por familia: combinadas en un solo enlace, Fontshare a veces devuelve otra familia en lugar de Satoshi. -->
+         Un enlace por familia: combinadas en un solo enlace, Fontshare a veces devuelve otra familia en lugar de Satoshi.
+         Fraunces solo se usa en acentos: se carga sin bloquear el primer pintado. -->
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
     <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet" />
-    <title>La Luz del Tiempo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "%SITE_URL%/#ministerio",
+            "name": "Ministerio La Luz del Tiempo",
+            "url": "%SITE_URL%/",
+            "logo": "%SITE_URL%/brand/logo.png",
+            "areaServed": "BO",
+            "sameAs": ["https://www.youtube.com/@laluzdeltiempo"]
+          },
+          {
+            "@type": "RadioStation",
+            "name": "La Luz del Tiempo",
+            "description": "Radio cristiana en vivo las 24 horas, sin anuncios: música, prédicas y salud.",
+            "parentOrganization": { "@id": "%SITE_URL%/#ministerio" },
+            "url": "%SITE_URL%/radio",
+            "openingHours": "Mo-Su 00:00-23:59",
+            "address": { "@type": "PostalAddress", "addressCountry": "BO" }
+          },
+          {
+            "@type": "WebSite",
+            "name": "La Luz del Tiempo",
+            "url": "%SITE_URL%/",
+            "inLanguage": "es"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
+    <noscript>
+      <h1>La Luz del Tiempo · Radio cristiana en vivo 24/7</h1>
+      <p>Música, prédicas y salud las 24 horas, sin anuncios. Activa JavaScript para escuchar la radio en vivo.</p>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

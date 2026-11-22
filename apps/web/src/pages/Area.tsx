@@ -135,7 +135,7 @@ function EventBlock({ a }: { a: Activity }) {
     <Reveal className="grid grid-cols-1 overflow-hidden rounded-2xl border border-oro-500/40 bg-noche-800 md:grid-cols-[1fr_1.2fr]">
       <div className="relative min-h-[220px] overflow-hidden">
         <span className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_40%_40%,#22376a,#0b1324_75%)]">
-          <LogoMark className="h-24 w-24 opacity-60" />
+          <LogoMark sizes="128px" className="h-24 w-24 opacity-60" />
         </span>
         <SmartImage src={a.coverUrl} />
         <span className="absolute top-4 left-4 rounded bg-oro-500 px-2 py-1 text-xs font-semibold text-noche-900">Próximo evento</span>

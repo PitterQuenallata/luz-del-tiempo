@@ -38,7 +38,7 @@ export function StationsBand() {
                 transition={{ duration: 0.6 }}
               >
                 {/* Foto de la emisora a la derecha; el texto queda sobre la parte oscura de la izquierda */}
-                <SmartImage src={current.imageUrl} eager />
+                <SmartImage src={current.imageUrl} alt={`Emisora ${current.name}`} />
                 <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,19,36,0.92)_0%,rgba(11,19,36,0.6)_45%,rgba(11,19,36,0)_80%)]" />
                 <span className="absolute top-3 left-3 z-10 rounded bg-oro-500 px-1.5 py-0.5 text-xs font-semibold text-noche-900">En vivo 24/7</span>
                 <span className="relative font-serif text-[15px] text-oro-400">Emisora</span>

@@ -38,7 +38,7 @@ export default function Actividad() {
       <title>{`${a.title} · La Luz del Tiempo`}</title>
       <header className="relative overflow-hidden">
         <span className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${area?.color ?? "#22376a"} 0%, #0b1324 110%)` }} />
-        <span className="absolute top-6 right-6 opacity-15"><LogoMark className="h-40 w-40" /></span>
+        <span className="absolute top-6 right-6 opacity-15"><LogoMark sizes="160px" className="h-40 w-40" /></span>
         <SmartImage src={a.coverUrl} eager />
         <span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,19,36,0.94)_0%,rgba(11,19,36,0.7)_55%,rgba(11,19,36,0.35)_100%)]" />
         <Reveal className="contenedor relative grid grid-cols-1 items-end gap-6 py-8 sm:py-10 lg:grid-cols-[1.3fr_1fr]">
