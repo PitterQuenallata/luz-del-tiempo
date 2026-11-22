@@ -14,7 +14,7 @@ export function Tilt({ children, className = "", max = 5 }: { children: ReactNod
   const rotateX = useSpring(useTransform(py, [0, 1], [max, -max]), spring);
   const glowX = useTransform(px, (v) => `${v * 100}%`);
   const glowY = useTransform(py, (v) => `${v * 100}%`);
-  const glow = useMotionTemplate`radial-gradient(circle at ${glowX} ${glowY}, rgb(226 169 39 / 0.22), transparent 55%)`;
+  const glow = useMotionTemplate`radial-gradient(circle at ${glowX} ${glowY}, rgb(246 227 184 / 0.14), transparent 55%)`;
   const opacity = useSpring(0, spring);
 
   if (reduce) return <div className={className}>{children}</div>;

@@ -1,8 +1,8 @@
 import { ArrowRight, Bell, CalendarDays, Radio, Smartphone, Video } from "lucide-react";
 import { Link } from "react-router";
 import { LogoMark, Wordmark } from "../layout/Logo";
+import { useDonationMethods, useSite } from "../../api";
 import { AppMockups } from "./AppMockups";
-import { QrDemo } from "../ui/QrDemo";
 import { Reveal } from "../ui/Reveal";
 
 const APP_BENEFICIOS = [
@@ -12,10 +12,13 @@ const APP_BENEFICIOS = [
   { icono: Bell, texto: "Avisos de transmisiones en vivo" },
 ];
 
-const TIENDAS = ["Google Play", "App Store"];
-
 /** "Nuestro ministerio" + tarjeta de donación. */
 export function AboutDonate() {
+  const { data: site } = useSite();
+  const { data: metodos = [] } = useDonationMethods();
+  // Datos reales del ministerio (panel → Datos del ministerio / Donaciones). Nada de valores de muestra.
+  const banco = metodos.find((m) => m.id === "bank");
+  const digitos = site?.whatsapp?.replace(/\D/g, "");
   return (
     <section id="nosotros" className="bg-[linear-gradient(180deg,#2a3040_0%,#1c2233_100%)] pt-14 pb-16">
       <div className="contenedor flex flex-col gap-9">
@@ -39,12 +42,17 @@ export function AboutDonate() {
               <Wordmark size="md" />
             </span>
             <span className="poster text-3xl leading-tight">Apoya <span className="text-oro-500">la obra</span></span>
-            <QrDemo />
-            <div className="flex flex-col gap-1 text-sm text-niebla-100">
-              <span className="font-semibold text-white">Banco Unión</span>
-              <span className="tabular-nums">Cuenta 1-1234567 · Ministerio La Luz del Tiempo</span>
-            </div>
-            <a href="https://wa.me/59170000000" target="_blank" rel="noreferrer" className="btn-oro self-stretch">Escribir por WhatsApp</a>
+            {banco && (
+              <div className="flex flex-col gap-1 text-sm text-niebla-100">
+                {banco.lines.map((l, i) => (
+                  <span key={l} className={i === 0 ? "font-semibold text-white" : "tabular-nums"}>{l}</span>
+                ))}
+              </div>
+            )}
+            {digitos && (
+              <a href={`https://wa.me/${digitos}`} target="_blank" rel="noreferrer" className="btn-oro self-stretch">Escribir por WhatsApp</a>
+            )}
+            <Link to="/donar" className="btn-borde self-stretch">Ver formas de donar</Link>
           </Reveal>
         </div>
       </div>
@@ -54,6 +62,8 @@ export function AboutDonate() {
 
 /** Promoción de la app con dispositivos dibujados. */
 export function AppPromo() {
+  const { data: site } = useSite();
+  const android = site?.redes?.appAndroid;
   return (
     <section className="pt-4 pb-14">
       <Reveal className="contenedor">
@@ -82,17 +92,23 @@ export function AppPromo() {
                   Escuchar en la web
                   <ArrowRight size={16} aria-hidden />
                 </Link>
-                {TIENDAS.map((tienda) => (
-                  <span
-                    key={tienda}
-                    aria-disabled="true"
-                    className="inline-flex min-h-[46px] items-center gap-2 rounded-full border border-white/15 px-5 text-sm text-niebla-300"
-                  >
+                {android ? (
+                  <a href={android} target="_blank" rel="noreferrer" className="inline-flex min-h-[46px] items-center gap-2 rounded-full bg-black px-5 text-sm font-semibold text-white transition-colors hover:bg-noche-950">
                     <Smartphone size={15} aria-hidden />
-                    {tienda}
+                    Google Play
+                  </a>
+                ) : (
+                  <span aria-disabled="true" className="inline-flex min-h-[46px] items-center gap-2 rounded-full border border-white/15 px-5 text-sm text-niebla-300">
+                    <Smartphone size={15} aria-hidden />
+                    Google Play
                     <span className="text-xs text-niebla-400">· pronto</span>
                   </span>
-                ))}
+                )}
+                <span aria-disabled="true" className="inline-flex min-h-[46px] items-center gap-2 rounded-full border border-white/15 px-5 text-sm text-niebla-300">
+                  <Smartphone size={15} aria-hidden />
+                  App Store
+                  <span className="text-xs text-niebla-400">· pronto</span>
+                </span>
               </div>
             </div>
             <div className="flex flex-[1_1_300px] justify-center">
