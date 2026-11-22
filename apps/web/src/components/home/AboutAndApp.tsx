@@ -1,6 +1,7 @@
 import { ArrowRight, Bell, CalendarDays, Radio, Smartphone, Video } from "lucide-react";
 import { Link } from "react-router";
 import { LogoMark, Wordmark } from "../layout/Logo";
+import { AppMockups } from "./AppMockups";
 import { QrDemo } from "../ui/QrDemo";
 import { Reveal } from "../ui/Reveal";
 
@@ -94,10 +95,8 @@ export function AppPromo() {
                 ))}
               </div>
             </div>
-            <div className="flex flex-[1_1_220px] justify-center" aria-hidden>
-              <div className="grid h-52 w-52 place-items-center rounded-full border border-oro-500/30 bg-noche-900/60 shadow-[0_0_60px_-10px_rgba(226,169,39,0.45)] sm:h-60 sm:w-60">
-                <LogoMark className="h-28 w-28 sm:h-32 sm:w-32" />
-              </div>
+            <div className="flex flex-[1_1_300px] justify-center">
+              <AppMockups />
             </div>
           </div>
         </div>

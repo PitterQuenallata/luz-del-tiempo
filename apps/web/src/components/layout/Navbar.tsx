@@ -19,15 +19,9 @@ export function Navbar() {
   const { pathname } = useLocation();
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(false);
-  // Se esconde al bajar (más pantalla para leer, sobre todo en celular) y vuelve apenas se sube un poco.
-  useMotionValueEvent(scrollY, "change", (y) => {
-    setScrolled(y > 12);
-    const prev = scrollY.getPrevious() ?? 0;
-    if (y < 120 || y < prev - 4) setHidden(false);
-    else if (y > prev + 6) setHidden(true);
-  });
+  // La barra se queda siempre visible al hacer scroll; solo cambia de estilo al alejarse del inicio.
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 12));
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
@@ -36,7 +30,7 @@ export function Navbar() {
     <header
       className={`sticky top-0 z-40 border-b transition-[background-color,border-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         scrolled || open ? "border-white/10 bg-noche-900/85 backdrop-blur-lg" : "border-white/[0.06] bg-noche-900"
-      } ${hidden && !open ? "-translate-y-full" : "translate-y-0"}`}
+      }`}
     >
       <motion.nav
         initial={{ opacity: 0 }}
