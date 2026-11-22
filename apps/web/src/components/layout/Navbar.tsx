@@ -5,7 +5,7 @@ import { Link, NavLink, useLocation } from "react-router";
 import { Logo } from "./Logo";
 
 export const NAV = [
-  { to: "/radio", label: "En vivo" },
+  { to: "/radio", label: "Radio" },
   { to: "/programacion", label: "Programación" },
   { to: "/areas", label: "Áreas" },
   { to: "/actividades", label: "Actividades" },

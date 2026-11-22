@@ -39,7 +39,7 @@ function seo(siteUrl: string): Plugin {
       handler(html) {
         const limpio = url
           ? html.replaceAll(" data-requiere-url", "")
-          : html.replace(/^.*data-requiere-url.*\n/gm, "");
+          : html.replace(/^.*data-requiere-url.*\r?\n/gm, ""); // \r?: index.html puede tener saltos de línea de Windows
         return limpio.replaceAll("%SITE_URL%", url);
       },
     },

@@ -3,7 +3,7 @@ import { Logo } from "./Logo";
 
 const COLUMNS = [
   { title: "Acerca del ministerio", links: [{ to: "/nosotros", label: "Quiénes somos" }, { to: "/donar", label: "Cómo donar" }, { to: "/contacto", label: "Contacto" }, { to: "/areas", label: "Áreas" }] },
-  { title: "Dónde escuchar", links: [{ to: "/radio", label: "En vivo en la web" }, { to: "/programacion", label: "Programación" }, { to: "/videos", label: "Videos y podcast" }] },
+  { title: "Dónde escuchar", links: [{ to: "/radio", label: "Radio en vivo" }, { to: "/programacion", label: "Programación" }, { to: "/videos", label: "Videos y podcast" }] },
   { title: "Redes sociales", links: [{ href: "https://www.youtube.com/@laluzdeltiempo", label: "YouTube" }, { href: "#", label: "TikTok" }, { href: "#", label: "Facebook" }] },
 ];
 

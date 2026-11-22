@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
-import { ExternalLink, Pause, Play } from "lucide-react";
+import { motion } from "motion/react";
+import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useLive, useSchedule, useStations } from "../../api";
@@ -7,6 +7,7 @@ import { splitSchedule } from "../../lib/schedule";
 import { usePlayer } from "../../player/PlayerProvider";
 import { LogoMark, Wordmark } from "../layout/Logo";
 import { Equalizer } from "../ui/Equalizer";
+import { PlayPauseIcon } from "../ui/PlayPauseIcon";
 
 /** "Estamos presentando": lo que suena ahora + los próximos programas en la barra dorada. */
 export function NowPlayingStrip() {
@@ -92,18 +93,7 @@ export function NowPlayingStrip() {
               className={`btn-oro btn-brillo flex-1 ${playing ? "" : "pulso-vivo"}`}
               aria-pressed={playing}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={playing ? "pause" : "play"}
-                  className="grid place-items-center"
-                  initial={{ scale: 0.4, rotate: -90, opacity: 0 }}
-                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                  exit={{ scale: 0.4, rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-                </motion.span>
-              </AnimatePresence>
+              <PlayPauseIcon playing={playing} />
               {playing ? "Pausar" : "Escuchar en vivo"}
             </button>
             <button type="button" onClick={cycle} className="btn-borde flex-1">Cambiar emisora</button>

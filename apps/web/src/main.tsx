@@ -23,6 +23,10 @@ const Programacion = lazy(() => import("./pages/Programacion"));
 const Radio = lazy(() => import("./pages/Radio"));
 const Videos = lazy(() => import("./pages/Videos"));
 
+// index.html trae título y descripción fijos para quien no ejecuta JavaScript (buscadores, WhatsApp).
+// Ya en el navegador, cada página pone los suyos con <Seo>; se quitan los fijos para que no queden duplicados.
+document.querySelectorAll("[data-estatico]").forEach((el) => el.remove());
+
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000 } } });
 
 createRoot(document.getElementById("root")!).render(

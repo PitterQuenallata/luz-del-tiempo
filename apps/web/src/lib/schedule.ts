@@ -21,3 +21,11 @@ export function splitSchedule(items: ScheduleItem[], stationSlug?: string, now =
   const upcoming = sorted.filter((i) => toMin(i.start) > now);
   return { current, upcoming, all: sorted };
 }
+
+/** Cuánto lleva el programa en emisión, de 0 a 1 (para la barra de avance). */
+export function programProgress(item: ScheduleItem, now = nowBolivia()) {
+  const start = toMin(item.start);
+  let end = toMin(item.end);
+  if (end <= start) end += 24 * 60; // termina a medianoche o después
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+}
