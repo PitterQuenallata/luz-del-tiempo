@@ -150,8 +150,19 @@
 /* En pantallas táctiles, quitar el destello azul/gris al tocar: cada botón ya tiene su propio efecto al presionar. */
 a, button { -webkit-tap-highlight-color: transparent; }
 
+/* Brillo que cruza una franja dorada cada pocos segundos (llamado a inscribirse). */
+.brillo-franja {
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.35) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: brillo-franja 5s cubic-bezier(0.22, 1, 0.36, 1) 1.5s infinite;
+}
+@keyframes brillo-franja {
+  0% { transform: translateX(-100%); }
+  30%, 100% { transform: translateX(100%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-marquee, .ambient-a, .ambient-b, .pulso-vivo::before { animation: none; }
+  .animate-marquee, .ambient-a, .ambient-b, .pulso-vivo::before, .brillo-franja { animation: none; }
   .btn-brillo::after { display: none; }
 }

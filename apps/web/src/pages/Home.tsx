@@ -8,30 +8,13 @@ import { StationsBand } from "../components/home/StationsBand";
 import { VideoBand } from "../components/home/VideoBand";
 import { useActivities } from "../api";
 import { Seo } from "../components/Seo";
+import { eventJsonLd } from "../lib/eventos";
 
 /** Actividades próximas como eventos (schema.org/Event): Google puede mostrarlas con fecha y lugar. */
 function ActivitiesJsonLd() {
   const { data: activities = [] } = useActivities();
   if (!activities.length) return null;
-  const data = {
-    "@context": "https://schema.org",
-    "@graph": activities.slice(0, 6).map((a) => ({
-      "@type": "Event",
-      name: a.title,
-      description: a.summary,
-      startDate: a.startsAt,
-      ...(a.endsAt ? { endDate: a.endsAt } : {}),
-      eventAttendanceMode: a.isVirtual
-        ? "https://schema.org/OnlineEventAttendanceMode"
-        : "https://schema.org/OfflineEventAttendanceMode",
-      location: a.isVirtual
-        ? { "@type": "VirtualLocation", url: `${location.origin}/actividades/${a.slug}` }
-        : { "@type": "Place", name: a.locationName ?? "Bolivia", address: { "@type": "PostalAddress", addressCountry: "BO" } },
-      organizer: { "@type": "Organization", name: "Ministerio La Luz del Tiempo" },
-      url: `${location.origin}/actividades/${a.slug}`,
-      ...(a.coverUrl ? { image: new URL(a.coverUrl, location.origin).href } : {}),
-    })),
-  };
+  const data = { "@context": "https://schema.org", "@graph": activities.slice(0, 6).map(eventJsonLd) };
   return <script type="application/ld+json">{JSON.stringify(data)}</script>;
 }
 

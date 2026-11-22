@@ -16,6 +16,7 @@ import { Lightbox } from "../components/ui/Lightbox";
 import { PlayPauseIcon } from "../components/ui/PlayPauseIcon";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { SmartImage } from "../components/ui/SmartImage";
+import { eventJsonLd } from "../lib/eventos";
 import { longDate, whatsappLink } from "../lib/format";
 import { usePlayer } from "../player/PlayerProvider";
 import ComingSoon from "./ComingSoon";
@@ -44,24 +45,7 @@ function jsonLd(area: AreaT, event?: Activity) {
           { "@type": "ListItem", position: 3, name: area.name, item: url },
         ],
       },
-      ...(event
-        ? [
-            {
-              "@type": "Event",
-              name: event.title,
-              description: event.summary,
-              startDate: event.startsAt,
-              ...(event.endsAt ? { endDate: event.endsAt } : {}),
-              eventAttendanceMode: event.isVirtual
-                ? "https://schema.org/OnlineEventAttendanceMode"
-                : "https://schema.org/OfflineEventAttendanceMode",
-              location: event.isVirtual
-                ? { "@type": "VirtualLocation", url: absoluta(`/actividades/${event.slug}`) }
-                : { "@type": "Place", name: event.locationName ?? "Bolivia", address: { "@type": "PostalAddress", addressCountry: "BO" } },
-              url: absoluta(`/actividades/${event.slug}`),
-            },
-          ]
-        : []),
+      ...(event ? [eventJsonLd(event)] : []),
     ],
   };
 }
