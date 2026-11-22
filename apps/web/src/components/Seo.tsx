@@ -8,14 +8,30 @@ const SITE_URL = ((import.meta.env.VITE_SITE_URL as string | undefined) ?? "").r
  * La URL canónica solo se pone si hay dominio (VITE_SITE_URL).
  * `jsonLd`: datos estructurados de schema.org propios de la página.
  */
-export function Seo({ title, description, jsonLd }: { title: string; description: string; jsonLd?: object }) {
+export function Seo({
+  title,
+  description,
+  jsonLd,
+  type = "website",
+  image,
+}: {
+  title: string;
+  description: string;
+  jsonLd?: object;
+  /** "article" en noticias: WhatsApp y Facebook las muestran como artículo. */
+  type?: "website" | "article";
+  /** Imagen propia para compartir (si no, queda la general /brand/og.jpg). */
+  image?: string | null;
+}) {
   const { pathname } = useLocation();
   const url = SITE_URL ? `${SITE_URL}${pathname}` : null;
   return (
     <>
       <title>{title}</title>
       <meta name="description" content={description} />
+      <meta property="og:type" content={type} />
       <meta property="og:title" content={title} />
+      {image && <meta property="og:image" content={absoluta(image)} />}
       <meta property="og:description" content={description} />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
