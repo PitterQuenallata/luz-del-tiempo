@@ -1,9 +1,13 @@
 import { MessageCircle } from "lucide-react";
+import { motion } from "motion/react";
 import { siMoneygram, siPaypal, siWesternunion } from "simple-icons";
 import { useDonationMethods, useNeeds, useSite } from "../api";
 import type { DonationMethod } from "../api/types";
 import { PageBody } from "../components/layout/PageHeader";
+import { absoluta, Seo } from "../components/Seo";
 import { BrandLogo } from "../components/ui/BrandLogo";
+import { CopyLine } from "../components/ui/CopyLine";
+import { Tilt } from "../components/ui/Tilt";
 import { QrDemo } from "../components/ui/QrDemo";
 import { Reveal, RowHeading } from "../components/ui/Reveal";
 import { whatsappLink } from "../lib/format";
@@ -65,7 +69,22 @@ export default function Donar() {
 
   return (
     <>
-      <title>Donar · La Luz del Tiempo</title>
+      <Seo
+        title="Donar · Apoya al ministerio La Luz del Tiempo"
+        description="Apoya la radio, las campañas de salud gratuitas y las escuelas del ministerio La Luz del Tiempo. Dona con QR, transferencia, PayPal o remesas desde cualquier país."
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "Donar al ministerio La Luz del Tiempo",
+          url: absoluta("/donar"),
+          about: {
+            "@type": "Organization",
+            name: "Ministerio La Luz del Tiempo",
+            url: absoluta("/"),
+            potentialAction: { "@type": "DonateAction", recipient: { "@type": "Organization", name: "Ministerio La Luz del Tiempo" }, target: absoluta("/donar") },
+          },
+        }}
+      />
       {/* Sin cabecera: la página abre con el llamado y el QR */}
       <section className="relative isolate overflow-hidden border-b border-white/[0.06]">
         <span className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_80%_30%,rgba(226,169,39,0.18),transparent_55%),radial-gradient(ellipse_at_10%_80%,rgba(34,55,106,0.6),transparent_60%)]" />
@@ -79,13 +98,20 @@ export default function Donar() {
             </p>
             <p>Cada mes publicamos un reporte de lo que recibimos y en qué lo usamos.</p>
             <div className="flex flex-wrap gap-2 pt-2">
-              <a href={wa} target="_blank" rel="noreferrer" className="btn-oro"><MessageCircle size={16} /> Donar por WhatsApp</a>
-              <a href="#formas" className="btn-borde">Ver formas de donar</a>
+              <a href={wa} target="_blank" rel="noreferrer" className="btn-oro btn-brillo max-sm:flex-1"><MessageCircle size={16} aria-hidden /> Donar por WhatsApp</a>
+              <a href="#formas" className="btn-borde max-sm:flex-1">Formas de donar</a>
             </div>
           </Reveal>
           {qr && (
-            <Reveal delay={0.1} className="flex flex-col items-center gap-3 justify-self-center rounded-2xl border border-white/10 bg-noche-800 p-6 text-center">
-              <QrDemo size="h-48 w-48" />
+            <Reveal delay={0.1} className="relative flex flex-col items-center gap-3 justify-self-center rounded-2xl border border-oro-500/30 bg-noche-800 p-6 text-center shadow-[0_20px_60px_-30px_rgb(226_169_39/0.5)]">
+              {/* El QR flota despacio: invita a escanearlo sin distraer */}
+              <motion.span
+                className="block rounded-xl bg-white p-2"
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <QrDemo size="h-44 w-44" />
+              </motion.span>
               <span className="titulo text-lg">{qr.title}</span>
               <span className="max-w-[220px] text-sm text-niebla-200">{qr.detail}</span>
             </Reveal>
@@ -99,15 +125,23 @@ export default function Donar() {
           <RowHeading title="Formas de donar" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {methods.map((m, i) => (
-              <Reveal key={m.id} delay={0.05 * i} className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-noche-800">
+              <Reveal key={m.id} delay={0.05 * i} className="h-full">
+                <Tilt className="h-full rounded-2xl" max={4}>
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-noche-800 transition-colors duration-300 hover:border-oro-500/40">
                 <MethodVisual id={m.id} />
                 <div className="flex flex-1 flex-col gap-2 p-5">
-                  <span className="titulo text-lg">{m.title}</span>
+                  <h3 className="titulo text-lg">{m.title}</h3>
                   <span className="text-sm text-niebla-200">{m.detail}</span>
                   <ul className="mt-auto flex flex-col gap-1 border-t border-white/10 pt-3 text-sm">
-                    {m.lines.map((l) => <li key={l} className="tabular-nums [overflow-wrap:anywhere]">{l}</li>)}
+                    {m.lines.map((l) => (
+                      <li key={l}>
+                        <CopyLine line={l} />
+                      </li>
+                    ))}
                   </ul>
                 </div>
+                </div>
+                </Tilt>
               </Reveal>
             ))}
           </div>
@@ -130,8 +164,8 @@ export default function Donar() {
           <ol className="flex flex-col">
             {needs.map((n, i) => (
               <li key={n.title} className="border-b border-white/[0.08] py-7 first:pt-0 last:border-b-0">
-                <Reveal delay={0.05 * i} className="flex gap-5">
-                  <span className="font-serif text-3xl leading-none text-oro-500 italic tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                <Reveal delay={0.05 * i} className="group flex gap-5">
+                  <span className="font-serif text-3xl leading-none text-oro-500 italic tabular-nums transition-transform duration-500 group-hover:-translate-y-0.5" aria-hidden>{String(i + 1).padStart(2, "0")}</span>
                   <span className="flex flex-col gap-2">
                     <h3 className="titulo text-xl">{n.title}</h3>
                     <p className="text-[16px] leading-[1.75] text-niebla-100">{n.body}</p>
@@ -142,13 +176,14 @@ export default function Donar() {
           </ol>
         </section>
 
-        <Reveal className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-oro-500 p-6 text-noche-900 sm:p-8">
-          <span className="flex flex-col gap-1">
+        <Reveal className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl bg-oro-500 p-6 text-noche-900 sm:p-8">
+          <span className="brillo-franja pointer-events-none absolute inset-0" aria-hidden />
+          <span className="relative flex flex-col gap-1">
             <span className="titulo text-2xl">¿Tienes dudas para donar?</span>
             <span className="text-sm">Escríbenos y te ayudamos con gusto</span>
           </span>
-          <a href={wa} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-noche-900 px-5 text-sm font-semibold text-white hover:bg-noche-800">
-            <MessageCircle size={16} /> Escribir por WhatsApp
+          <a href={wa} target="_blank" rel="noreferrer" className="relative inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-noche-900 px-5 text-sm font-semibold text-white transition-[background-color,transform] hover:bg-noche-800 active:scale-[0.96] max-sm:w-full">
+            <MessageCircle size={16} aria-hidden /> Escribir por WhatsApp
           </a>
         </Reveal>
       </PageBody>
