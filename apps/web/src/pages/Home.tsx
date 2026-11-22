@@ -31,6 +31,7 @@ export default function Home() {
       <ActivitiesJsonLd />
       <HeroCarousel />
       <NowPlayingStrip />
+      <AppPromo />
       <LatestAndToday />
       <VideoBand />
       <ActivitiesRow />
@@ -38,7 +39,6 @@ export default function Home() {
       <StationsBand />
       <NewsBand />
       <AboutDonate />
-      <AppPromo />
     </>
   );
 }
