@@ -251,6 +251,28 @@ importers:
         specifier: ^6.1.0
         version: 6.4.6(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.4)(tsx@4.23.15)
 
+  apps/radio-api:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.1.11
+        version: 2.1.11(hono@4.13.19)
+      hono:
+        specifier: ^4.13.19
+        version: 4.13.19
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+
   apps/web:
     dependencies:
       '@tanstack/query-sync-storage-persister':

@@ -1,0 +1,62 @@
+# Radio de La Luz del Tiempo: Icecast + Liquidsoap + radio-api.
+# Uso (desde la raíz del repo):
+#   cp infra/radio/.env.example infra/radio/.env   (y cambiar las contraseñas)
+#   docker compose -f infra/radio/compose.yaml up -d --build
+#
+# Puertos:
+#   8000  Icecast   -> oyentes: http://<ip>:8000/<mount>
+#   8005  Harbor    -> locutores en vivo (BUTT/OBS), mount = slug de la estación
+#   4100  radio-api -> solo la API 1 le habla (token interno)
+
+name: luz-radio
+
+services:
+  icecast:
+    build: ./icecast
+    restart: unless-stopped
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-localhost}
+      ICECAST_MAX_CLIENTS: ${ICECAST_MAX_CLIENTS:-500}
+    ports:
+      - "8000:8000"
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.4.6
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    command: ["/radio/radio.liq"]
+    environment:
+      ICECAST_HOST: icecast
+      ICECAST_PORT: "8000"
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      HARBOR_PORT: "8005"
+      STATIONS_CONFIG: /config/stations.json
+      MUSIC_DIR: /music
+    volumes:
+      - ./liquidsoap/radio.liq:/radio/radio.liq:ro
+      - ./data/config:/config:ro
+      - ./data/music:/music:ro
+    ports:
+      - "8005:8005"
+
+  radio-api:
+    build: ../../apps/radio-api
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    environment:
+      PORT: "4100"
+      RADIO_API_TOKEN: ${RADIO_API_TOKEN}
+      CONFIG_DIR: /config
+      MUSIC_DIR: /music
+      ICECAST_URL: http://icecast:8000
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      PUBLIC_STREAM_BASE: ${PUBLIC_STREAM_BASE:-http://localhost:8000}
+    volumes:
+      - ./data/config:/config
+      - ./data/music:/music
+    ports:
+      - "4100:4100"

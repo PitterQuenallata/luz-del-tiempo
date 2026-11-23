@@ -19,3 +19,6 @@ apps/web/public/demo/*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Datos de la radio (configuración generada y audios del AutoDJ)
+infra/radio/data/

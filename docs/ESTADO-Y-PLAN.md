@@ -26,7 +26,8 @@ pnpm dev                                                  # panel :3000, web :51
 | `apps/api` | API 1 (Hono + Better Auth + Drizzle + PostgreSQL) | Auth, usuarios, roles, permisos, bitácora y perfil listos |
 | `packages/shared` | `@luz/shared`: esquemas Zod, países/teléfono, normalización de nombres, contraseña inicial | Usado por API y panel |
 | `apps/web` | Web pública (React + Vite) | Datos de prueba (`src/api/mock*.ts`); falta conectarla a la API |
-| `apps/mobile`, `apps/radio-api`, `infra` | App Android, API de radio, infraestructura | Pendiente |
+| `apps/mobile` | App (Expo / React Native) | Pestañas de inicio, agenda, áreas, noticias, videos y más |
+| `apps/radio-api`, `infra/radio` | API 2 de radio + Icecast + Liquidsoap en Docker | Primera versión; ver `docs/RADIO.md` |
 | `referencia/plantilla-original` | Copia de la plantilla (solo referencia, fuera del workspace) | Se toma de ahí lo que haga falta |
 
 ## 3. Qué está hecho
@@ -160,7 +161,7 @@ pnpm dev                                                  # panel :3000, web :51
 2. **Conectar la web pública** (`apps/web`) a la API y quitar los datos de prueba.
 3. **Noticias y actividades** (con bitácora).
 4. **App Android** (`apps/mobile`): noticias, actividades, videos y notificaciones.
-5. **Radio**: `apps/radio-api` + Liquidsoap + Icecast.
+5. **Radio**: `apps/radio-api` + Liquidsoap + Icecast. Primera versión hecha (23/11/2026, `docs/RADIO.md`); falta levantarla en la Mac o el VPS (en la PC Windows no arranca Docker por el sistema operativo) y conectarla con la API 1.
 6. **Despliegue** en VPS con Caddy y HTTPS.
 
 ## 6. Reglas de trabajo acordadas
