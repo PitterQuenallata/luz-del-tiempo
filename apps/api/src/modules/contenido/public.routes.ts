@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
-  activities,
   areaGallery,
   areas,
   heroSlides,
@@ -133,69 +132,6 @@ publicRoutes.get('/posts/:slug', async (c) => {
   const slug = c.req.param('slug') as string;
   const noticia = (await noticiasPublicadas()).find((n) => n.slug === slug);
   return noticia ? c.json(noticiaPublica(noticia)) : c.json(null, 404);
-});
-
-// ---------- Actividades ----------
-
-async function actividadesPublicadas() {
-  return db
-    .select({
-      slug: activities.slug,
-      title: activities.title,
-      type: activities.type,
-      summary: activities.summary,
-      coverUrl: activities.coverUrl,
-      startsAt: activities.startsAt,
-      endsAt: activities.endsAt,
-      scheduleText: activities.scheduleText,
-      isVirtual: activities.isVirtual,
-      locationName: activities.locationName,
-      locationAddress: activities.locationAddress,
-      registrationType: activities.registrationType,
-      registrationValue: activities.registrationValue,
-      capacity: activities.capacity,
-      cost: activities.cost,
-      agenda: activities.agenda,
-      areaSlug: areas.slug,
-      presenter: people.name,
-    })
-    .from(activities)
-    .leftJoin(areas, eq(activities.areaId, areas.id))
-    .leftJoin(people, eq(activities.presenterPersonId, people.id))
-    .where(eq(activities.isPublished, true))
-    .orderBy(asc(activities.startsAt));
-}
-
-type FilaActividad = Awaited<ReturnType<typeof actividadesPublicadas>>[number];
-const actividadPublica = (a: FilaActividad) => ({
-  slug: a.slug,
-  areaSlug: a.areaSlug,
-  type: a.type,
-  title: a.title,
-  summary: a.summary ?? '',
-  coverUrl: a.coverUrl,
-  startsAt: a.startsAt.toISOString(),
-  endsAt: a.endsAt?.toISOString() ?? null,
-  scheduleText: a.scheduleText,
-  isVirtual: a.isVirtual,
-  locationName: a.locationName,
-  locationAddress: a.locationAddress,
-  presenter: a.presenter,
-  cost: a.cost,
-  capacity: a.capacity,
-  agenda: a.agenda,
-  registration:
-    a.registrationType === 'none'
-      ? { type: 'none' as const }
-      : { type: a.registrationType, value: a.registrationValue ?? '' },
-});
-
-publicRoutes.get('/activities', async (c) => c.json((await actividadesPublicadas()).map(actividadPublica)));
-
-publicRoutes.get('/activities/:slug', async (c) => {
-  const slug = c.req.param('slug') as string;
-  const fila = (await actividadesPublicadas()).find((a) => a.slug === slug);
-  return fila ? c.json(actividadPublica(fila)) : c.json(null, 404);
 });
 
 // ---------- Videos ----------

@@ -9,7 +9,7 @@ export const NAV = [
   { to: "/radio", label: "Radio" },
   { to: "/programacion", label: "Programación" },
   { to: "/areas", label: "Áreas" },
-  { to: "/actividades", label: "Actividades" },
+  { to: "/agenda", label: "Agenda" },
   { to: "/videos", label: "Videos" },
   { to: "/noticias", label: "Noticias" },
   { to: "/nosotros", label: "Quiénes somos" },

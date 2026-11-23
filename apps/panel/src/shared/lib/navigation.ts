@@ -30,7 +30,7 @@ export const navItems: NavItem[] = [
   { id: 'dashboard', title: 'Inicio', path: '/dashboard', icon: LayoutDashboard, category: 'principal', permiso: 'panel:acceso' },
   { id: 'contenido', title: 'Portada y áreas', path: '/contenido', icon: Newspaper, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'noticias', title: 'Noticias', path: '/noticias', icon: FileText, category: 'sitio', permiso: 'contenido:editar' },
-  { id: 'actividades', title: 'Actividades', path: '/actividades', icon: CalendarDays, category: 'sitio', permiso: 'contenido:editar' },
+  { id: 'agenda', title: 'Agenda', path: '/agenda', icon: CalendarDays, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'videos', title: 'Videos', path: '/videos', icon: Video, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'en-vivo', title: 'En vivo', path: '/en-vivo', icon: RadioTower, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },

@@ -1,0 +1,1 @@
+ALTER TABLE "activities" ADD COLUMN "qr_url" text;

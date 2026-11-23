@@ -33,3 +33,10 @@ export const useProgramas = (emisoraId: string | null) =>
     enabled: Boolean(emisoraId),
   });
 export const useDonaciones = () => useListaGestion('donaciones', () => luzApi.getDonaciones());
+
+// Agenda: ficha completa, sedes e inscritos
+export const useActividad = (id: string | null) =>
+  useQuery({ queryKey: ['gestion', 'actividad', id], queryFn: () => luzApi.getActividad(id as string), enabled: Boolean(id) });
+export const useSedes = () => useListaGestion('sedes', () => luzApi.listSedes());
+export const useInscritos = (actividadId: string | null) =>
+  useQuery({ queryKey: ['gestion', 'inscritos', actividadId], queryFn: () => luzApi.listInscritos(actividadId as string), enabled: Boolean(actividadId) });

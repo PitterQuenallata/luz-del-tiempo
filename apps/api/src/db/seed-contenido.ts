@@ -10,7 +10,9 @@ import { count } from 'drizzle-orm';
 import { db } from './index.js';
 import { eq, isNull, sql } from 'drizzle-orm';
 import { existsSync } from 'node:fs';
-import { activities, areaGallery, areas, heroSlides, people, posts, programSlots, programs, siteSettings, stations, videoSeries, videos } from './schema.js';
+import {
+  activities, activityAreas, activityChannels, activityPeople, activityProgramItems, activitySessions, areaGallery, areas, heroSlides, locations, people, posts, programSlots, programs, siteSettings, stations, videoSeries, videos,
+} from './schema.js';
 
 const DEMO = resolve(process.cwd(), '../web/public/demo');
 const CARPETA = join(process.cwd(), 'uploads', 'contenido');
@@ -113,32 +115,108 @@ async function sembrarNoticias() {
 }
 
 async function sembrarActividades() {
-  if (await hayFilas(activities)) return console.log('Actividades: ya tiene actividades, no se toca.');
+  if (await hayFilas(activities)) return console.log('Agenda: ya tiene actividades, no se toca.');
   const [daniel] = await db.select({ id: people.id }).from(people).where(eq(people.name, 'Pr. Daniel Mamani'));
-  const proximo = (dias: number, hora: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + dias);
-    d.setHours(hora, 0, 0, 0);
-    return d;
+  const [sedePrincipal] = await db
+    .insert(locations)
+    .values({ name: 'Templo central', address: 'Av. principal s/n', city: 'La Paz' })
+    .returning({ id: locations.id });
+  const [salon] = await db.insert(locations).values({ name: 'Salón de actividades', address: 'Templo central, patio', city: 'La Paz' }).returning({ id: locations.id });
+
+  // Fechas de muestra: sesiones a partir de dentro de n días, a una hora fija
+  const dia = (dias: number, hora: number, horas = 3) => {
+    const inicio = new Date();
+    inicio.setDate(inicio.getDate() + dias);
+    inicio.setHours(hora, 0, 0, 0);
+    return { inicio, fin: new Date(inicio.getTime() + horas * 3_600_000) };
   };
-  const lista = [
-    { slug: 'escuela-salud-verano', title: 'Escuela de salud de verano', type: 'health_school' as const, area: 'salud', img: 'actividad-escuela-salud.jpg', inicio: proximo(3, 9), fin: proximo(7, 12), horario: 'Lunes a viernes, 09:00 a 12:00', lugar: 'Templo central', reg: 'none' as const, costo: 'Gratis', agenda: [{ day: 'Lunes a viernes', items: ['09:00 Charla de salud', '10:30 Cocina saludable', '11:30 Chequeos gratuitos'] }] },
-    { slug: 'escuela-vacaciones-ninos', title: 'Escuela cristiana de vacaciones', type: 'vacation_school' as const, area: 'ninos', img: 'actividad-escuela-vacaciones.jpg', inicio: proximo(10, 15), fin: proximo(14, 18), horario: 'Tardes, 15:00 a 18:00', lugar: 'Salón de actividades', reg: 'none' as const, costo: 'Gratis', agenda: [{ day: 'Cada tarde', items: ['15:00 Bienvenida', '16:00 Historia bíblica', '17:00 Manualidades'] }] },
-    { slug: 'taller-guitarra', title: 'Taller de guitarra para principiantes', type: 'workshop' as const, area: 'musica', img: 'actividad-taller-guitarra.jpg', inicio: proximo(3, 16), fin: null, horario: 'Sábados, 16:00', lugar: 'Aula de música', reg: 'link' as const, regValor: 'https://forms.gle/ejemplo', costo: null, agenda: [] },
-    { slug: 'estudio-biblico-daniel', title: 'Estudio bíblico: Daniel y Apocalipsis', type: 'bible_study' as const, area: 'biblia', img: 'actividad-estudio-biblico.jpg', inicio: proximo(2, 20), fin: null, horario: 'Miércoles, 20:00', lugar: null, reg: 'none' as const, costo: 'Gratis', agenda: [{ day: 'Miércoles', items: ['20:00 Estudio en vivo por la radio y por Zoom', '21:00 Preguntas de los oyentes'] }] },
+
+  type Muestra = {
+    slug: string; title: string; kind: 'curso' | 'escuela_vacaciones' | 'taller' | 'estudio_biblico';
+    summary: string; areas: string[]; img: string; isVirtual: boolean; isFree: boolean; precio: number | null;
+    sesiones: { dias: number; hora: number; horas: number; lugar: string | null; programa: { hora: string; min: number; titulo: string; persona?: boolean }[] }[];
+    canales: { channel: 'web' | 'whatsapp' | 'correo' | 'enlace'; value: string | null; enabled: boolean }[];
+    personas?: { role: 'predicador' | 'maestro'; nombre: string }[];
+  };
+
+  const lista: Muestra[] = [
+    {
+      slug: 'escuela-salud-verano', title: 'Curso de salud de verano', kind: 'curso', summary: 'Charlas y chequeos gratuitos para toda la familia', areas: ['salud'], img: 'actividad-escuela-salud.jpg',
+      isVirtual: false, isFree: true, precio: null,
+      sesiones: [
+        { dias: 3, hora: 9, horas: 3, lugar: 'sede', programa: [{ hora: '09:00', min: 60, titulo: 'Charla de salud' }, { hora: '10:30', min: 60, titulo: 'Cocina saludable' }, { hora: '11:30', min: 30, titulo: 'Chequeos gratuitos' }] },
+        { dias: 4, hora: 9, horas: 3, lugar: 'sede', programa: [{ hora: '09:00', min: 60, titulo: 'Alimentación' }, { hora: '11:30', min: 30, titulo: 'Chequeos gratuitos' }] },
+      ],
+      canales: [{ channel: 'web', value: null, enabled: true }, { channel: 'whatsapp', value: '+591 70000001', enabled: false }],
+    },
+    {
+      slug: 'escuela-vacaciones-ninos', title: 'Escuela de vacaciones bíblicas', kind: 'escuela_vacaciones', summary: 'Juegos, manualidades, música e historias bíblicas para niños', areas: ['ninos', 'musica'], img: 'actividad-escuela-vacaciones.jpg',
+      isVirtual: false, isFree: true, precio: null,
+      sesiones: [
+        { dias: 10, hora: 15, horas: 3, lugar: 'sala', programa: [{ hora: '15:00', min: 20, titulo: 'Bienvenida' }, { hora: '15:20', min: 40, titulo: 'Historia bíblica' }, { hora: '16:00', min: 60, titulo: 'Manualidades' }] },
+        { dias: 11, hora: 15, horas: 3, lugar: 'sala', programa: [{ hora: '15:00', min: 20, titulo: 'Bienvenida' }, { hora: '15:20', min: 40, titulo: 'Historia bíblica' }] },
+        { dias: 12, hora: 15, horas: 3, lugar: 'sala', programa: [{ hora: '15:00', min: 20, titulo: 'Bienvenida' }, { hora: '16:00', min: 60, titulo: 'Música' }] },
+      ],
+      canales: [{ channel: 'web', value: null, enabled: true }, { channel: 'enlace', value: 'https://forms.gle/ejemplo', enabled: false }],
+    },
+    {
+      slug: 'taller-guitarra', title: 'Taller de guitarra para principiantes', kind: 'taller', summary: 'Aprende acordes y ritmos básicos en cuatro clases', areas: ['musica'], img: 'actividad-taller-guitarra.jpg',
+      isVirtual: false, isFree: false, precio: 50,
+      sesiones: [
+        { dias: 3, hora: 16, horas: 1, lugar: 'sala', programa: [{ hora: '16:00', min: 60, titulo: 'Acordes básicos' }] },
+        { dias: 10, hora: 16, horas: 1, lugar: 'sala', programa: [{ hora: '16:00', min: 60, titulo: 'Ritmos' }] },
+      ],
+      canales: [{ channel: 'web', value: null, enabled: true }, { channel: 'enlace', value: 'https://forms.gle/ejemplo', enabled: false }],
+    },
+    {
+      slug: 'estudio-biblico-daniel', title: 'Estudio bíblico: Daniel y Apocalipsis', kind: 'estudio_biblico', summary: 'Estudio semanal en vivo por la radio y por Zoom', areas: ['biblia'], img: 'actividad-estudio-biblico.jpg',
+      isVirtual: true, isFree: true, precio: null,
+      sesiones: [
+        { dias: 2, hora: 20, horas: 1, lugar: null, programa: [{ hora: '20:00', min: 60, titulo: 'Estudio en vivo', persona: true }, { hora: '21:00', min: 20, titulo: 'Preguntas de los oyentes' }] },
+      ],
+      canales: [{ channel: 'web', value: null, enabled: true }],
+      personas: [{ role: 'predicador', nombre: 'Pr. Daniel Mamani' }],
+    },
   ];
+
   for (const a of lista) {
-    await db.insert(activities).values({
-      slug: a.slug, title: a.title, type: a.type, areaId: await areaId(a.area),
-      summary: null, content: null, coverUrl: await subirDemo(a.img),
-      startsAt: a.inicio, endsAt: a.fin, scheduleText: a.horario,
-      isVirtual: a.slug === 'estudio-biblico-daniel', locationName: a.lugar,
-      registrationType: a.reg, registrationValue: a.regValor ?? null,
-      presenterPersonId: a.slug === 'estudio-biblico-daniel' ? daniel?.id ?? null : null,
-      cost: a.costo, agenda: a.agenda, isPublished: true,
-    });
+    const [fila] = await db
+      .insert(activities)
+      .values({
+        slug: a.slug, kind: a.kind, title: a.title, summary: a.summary, content: null,
+        coverUrl: await subirDemo(a.img), isVirtual: a.isVirtual, isFree: a.isFree, priceAmount: a.precio,
+        priceNote: a.precio ? 'Incluye materiales' : null, capacity: a.slug === 'taller-guitarra' ? 20 : null, status: 'publicada',
+      })
+      .returning({ id: activities.id });
+    for (const areaSlug of a.areas) {
+      const id = await areaId(areaSlug);
+      if (id) await db.insert(activityAreas).values({ activityId: fila.id, areaId: id });
+    }
+    for (const [i, s] of a.sesiones.entries()) {
+      const { inicio, fin } = dia(s.dias, s.hora, s.horas);
+      const [sesion] = await db
+        .insert(activitySessions)
+        .values({
+          activityId: fila.id, startsAt: inicio, endsAt: fin,
+          locationId: s.lugar === 'sede' ? sedePrincipal.id : s.lugar === 'sala' ? salon.id : null,
+          sortOrder: i,
+        })
+        .returning({ id: activitySessions.id });
+      await db.insert(activityProgramItems).values(
+        s.programa.map((p, j) => ({
+          sessionId: sesion.id, startTime: p.hora, durationMin: p.min, title: p.titulo,
+          personId: p.persona ? daniel?.id ?? null : null, sortOrder: j,
+        })),
+      );
+    }
+    for (const c of a.canales) {
+      await db.insert(activityChannels).values({ activityId: fila.id, channel: c.channel, value: c.value, enabled: c.enabled });
+    }
+    if (a.personas && daniel) {
+      await db.insert(activityPeople).values(a.personas.map((p, i) => ({ activityId: fila.id, personId: daniel.id, role: p.role, sortOrder: i })));
+    }
   }
-  console.log(`Actividades: ${lista.length} de muestra.`);
+  console.log(`Agenda: ${lista.length} actividades de muestra.`);
 }
 
 async function sembrarEmisoras() {

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { useActivities, useArea, usePosts, useStations, useVideos } from "../api";
 import type { Activity, Area as AreaT } from "../api/types";
-import { ACTIVITY_TYPE_LABEL } from "../api/types";
 import { LogoMark } from "../components/layout/Logo";
 import { PageBody, PageHeader } from "../components/layout/PageHeader";
 import { absoluta, Seo } from "../components/Seo";
@@ -72,7 +71,7 @@ export default function Area() {
     );
   if (!area) return <ComingSoon title="Área no encontrada" />;
 
-  const event = area.eventEnabled ? activities.find((a) => a.areaSlug === area.slug) : undefined;
+  const event = area.eventEnabled ? activities.find((a) => a.areas.some((x) => x.slug === area.slug)) : undefined;
 
   return (
     <>
@@ -244,16 +243,16 @@ function EventBlock({ a }: { a: Activity }) {
         </span>
       </div>
       <div className="flex flex-col gap-4 p-5 sm:p-8">
-        <span className="text-sm text-oro-400">{ACTIVITY_TYPE_LABEL[a.type]}</span>
+        <span className="text-sm text-oro-400">{a.kindLabel}</span>
         <h2 className="titulo text-[clamp(24px,3vw,34px)] leading-tight">{a.title}</h2>
-        <Countdown iso={a.startsAt} />
+        {a.inicio ? <Countdown iso={a.inicio} /> : null}
         <ul className="flex flex-col gap-2 text-sm text-niebla-100">
-          <li className="flex items-center gap-2"><CalendarDays size={16} className="shrink-0 text-oro-400" aria-hidden /> {longDate(a.startsAt)}{a.scheduleText ? ` · ${a.scheduleText}` : ""}</li>
-          <li className="flex items-center gap-2"><MapPin size={16} className="shrink-0 text-oro-400" aria-hidden /> {a.isVirtual ? "Virtual" : a.locationName}</li>
+          <li className="flex items-center gap-2"><CalendarDays size={16} className="shrink-0 text-oro-400" aria-hidden /> {a.inicio ? longDate(a.inicio) : "Fecha por confirmar"}{a.cantidadSesiones > 1 ? ` ·  sesiones` : ""}</li>
+          <li className="flex items-center gap-2"><MapPin size={16} className="shrink-0 text-oro-400" aria-hidden /> {a.isVirtual ? "Virtual" : a.lugar ?? "Por confirmar"}</li>
         </ul>
         <div className="flex flex-wrap gap-2">
-          <RegisterButton a={a} className="btn-oro btn-brillo" />
-          <Link to={`/actividades/${a.slug}`} className="btn-borde">Ver detalles</Link>
+          <RegisterButton slug={a.slug} className="btn-oro btn-brillo" />
+          <Link to={`/agenda/${a.slug}`} className="btn-borde">Ver detalles</Link>
         </div>
       </div>
     </Reveal>

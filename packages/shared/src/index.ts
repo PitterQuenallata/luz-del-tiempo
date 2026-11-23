@@ -251,42 +251,145 @@ export const postSchema = z
     path: ['publishedAt'],
   });
 
-export const ACTIVIDAD_TIPOS = [
-  'vacation_school', 'health_school', 'music_school', 'workshop', 'health_campaign', 'bible_campaign', 'bible_study', 'other',
+// ---------- Agenda ----------
+// Tipo = qué es la actividad. Área = el tema (se elige aparte, puede ser más de una).
+export const AGENDA_TIPOS = [
+  'campana_evangelistica', 'escuela_vacaciones', 'expo_salud', 'seminario', 'dia_impacto',
+  'taller', 'curso', 'estudio_biblico', 'evento', 'otro',
 ] as const;
+export type AgendaTipo = (typeof AGENDA_TIPOS)[number];
+export const AGENDA_TIPO_ETIQUETA: Record<AgendaTipo, string> = {
+  campana_evangelistica: 'Campaña evangelística',
+  escuela_vacaciones: 'Escuela de vacaciones',
+  expo_salud: 'Expo de salud',
+  seminario: 'Seminario',
+  dia_impacto: 'Día de impacto',
+  taller: 'Taller',
+  curso: 'Curso',
+  estudio_biblico: 'Estudio bíblico',
+  evento: 'Evento especial',
+  otro: 'Otra actividad',
+};
 
-// Actividades
+// Papel de cada persona en la actividad. Una actividad puede tener muchas.
+export const AGENDA_ROLES = ['predicador', 'invitado', 'traductor', 'moderador', 'musica', 'maestro', 'otro'] as const;
+export type AgendaRol = (typeof AGENDA_ROLES)[number];
+export const AGENDA_ROL_ETIQUETA: Record<AgendaRol, string> = {
+  predicador: 'Predicador',
+  invitado: 'Invitado',
+  traductor: 'Traductor',
+  moderador: 'Moderador',
+  musica: 'Música',
+  maestro: 'Maestro',
+  otro: 'Otro',
+};
+
+// Cómo se inscriben: se pueden activar varios a la vez
+export const AGENDA_CANALES = ['web', 'app', 'whatsapp', 'correo', 'enlace'] as const;
+export type AgendaCanal = (typeof AGENDA_CANALES)[number];
+export const AGENDA_CANAL_ETIQUETA: Record<AgendaCanal, string> = {
+  web: 'Formulario en la web',
+  app: 'Formulario en la app',
+  whatsapp: 'Inscripción por WhatsApp',
+  correo: 'Inscripción por correo',
+  enlace: 'Inscripción por enlace',
+};
+
+export const AGENDA_ESTADOS = ['borrador', 'publicada', 'cancelada'] as const;
+export const INSCRIPCION_ESTADOS = ['pendiente', 'confirmada', 'cancelada', 'asistio'] as const;
+
+const horaHHMM = z.string().regex(/^\d{2}:\d{2}$/, 'Usa la hora en formato HH:MM.');
+
+const sesionSchema = z
+  .object({
+    id: uuidSchema.optional(),
+    startsAt: fechaIso,
+    endsAt: fechaIso.nullable(),
+    locationId: uuidSchema.nullable(),
+    locationNote: opcionalTexto(120, 'Máximo 120 caracteres.'),
+    programa: z
+      .array(
+        z.object({
+          startTime: horaHHMM.nullable(),
+          durationMin: z.number().int().positive().max(1440).nullable(),
+          title: z.string().trim().min(1, 'Escribe el título del bloque.').max(160, 'Máximo 160 caracteres.'),
+          description: opcionalTexto(500, 'Máximo 500 caracteres.'),
+          personId: uuidSchema.nullable(),
+        }),
+      )
+      .max(60, 'Máximo 60 bloques por sesión.'),
+  })
+  .refine((s) => !s.endsAt || Date.parse(s.endsAt) >= Date.parse(s.startsAt), {
+    message: 'La hora de fin no puede ser antes del inicio.',
+    path: ['endsAt'],
+  });
+
 export const actividadSchema = z
   .object({
     slug: slugSchema,
     title: z.string().trim().min(2, 'El título debe tener al menos 2 letras.').max(140, 'Máximo 140 caracteres.'),
-    type: z.enum(ACTIVIDAD_TIPOS),
-    areaId: uuidSchema.nullable(),
+    kind: z.enum(AGENDA_TIPOS),
+    areaIds: z.array(uuidSchema).max(10, 'Máximo 10 áreas.'),
     summary: opcionalTexto(300, 'Máximo 300 caracteres.'),
     content: opcionalTexto(20000, 'Máximo 20 000 caracteres.'),
     coverUrl: z.string().nullable(),
-    startsAt: fechaIso,
-    endsAt: fechaIso.nullable(),
-    scheduleText: opcionalTexto(120, 'Máximo 120 caracteres.'),
+    report: opcionalTexto(20000, 'Máximo 20 000 caracteres.'),
+    language: z.enum(['es', 'en', 'pt']),
     isVirtual: z.boolean(),
-    locationName: opcionalTexto(120, 'Máximo 120 caracteres.'),
-    locationAddress: opcionalTexto(200, 'Máximo 200 caracteres.'),
-    registrationType: z.enum(['none', 'whatsapp', 'link']),
-    registrationValue: opcionalTexto(300, 'Máximo 300 caracteres.'),
+    isFree: z.boolean(),
+    priceAmount: z.number().int().min(0, 'El precio no puede ser negativo.').nullable(),
+    priceNote: opcionalTexto(160, 'Máximo 160 caracteres.'),
     capacity: z.number().int().positive('La capacidad debe ser mayor que cero.').nullable(),
-    presenterPersonId: uuidSchema.nullable(),
-    cost: opcionalTexto(80, 'Máximo 80 caracteres.'),
-    agenda: z.array(z.object({ day: z.string().trim().min(1), items: z.array(z.string().trim().min(1)).min(1) })),
-    isPublished: z.boolean(),
+    qrUrl: z.string().nullable(),
+    status: z.enum(AGENDA_ESTADOS),
+    sesiones: z.array(sesionSchema).min(1, 'Agrega al menos una fecha.').max(60, 'Máximo 60 sesiones.'),
+    personas: z
+      .array(
+        z.object({
+          personId: uuidSchema,
+          role: z.enum(AGENDA_ROLES),
+        }),
+      )
+      .max(50, 'Máximo 50 personas.'),
+    canales: z
+      .array(
+        z.object({
+          channel: z.enum(AGENDA_CANALES),
+          value: opcionalTexto(300, 'Máximo 300 caracteres.'),
+          enabled: z.boolean(),
+        }),
+      )
+      .max(5),
+    galeria: z
+      .array(z.object({ imageUrl: z.string().min(1), caption: opcionalTexto(160, 'Máximo 160 caracteres.') }))
+      .max(60, 'Máximo 60 fotos.'),
   })
-  .refine((d) => !d.endsAt || Date.parse(d.endsAt) >= Date.parse(d.startsAt), {
-    message: 'La hora de fin no puede ser antes del inicio.',
-    path: ['endsAt'],
+  .refine((d) => !d.isFree || d.priceAmount === null || d.priceAmount === 0, {
+    message: 'Si es gratis, deja el precio vacío.',
+    path: ['priceAmount'],
   })
-  .refine((d) => d.registrationType === 'none' || (d.registrationValue && d.registrationValue.length > 0), {
-    message: 'Escribe el número de WhatsApp o el enlace de inscripción.',
-    path: ['registrationValue'],
-  });
+  .refine((d) => d.isFree || (d.priceAmount !== null && d.priceAmount > 0), {
+    message: 'Pon el precio de la actividad.',
+    path: ['priceAmount'],
+  })
+  .refine(
+    (d) => d.canales.every((c) => !c.enabled || (c.channel === 'web' || c.channel === 'app') || (c.value && c.value.trim().length > 0)),
+    { message: 'Escribe el número, correo o enlace del canal activado.', path: ['canales'] },
+  );
+
+// Inscripción pública (desde la web o la app)
+export const inscripcionPublicaSchema = z.object({
+  fullName: z.string().trim().min(3, 'Escribe tu nombre completo.').max(120, 'Máximo 120 caracteres.'),
+  phoneCode: z.string().trim().max(6).optional().default('+591'),
+  phone: z.string().trim().max(20).optional().default(''),
+  email: z.string().trim().max(160).optional().default(''),
+});
+
+// Inscripción anotada a mano por el panel
+export const inscripcionManualSchema = inscripcionPublicaSchema.extend({
+  status: z.enum(INSCRIPCION_ESTADOS).default('confirmada'),
+  notes: opcionalTexto(300, 'Máximo 300 caracteres.'),
+});
 
 // Series de video y videos
 export const serieSchema = z.object({

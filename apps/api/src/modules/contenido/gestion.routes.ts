@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
-  actividadSchema,
   enVivoSchema,
   postSchema,
   serieSchema,
@@ -13,7 +12,7 @@ import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
-import { activities, areas, liveStatus, liveStreams, people, posts, siteSettings, videoSeries, videos } from '../../db/schema.js';
+import { areas, liveStatus, liveStreams, people, posts, siteSettings, videoSeries, videos } from '../../db/schema.js';
 
 // Noticias, actividades, series y videos, y el estado "en vivo" (permiso contenido:editar).
 export const gestionRoutes = new Hono();
@@ -84,64 +83,6 @@ gestionRoutes.delete('/noticias/:id', requirePermission(PERMISO), async (c) => {
   const [borrada] = await db.delete(posts).where(eq(posts.id, id)).returning();
   if (!borrada) return c.json({ error: 'no_encontrado' }, 404);
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'noticia.eliminar', entidad: 'noticia', entidadId: id, detalle: borrada.title });
-  return c.json({ ok: true });
-});
-
-// ---------- Actividades ----------
-
-gestionRoutes.get('/actividades', requirePermission(PERMISO), async (c) => {
-  const rows = await db.select().from(activities).orderBy(asc(activities.startsAt));
-  return c.json({ actividades: rows });
-});
-
-gestionRoutes.post('/actividades', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const parsed = actividadSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return errorValidacion(c, parsed.error);
-  const d = parsed.data;
-  const dup = await db.select({ id: activities.id }).from(activities).where(eq(activities.slug, d.slug));
-  if (dup.length) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una actividad con ese enlace.' }, 409);
-  const ref = (await referenciaInvalida('area', d.areaId, 'areaId')) ?? (await referenciaInvalida('persona', d.presenterPersonId, 'presenterPersonId'));
-  if (ref) return c.json(ref, 422);
-
-  const [fila] = await db
-    .insert(activities)
-    .values({ ...d, startsAt: new Date(d.startsAt), endsAt: aFecha(d.endsAt) })
-    .returning();
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'actividad.crear', entidad: 'actividad', entidadId: fila.id, detalle: fila.title });
-  return c.json({ actividad: fila }, 201);
-});
-
-gestionRoutes.patch('/actividades/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const id = c.req.param('id') as string;
-  const parsed = actividadSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return errorValidacion(c, parsed.error);
-  const d = parsed.data;
-  const [actual] = await db.select().from(activities).where(eq(activities.id, id));
-  if (!actual) return c.json({ error: 'no_encontrado' }, 404);
-  if (d.slug !== actual.slug) {
-    const dup = await db.select({ id: activities.id }).from(activities).where(eq(activities.slug, d.slug));
-    if (dup.length) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una actividad con ese enlace.' }, 409);
-  }
-  const ref = (await referenciaInvalida('area', d.areaId, 'areaId')) ?? (await referenciaInvalida('persona', d.presenterPersonId, 'presenterPersonId'));
-  if (ref) return c.json(ref, 422);
-
-  const [fila] = await db
-    .update(activities)
-    .set({ ...d, startsAt: new Date(d.startsAt), endsAt: aFecha(d.endsAt), updatedAt: new Date() })
-    .where(eq(activities.id, id))
-    .returning();
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'actividad.editar', entidad: 'actividad', entidadId: id, detalle: fila.title });
-  return c.json({ actividad: fila });
-});
-
-gestionRoutes.delete('/actividades/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const id = c.req.param('id') as string;
-  const [borrada] = await db.delete(activities).where(eq(activities.id, id)).returning();
-  if (!borrada) return c.json({ error: 'no_encontrado' }, 404);
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'actividad.eliminar', entidad: 'actividad', entidadId: id, detalle: borrada.title });
   return c.json({ ok: true });
 });
 

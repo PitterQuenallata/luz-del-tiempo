@@ -4,7 +4,7 @@
  * En desarrollo, VITE_API_URL apunta a http://localhost:4000/api/v1.
  */
 import { useQuery } from "@tanstack/react-query";
-import type { Activity, Area, DonationMethod, HeroSlide, LiveStatus, MinistryNeed, Person, Post, ScheduleItem, SiteInfo, Station, Video } from "./types";
+import type { Activity, ActivityDetail, AgendaFiltros, Area, DonationMethod, HeroSlide, LiveStatus, MinistryNeed, Person, Post, ScheduleItem, SiteInfo, Station, Video } from "./types";
 
 const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api/v1").replace(/\/$/, "");
 // Origen de la API: las imágenes que guarda llegan como /api/v1/... y se completan con este origen
@@ -29,6 +29,23 @@ const imagen = (url: string | null | undefined): string | null => (url && url.st
 const conImagenArea = (a: Area): Area => ({ ...a, coverUrl: imagen(a.coverUrl), gallery: a.gallery.map((u) => imagen(u) as string) });
 const conImagenPost = (p: Post): Post => ({ ...p, coverUrl: imagen(p.coverUrl) });
 const conImagenActividad = (a: Activity): Activity => ({ ...a, coverUrl: imagen(a.coverUrl) });
+const conImagenDetalle = (a: ActivityDetail): ActivityDetail => ({
+  ...a,
+  coverUrl: imagen(a.coverUrl),
+  galeria: a.galeria.map((g) => ({ ...g, imageUrl: imagen(g.imageUrl) as string })),
+  personas: a.personas.map((p) => ({ ...p, photoUrl: imagen(p.photoUrl) })),
+  qrInscripcionUrl: imagen(a.qrInscripcionUrl),
+  qrSubidoUrl: imagen(a.qrSubidoUrl),
+  sesiones: a.sesiones.map((s) => ({
+    ...s,
+    programa: s.programa.map((p) => ({ ...p, persona: p.persona ? { ...p.persona, photoUrl: imagen(p.persona.photoUrl) } : null })),
+  })),
+});
+
+/** Filtros de la agenda. Sin estado, la API devuelve las próximas. */
+export type AgendaQuery = { estado?: "proximas" | "pasadas" | "todas"; tipo?: string; area?: string; gratis?: boolean; virtual?: boolean };
+
+export type InscripcionDatos = { fullName: string; phoneCode: string; phone: string; email: string };
 
 export const api = {
   slides: async (): Promise<HeroSlide[]> =>
@@ -44,10 +61,30 @@ export const api = {
     const p = await leerOpcional<Post>(`/public/posts/${slug}`);
     return p ? conImagenPost(p) : null;
   },
-  activities: async (): Promise<Activity[]> => (await leer<Activity[]>("/public/activities")).map(conImagenActividad),
-  activity: async (slug: string): Promise<Activity | null> => {
-    const a = await leerOpcional<Activity>(`/public/activities/${slug}`);
-    return a ? conImagenActividad(a) : null;
+  activities: async (filtros: AgendaQuery = {}): Promise<Activity[]> => {
+    const qs = new URLSearchParams();
+    if (filtros.estado) qs.set("estado", filtros.estado);
+    if (filtros.tipo) qs.set("tipo", filtros.tipo);
+    if (filtros.area) qs.set("area", filtros.area);
+    if (filtros.gratis) qs.set("gratis", "1");
+    if (filtros.virtual) qs.set("virtual", "1");
+    const texto = qs.toString();
+    return (await leer<Activity[]>(`/public/agenda${texto ? `?${texto}` : ""}`)).map(conImagenActividad);
+  },
+  activity: async (slug: string): Promise<ActivityDetail | null> => {
+    const a = await leerOpcional<ActivityDetail>(`/public/agenda/${slug}`);
+    return a ? conImagenDetalle(a) : null;
+  },
+  agendaFiltros: () => leer<AgendaFiltros>("/public/agenda/filtros"),
+  inscribir: async (slug: string, datos: InscripcionDatos & { website: string }): Promise<{ ok: true; message: string }> => {
+    const res = await fetch(`${BASE}/public/agenda/${slug}/inscripciones`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...datos, origen: "web" }),
+    });
+    const cuerpo = (await res.json().catch(() => ({}))) as { message?: string; ok?: boolean };
+    if (!res.ok) throw new Error(cuerpo.message ?? "No pudimos completar la inscripción. Intenta de nuevo.");
+    return { ok: true, message: cuerpo.message ?? "Listo." };
   },
   videos: () => leer<Video[]>("/public/videos"),
   live: () => leer<LiveStatus>("/public/live"),
@@ -65,8 +102,9 @@ export const useArea = (slug: string) => useQuery({ queryKey: ["area", slug], qu
 export const useSlides = () => useQuery({ queryKey: ["slides"], queryFn: api.slides });
 export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.people });
 export const useStations = () => useQuery({ queryKey: ["stations"], queryFn: api.stations });
-export const useActivities = () => useQuery({ queryKey: ["activities"], queryFn: api.activities });
+export const useActivities = (filtros: AgendaQuery = {}) => useQuery({ queryKey: ["activities", filtros], queryFn: () => api.activities(filtros) });
 export const useActivity = (slug: string) => useQuery({ queryKey: ["activity", slug], queryFn: () => api.activity(slug) });
+export const useAgendaFiltros = () => useQuery({ queryKey: ["agenda-filtros"], queryFn: api.agendaFiltros });
 export const useVideos = () => useQuery({ queryKey: ["videos"], queryFn: api.videos });
 export const usePosts = () => useQuery({ queryKey: ["posts"], queryFn: api.posts });
 export const usePost = (slug: string) => useQuery({ queryKey: ["post", slug], queryFn: () => api.post(slug) });

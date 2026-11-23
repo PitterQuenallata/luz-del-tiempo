@@ -215,12 +215,28 @@ export interface ApiNoticia {
   areaId: string | null; status: 'draft' | 'scheduled' | 'published' | 'archived'; publishedAt: string | null; authorPersonId: string | null;
   createdAt: string; updatedAt: string;
 }
+// Agenda: lista (resumen) y ficha completa para editar
+export interface ApiActividadResumen {
+  id: string; slug: string; kind: string; title: string; coverUrl: string | null; status: 'borrador' | 'publicada' | 'cancelada';
+  isFree: boolean; primeraFecha: string | null; ultimaFecha: string | null; sesiones: number; areaIds: string[]; inscritos: number;
+}
 export interface ApiActividad {
-  id: string; slug: string; areaId: string | null; type: string; title: string; summary: string | null; content: string | null;
-  coverUrl: string | null; startsAt: string; endsAt: string | null; scheduleText: string | null; isVirtual: boolean;
-  locationName: string | null; locationAddress: string | null; registrationType: 'none' | 'whatsapp' | 'link';
-  registrationValue: string | null; capacity: number | null; presenterPersonId: string | null; cost: string | null;
-  agenda: { day: string; items: string[] }[]; isPublished: boolean;
+  id: string; slug: string; kind: string; title: string; summary: string | null; content: string | null; coverUrl: string | null;
+  report: string | null; language: 'es' | 'en' | 'pt'; isVirtual: boolean; isFree: boolean; priceAmount: number | null; priceNote: string | null;
+  capacity: number | null; qrUrl: string | null; status: 'borrador' | 'publicada' | 'cancelada'; areaIds: string[];
+  sesiones: {
+    id: string; startsAt: string; endsAt: string | null; locationId: string | null; locationNote: string | null;
+    programa: { startTime: string | null; durationMin: number | null; title: string; description: string | null; personId: string | null }[];
+  }[];
+  personas: { personId: string; role: string }[];
+  canales: { channel: 'web' | 'whatsapp' | 'correo' | 'enlace'; value: string; enabled: boolean }[];
+  galeria: { imageUrl: string; caption: string }[];
+  inscritosTotal: number;
+}
+export interface ApiSede { id: string; name: string; address: string | null; city: string | null; mapUrl: string | null; }
+export interface ApiInscrito {
+  id: string; fullName: string; phoneCode: string | null; phone: string | null; email: string | null; origin: 'web' | 'manual';
+  status: 'pendiente' | 'confirmada' | 'cancelada' | 'asistio'; notes: string | null; createdAt: string;
 }
 export interface ApiSerie {
   id: string; slug: string; name: string; description: string | null; areaId: string; youtubePlaylistId: string | null; sortOrder: number;
@@ -424,10 +440,22 @@ export const luzApi = {
   updateNoticia(id: string, input: PostInput) { return request(`/api/v1/contenido/noticias/${id}`, { method: 'PATCH', body: json(input) }); },
   deleteNoticia(id: string) { return request(`/api/v1/contenido/noticias/${id}`, { method: 'DELETE' }); },
 
-  async listActividades(): Promise<ApiActividad[]> { return (await request<{ actividades: ApiActividad[] }>('/api/v1/contenido/actividades')).actividades; },
-  createActividad(input: ActividadInput) { return request('/api/v1/contenido/actividades', { method: 'POST', body: json(input) }); },
-  updateActividad(id: string, input: ActividadInput) { return request(`/api/v1/contenido/actividades/${id}`, { method: 'PATCH', body: json(input) }); },
+  async listActividades(): Promise<ApiActividadResumen[]> { return (await request<{ actividades: ApiActividadResumen[] }>('/api/v1/contenido/actividades')).actividades; },
+  async getActividad(id: string): Promise<ApiActividad> { return (await request<{ actividad: ApiActividad }>(`/api/v1/contenido/actividades/${id}`)).actividad; },
+  createActividad(input: ActividadInput) { return request<{ actividad: ApiActividad }>('/api/v1/contenido/actividades', { method: 'POST', body: json(input) }); },
+  updateActividad(id: string, input: ActividadInput) { return request<{ actividad: ApiActividad }>(`/api/v1/contenido/actividades/${id}`, { method: 'PATCH', body: json(input) }); },
   deleteActividad(id: string) { return request(`/api/v1/contenido/actividades/${id}`, { method: 'DELETE' }); },
+
+  async listSedes(): Promise<ApiSede[]> { return (await request<{ sedes: ApiSede[] }>('/api/v1/contenido/sedes')).sedes; },
+  createSede(input: { name: string; address: string; city: string; mapUrl: string }) { return request<{ sede: ApiSede }>('/api/v1/contenido/sedes', { method: 'POST', body: json(input) }); },
+  deleteSede(id: string) { return request(`/api/v1/contenido/sedes/${id}`, { method: 'DELETE' }); },
+
+  async listInscritos(actividadId: string): Promise<ApiInscrito[]> { return (await request<{ inscritos: ApiInscrito[] }>(`/api/v1/contenido/actividades/${actividadId}/inscritos`)).inscritos; },
+  addInscritoManual(actividadId: string, input: { fullName: string; phoneCode: string; phone: string; email: string; status: string; notes: string }) {
+    return request(`/api/v1/contenido/actividades/${actividadId}/inscritos`, { method: 'POST', body: json(input) });
+  },
+  setEstadoInscrito(id: string, status: ApiInscrito['status']) { return request(`/api/v1/contenido/inscritos/${id}`, { method: 'PATCH', body: json({ status }) }); },
+  deleteInscrito(id: string) { return request(`/api/v1/contenido/inscritos/${id}`, { method: 'DELETE' }); },
 
   async listSeries(): Promise<ApiSerie[]> { return (await request<{ series: ApiSerie[] }>('/api/v1/contenido/series')).series; },
   createSerie(input: SerieInput) { return request('/api/v1/contenido/series', { method: 'POST', body: json(input) }); },

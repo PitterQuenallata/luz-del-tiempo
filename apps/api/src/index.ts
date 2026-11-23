@@ -11,6 +11,8 @@ import { logsRoutes } from './modules/logs/logs.routes.js';
 import { contenidoRoutes } from './modules/contenido/contenido.routes.js';
 import { publicRoutes } from './modules/contenido/public.routes.js';
 import { gestionRoutes } from './modules/contenido/gestion.routes.js';
+import { agendaGestionRoutes } from './modules/agenda/agenda-gestion.routes.js';
+import { agendaPublicoRoutes } from './modules/agenda/agenda-publico.routes.js';
 import { radioRoutes } from './modules/radio/radio.routes.js';
 import { donacionesRoutes } from './modules/donaciones/donaciones.routes.js';
 
@@ -48,9 +50,11 @@ app.route('/api/v1/roles', rolesRoutes);
 app.route('/api/v1/logs', logsRoutes);
 app.route('/api/v1/contenido', contenidoRoutes);
 app.route('/api/v1/contenido', gestionRoutes);
+app.route('/api/v1/contenido', agendaGestionRoutes);
 app.route('/api/v1/radio', radioRoutes);
 app.route('/api/v1/donaciones', donacionesRoutes);
 app.route('/api/v1/public', publicRoutes);
+app.route('/api/v1/public', agendaPublicoRoutes);
 
 app.get('/api/v1/health', (c) => c.json({ status: 'ok' }));
 

@@ -4,7 +4,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { MotionConfig } from "motion/react";
 import { lazy, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { Layout } from "./components/layout/Layout";
 import "./index.css";
 import Home from "./pages/Home";
@@ -14,7 +14,7 @@ import { EASE } from "./lib/motion";
 // El inicio va en el paquete principal; las demás páginas se descargan aparte (menos JS al abrir la web en el celular).
 const paginas = {
   Actividad: () => import("./pages/Actividad"),
-  Actividades: () => import("./pages/Actividades"),
+  Agenda: () => import("./pages/Agenda"),
   Area: () => import("./pages/Area"),
   Areas: () => import("./pages/Areas"),
   ComingSoon: () => import("./pages/ComingSoon"),
@@ -28,7 +28,7 @@ const paginas = {
   Videos: () => import("./pages/Videos"),
 };
 const Actividad = lazy(paginas.Actividad);
-const Actividades = lazy(paginas.Actividades);
+const Agenda = lazy(paginas.Agenda);
 const Area = lazy(paginas.Area);
 const Areas = lazy(paginas.Areas);
 const ComingSoon = lazy(paginas.ComingSoon);
@@ -91,8 +91,10 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="noticias/:slug" element={<Noticia />} />
                 <Route path="areas" element={<Areas />} />
                 <Route path="areas/:slug" element={<Area />} />
-                <Route path="actividades" element={<Actividades />} />
-                <Route path="actividades/:slug" element={<Actividad />} />
+                <Route path="agenda" element={<Agenda />} />
+                <Route path="agenda/:slug" element={<Actividad />} />
+                <Route path="actividades" element={<Navigate to="/agenda" replace />} />
+                <Route path="actividades/:slug" element={<Navigate to="/agenda" replace />} />
                 <Route path="nosotros" element={<Nosotros />} />
                 <Route path="donar" element={<Donar />} />
                 <Route path="contacto" element={<Contacto />} />

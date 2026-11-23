@@ -64,6 +64,20 @@
       "when": 1795234866003,
       "tag": "0008_low_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795403779944,
+      "tag": "0009_agenda_actividades",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795406910345,
+      "tag": "0010_agenda_qr",
+      "breakpoints": true
     }
   ]
 }

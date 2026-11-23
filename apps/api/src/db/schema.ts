@@ -3,6 +3,7 @@
 // Las demás tablas (áreas, publicaciones, hero, predicadores, etc.) se agregan en pasos siguientes.
 
 import { boolean, index, integer, jsonb, pgTable, primaryKey, smallint, text, time, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { AGENDA_CANALES, AGENDA_ROLES, AGENDA_TIPOS } from '@luz/shared';
 
 // Roles del panel (docs/DATABASE.md §1). El alcance 'station' se usa para operadores de radio.
 export const roles = pgTable('roles', {
@@ -216,37 +217,161 @@ export const posts = pgTable(
   (t) => [index('posts_status_idx').on(t.status, t.publishedAt)],
 );
 
-// Actividades: escuelas, talleres, campañas y estudios
+// ---------- Agenda (actividades): campañas, escuelas, talleres, cursos, eventos ----------
+// Una actividad tiene sesiones (fechas y lugar), programa por sesión, personas con rol,
+// canales de inscripción (web, WhatsApp, correo, enlace), inscritos, galería y crónica.
+
+// Sedes y lugares donde se realizan las sesiones
+export const locations = pgTable('locations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  address: text('address'),
+  city: text('city'),
+  mapUrl: text('map_url'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const activities = pgTable(
   'activities',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     slug: text('slug').notNull().unique(),
-    areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
-    type: text('type', {
-      enum: ['vacation_school', 'health_school', 'music_school', 'workshop', 'health_campaign', 'bible_campaign', 'bible_study', 'other'],
-    }).notNull(),
+    kind: text('kind', { enum: AGENDA_TIPOS }).notNull(),
     title: text('title').notNull(),
     summary: text('summary'),
-    content: text('content'),
+    content: text('content'), // descripción completa
     coverUrl: text('cover_url'),
-    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
-    endsAt: timestamp('ends_at', { withTimezone: true }),
-    scheduleText: text('schedule_text'),
+    report: text('report'), // crónica: qué se hizo (se llena después de la actividad)
+    language: text('language').notNull().default('es'),
     isVirtual: boolean('is_virtual').notNull().default(false),
-    locationName: text('location_name'),
-    locationAddress: text('location_address'),
-    registrationType: text('registration_type', { enum: ['none', 'whatsapp', 'link'] }).notNull().default('none'),
-    registrationValue: text('registration_value'),
+    isFree: boolean('is_free').notNull().default(true),
+    priceAmount: integer('price_amount'), // en bolivianos, entero
+    priceNote: text('price_note'),
     capacity: integer('capacity'),
-    presenterPersonId: uuid('presenter_person_id').references(() => people.id, { onDelete: 'set null' }),
-    cost: text('cost'),
-    agenda: jsonb('agenda').$type<{ day: string; items: string[] }[]>().notNull().default([]),
-    isPublished: boolean('is_published').notNull().default(false),
+    // QR subido por el ministerio (p. ej. el QR del banco para pagar). El de inscripción se genera solo.
+    qrUrl: text('qr_url'),
+    status: text('status', { enum: ['borrador', 'publicada', 'cancelada'] }).notNull().default('borrador'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('activities_starts_idx').on(t.startsAt)],
+  (t) => [index('activities_status_idx').on(t.status)],
+);
+
+// Áreas de una actividad (muchos a muchos)
+export const activityAreas = pgTable(
+  'activity_areas',
+  {
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    areaId: uuid('area_id')
+      .notNull()
+      .references(() => areas.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.activityId, t.areaId] })],
+);
+
+// Fechas de la actividad: un evento tiene una sesión; una escuela o campaña, varias
+export const activitySessions = pgTable(
+  'activity_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    locationId: uuid('location_id').references(() => locations.id, { onDelete: 'set null' }),
+    locationNote: text('location_note'), // p. ej. "Salón 2" o un lugar que no es sede fija
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('activity_sessions_activity_idx').on(t.activityId, t.startsAt)],
+);
+
+// Programa dentro de una sesión: bloques con hora, título y quién lo presenta
+export const activityProgramItems = pgTable(
+  'activity_program_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => activitySessions.id, { onDelete: 'cascade' }),
+    startTime: time('start_time'),
+    durationMin: integer('duration_min'),
+    title: text('title').notNull(),
+    description: text('description'),
+    personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('activity_program_session_idx').on(t.sessionId)],
+);
+
+// Personas de la actividad con su rol (predicador, invitado, traductor...). Muchas por actividad.
+export const activityPeople = pgTable(
+  'activity_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    personId: uuid('person_id')
+      .notNull()
+      .references(() => people.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: AGENDA_ROLES }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('activity_people_activity_idx').on(t.activityId)],
+);
+
+// Canales de inscripción: una fila por canal (web, WhatsApp, correo, enlace). Se pueden activar varios.
+export const activityChannels = pgTable(
+  'activity_channels',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    channel: text('channel', { enum: AGENDA_CANALES }).notNull(),
+    value: text('value'), // número de WhatsApp, correo o enlace (vacío para la web)
+    enabled: boolean('enabled').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [uniqueIndex('activity_channels_unique_idx').on(t.activityId, t.channel)],
+);
+
+// Inscritos: los que se inscriben por la web y los que el panel anota a mano
+export const registrations = pgTable(
+  'registrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    fullName: text('full_name').notNull(),
+    phoneCode: text('phone_code'),
+    phone: text('phone'),
+    email: text('email'),
+    origin: text('origin', { enum: ['web', 'app', 'manual'] }).notNull().default('web'),
+    status: text('status', { enum: ['pendiente', 'confirmada', 'cancelada', 'asistio'] }).notNull().default('pendiente'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('registrations_activity_idx').on(t.activityId)],
+);
+
+// Galería de fotos de la actividad (después de realizarla)
+export const activityGallery = pgTable(
+  'activity_gallery',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    activityId: uuid('activity_id')
+      .notNull()
+      .references(() => activities.id, { onDelete: 'cascade' }),
+    imageUrl: text('image_url').notNull(),
+    caption: text('caption'),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('activity_gallery_activity_idx').on(t.activityId)],
 );
 
 // Series de video (siempre pertenecen a un área)

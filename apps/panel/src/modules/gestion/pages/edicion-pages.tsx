@@ -9,7 +9,7 @@ import { HeroDialog } from '../../contenido/components/hero-dialog';
 import { AreaDialog } from '../../contenido/components/area-dialog';
 import { PersonaDialog } from '../../contenido/components/persona-dialog';
 import { NoticiaDialog } from '../../noticias/components/noticia-dialog';
-import { ActividadDialog } from '../../actividades/components/actividad-dialog';
+import { ActividadEditorPage } from '../../actividades/pages/actividad-editor-page';
 import { VideoDialog } from '../../videos/components/video-dialog';
 import { SerieDialog } from '../../videos/components/serie-dialog';
 import { EmisoraDialog } from '../../radio/components/emisora-dialog';
@@ -113,14 +113,10 @@ export const NoticiaEdicionPage = () => {
 
 export const ActividadEdicionPage = () => {
   const { id = '' } = useIdRuta();
-  const { data, isLoading } = useActividades();
-  if (id !== 'nueva' && isLoading) return <Cargando />;
-  const actividad = id === 'nueva' ? null : (data ?? []).find((a) => a.id === id) ?? null;
-  if (id !== 'nueva' && !actividad) return <NoEncontrado volver="/actividades" />;
   return (
     <Pagina>
       <Entre clave={id}>
-        <ActividadDialog actividad={actividad} onClose={() => irA('/actividades')} />
+        <ActividadEditorPage id={id === 'nueva' ? null : id} />
       </Entre>
     </Pagina>
   );

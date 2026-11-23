@@ -39,38 +39,73 @@ export type Station = {
   listeners: number;
 };
 
-export type ActivityType =
-  | "vacation_school"
-  | "health_school"
-  | "music_school"
-  | "workshop"
-  | "health_campaign"
-  | "bible_campaign"
-  | "bible_study"
-  | "other";
+// ---------- Agenda (campañas, escuelas, talleres, cursos y eventos) ----------
+export type AgendaKind =
+  | "campana_evangelistica"
+  | "escuela_vacaciones"
+  | "expo_salud"
+  | "seminario"
+  | "dia_impacto"
+  | "taller"
+  | "curso"
+  | "estudio_biblico"
+  | "evento"
+  | "otro";
 
+export type AreaRef = { slug: string; name: string };
+
+/** Una actividad en la lista de la agenda (tarjeta). */
 export type Activity = {
   slug: string;
-  areaSlug: string | null;
-  type: ActivityType;
+  kind: AgendaKind;
+  kindLabel: string;
   title: string;
   summary: string;
   coverUrl: string | null;
-  startsAt: string;
-  endsAt: string | null;
-  scheduleText: string | null;
+  language: "es" | "en" | "pt";
   isVirtual: boolean;
-  locationName: string | null;
-  locationAddress: string | null;
-  /** Quién dirige la actividad. */
-  presenter: string | null;
-  /** "Gratis", "Bs 50 por persona"… */
-  cost: string | null;
-  capacity: number | null;
-  /** Horario por día, como el "horario diario" de los eventos de SUMtv. */
-  agenda: { day: string; items: string[] }[];
-  registration: { type: "none" } | { type: "whatsapp"; value: string } | { type: "link"; value: string };
+  isFree: boolean;
+  priceAmount: number | null;
+  priceNote: string | null;
+  areas: AreaRef[];
+  /** Primera y última fecha (ISO). */
+  inicio: string | null;
+  fin: string | null;
+  cantidadSesiones: number;
+  lugar: string | null;
+  pasada: boolean;
 };
+
+export type Sede = { name: string; address: string | null; city: string | null; mapUrl: string | null };
+
+/** Ficha completa de una actividad. */
+export type ActivityDetail = Activity & {
+  content: string;
+  report: string;
+  galeria: { imageUrl: string; caption: string }[];
+  sesiones: {
+    startsAt: string;
+    endsAt: string | null;
+    lugar: Sede | null;
+    locationNote: string | null;
+    programa: {
+      startTime: string | null;
+      durationMin: number | null;
+      title: string;
+      description: string | null;
+      persona: { name: string; roleTitle: string; photoUrl: string | null } | null;
+    }[];
+  }[];
+  personas: { name: string; roleTitle: string; role: string; roleLabel: string; photoUrl: string | null; bio: string }[];
+  canales: { channel: "whatsapp" | "correo" | "enlace"; value: string }[];
+  inscripcionWeb: boolean;
+  cupo: { capacidad: number | null; lugaresLibres: number | null; lleno: boolean };
+  /** QR que genera la API (lleva a la inscripción) y QR subido por el ministerio (pago). */
+  qrInscripcionUrl: string | null;
+  qrSubidoUrl: string | null;
+};
+
+export type AgendaFiltros = { tipos: { valor: AgendaKind; etiqueta: string }[]; areas: AreaRef[] };
 
 export type Video = {
   youtubeId: string;
@@ -124,16 +159,6 @@ export type HeroSlide = {
   tint: string;
 };
 
-export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
-  vacation_school: "Escuela de vacaciones",
-  health_school: "Escuela de salud",
-  music_school: "Escuela de música",
-  workshop: "Taller",
-  health_campaign: "Campaña de salud",
-  bible_campaign: "Campaña bíblica",
-  bible_study: "Estudio bíblico",
-  other: "Actividad",
-};
 
 /** Integrantes del equipo (predicadores, locutores, conductores). */
 export type Person = {
