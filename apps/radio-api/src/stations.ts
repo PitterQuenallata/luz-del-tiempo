@@ -35,11 +35,45 @@ export interface Estacion {
 
 const archivo = () => path.join(config.configDir, 'stations.json');
 
+// Encendida o apagada cada emisora. Va en un archivo aparte (estado.txt, una línea "slug 1" o "slug 0") para que
+// encender o apagar NO cambie stations.json: Liquidsoap reinicia solo cuando cambia stations.json.
+const archivoEstado = () => path.join(config.configDir, 'estado.txt');
+
+export async function leerEstado(): Promise<Record<string, boolean>> {
+  try {
+    const mapa: Record<string, boolean> = {};
+    for (const linea of (await readFile(archivoEstado(), 'utf8')).split('\n')) {
+      const [slug, valor] = linea.trim().split(' ');
+      if (slug) mapa[slug] = valor === '1';
+    }
+    return mapa;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    throw err;
+  }
+}
+
+/** Escritura atómica (Liquidsoap lo lee cada 2 s). */
+export async function guardarEstado(mapa: Record<string, boolean>): Promise<void> {
+  await mkdir(config.configDir, { recursive: true });
+  const texto = Object.entries(mapa).map(([slug, on]) => `${slug} ${on ? 1 : 0}`).join('\n') + '\n';
+  const tmp = `${archivoEstado()}.tmp`;
+  await writeFile(tmp, texto);
+  await rename(tmp, archivoEstado());
+}
+
 export async function leerEstaciones(): Promise<Estacion[]> {
   try {
     const datos = JSON.parse(await readFile(archivo(), 'utf8')) as { stations?: Estacion[] };
-    // Estaciones guardadas antes de las playlists: siempre con lista (Liquidsoap la necesita)
-    return (datos.stations ?? []).map((s) => ({ ...s, playlists: s.playlists ?? [] }));
+    const estado = await leerEstado();
+    // Estaciones guardadas antes de las playlists: siempre con lista (Liquidsoap la necesita).
+    // Sin entrada en estado.txt, la emisora queda encendida y con AutoDJ (así estaban antes).
+    return (datos.stations ?? []).map((s) => ({
+      ...s,
+      enabled: estado[s.slug] ?? true,
+      autodj: estado[`${s.slug}.autodj`] ?? true,
+      playlists: s.playlists ?? [],
+    }));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw err;
@@ -49,8 +83,10 @@ export async function leerEstaciones(): Promise<Estacion[]> {
 /** Escritura atómica: Liquidsoap nunca lee un archivo a medias. */
 export async function guardarEstaciones(estaciones: Estacion[]): Promise<void> {
   await mkdir(config.configDir, { recursive: true });
+  // stations.json no lleva el estado de encendido ni del AutoDJ (van en estado.txt): así no reinicia Liquidsoap
+  const sinEstado = estaciones.map((e) => ({ ...e, enabled: true, autodj: true }));
   const tmp = `${archivo()}.tmp`;
-  await writeFile(tmp, JSON.stringify({ stations: estaciones }, null, 2));
+  await writeFile(tmp, JSON.stringify({ stations: sinEstado }, null, 2));
   await rename(tmp, archivo());
 }
 
@@ -86,6 +122,11 @@ export function guardarEstacion(slug: string, e: EstacionEntrada) {
     else estaciones[i] = estacion;
 
     await mkdir(path.join(config.musicDir, slug), { recursive: true });
+    // Primero el estado (Liquidsoap lo lee al arrancar); luego la estación
+    const estado = await leerEstado();
+    estado[slug] = e.enabled;
+    estado[`${slug}.autodj`] = e.autodj;
+    await guardarEstado(estado);
     await guardarEstaciones(estaciones);
     return { estacion, creada };
   });
@@ -97,6 +138,10 @@ export function quitarEstacion(slug: string) {
     const restantes = estaciones.filter((s) => s.slug !== slug);
     if (restantes.length === estaciones.length) return false;
     // Los audios se conservan en disco; se borran aparte si hace falta.
+    const estado = await leerEstado();
+    delete estado[slug];
+    delete estado[`${slug}.autodj`];
+    await guardarEstado(estado);
     await guardarEstaciones(restantes);
     return true;
   });

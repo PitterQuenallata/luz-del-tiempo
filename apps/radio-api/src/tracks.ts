@@ -56,6 +56,12 @@ export async function guardarAudio(slug: string, nombre: string, datos: ArrayBuf
   return final;
 }
 
+/** Ruta de un audio ya guardado (solo nombres sin carpetas y con extensión de audio). */
+export function rutaAudio(slug: string, nombre: string): string | null {
+  if (nombre !== path.basename(nombre) || !EXTENSIONES.includes(path.extname(nombre).toLowerCase())) return null;
+  return path.join(carpeta(slug), nombre);
+}
+
 export async function borrarAudio(slug: string, nombre: string) {
   if (nombre !== path.basename(nombre)) return false;
   try {

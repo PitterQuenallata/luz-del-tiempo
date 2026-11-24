@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promise
 import path from 'node:path';
 import { z } from 'zod';
 import { config } from './config.js';
-import { enCola, guardarEstaciones, leerEstaciones } from './stations.js';
+import { enCola, guardarEstado, guardarEstaciones, leerEstaciones, leerEstado } from './stations.js';
 
 /**
  * Playlists del AutoDJ.
@@ -66,12 +66,33 @@ async function archivosExistentes(slug: string): Promise<Set<string>> {
   }
 }
 
-/** Devuelve los nombres de pista que no existen en disco. */
+/** Una pista es "carpeta/archivo" si viene de otra carpeta (biblioteca compartida); si no, es de la estación. */
+const esDeOtraCarpeta = (t: string) => t.includes('/');
+
+/** Devuelve las pistas que no existen en disco. */
 export async function pistasFaltantes(slug: string, entradas: PlaylistEntrada[]): Promise<string[]> {
   const existentes = await archivosExistentes(slug);
+  const porCarpeta = new Map<string, Set<string>>();
   const faltan = new Set<string>();
-  for (const p of entradas) for (const t of p.tracks) if (!existentes.has(t)) faltan.add(t);
+  for (const p of entradas)
+    for (const t of p.tracks) {
+      if (!esDeOtraCarpeta(t)) {
+        if (!existentes.has(t)) faltan.add(t);
+        continue;
+      }
+      const [carpeta, ...resto] = t.split('/');
+      if (!porCarpeta.has(carpeta)) porCarpeta.set(carpeta, await nombresEn(carpeta));
+      if (!porCarpeta.get(carpeta)!.has(resto.join('/'))) faltan.add(t);
+    }
   return [...faltan];
+}
+
+async function nombresEn(carpeta: string): Promise<Set<string>> {
+  try {
+    return new Set((await readdir(path.join(config.musicDir, carpeta))).filter((n) => !n.startsWith('.')));
+  } catch {
+    return new Set();
+  }
 }
 
 function metaDe(p: PlaylistEntrada): PlaylistMeta {
@@ -81,7 +102,8 @@ function metaDe(p: PlaylistEntrada): PlaylistMeta {
     mode: p.mode,
     weight: p.weight,
     shuffle: p.shuffle,
-    active: p.active,
+    // Activa o pausada: va en estado.txt (no aquí), para que activarla no reinicie Liquidsoap
+    active: true,
     schedules: p.schedules,
   };
 }
@@ -90,7 +112,8 @@ function metaDe(p: PlaylistEntrada): PlaylistMeta {
 async function escribirM3u(slug: string, p: PlaylistEntrada) {
   const dir = carpetaPlaylists(slug);
   await mkdir(dir, { recursive: true });
-  const lineas = ['#EXTM3U', ...p.tracks.map((t) => `${RUTA_LIQUIDSOAP}/${slug}/${t}`)];
+  // Pistas de la biblioteca compartida llevan su carpeta ("institucional/archivo.mp3")
+  const lineas = ['#EXTM3U', ...p.tracks.map((t) => (esDeOtraCarpeta(t) ? `${RUTA_LIQUIDSOAP}/${t}` : `${RUTA_LIQUIDSOAP}/${slug}/${t}`))];
   const tmp = path.join(dir, `.${p.id}.tmp`);
   await writeFile(tmp, lineas.join('\n') + '\n');
   await rename(tmp, path.join(dir, `${p.id}.m3u`));
@@ -121,6 +144,12 @@ export function guardarPlaylists(slug: string, entradas: PlaylistEntrada[]) {
 
     for (const p of entradas) await escribirM3u(slug, p);
     await quitarM3uHuerfanos(slug, new Set(entradas.map((p) => p.id)));
+
+    // Activación de cada playlist en esta emisora (estado.txt, clave "slug/playlist")
+    const estado = await leerEstado();
+    for (const clave of Object.keys(estado)) if (clave.startsWith(`${slug}/`)) delete estado[clave];
+    for (const p of entradas) estado[`${slug}/${p.id}`] = p.active;
+    await guardarEstado(estado);
 
     const metaNueva = entradas.map(metaDe);
     const metaAnterior = estaciones[i].playlists ?? [];

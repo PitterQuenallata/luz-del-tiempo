@@ -45,11 +45,36 @@ config = json.parse(
   file.exists(config_path) ? file.contents(config_path) : '{"stations": []}'
 )
 
+# Encendida o apagada cada emisora: lo escribe la radio-api en estado.json.
+# Se lee cada 2 s y NO reinicia Liquidsoap: solo abre o cierra el mount de esa emisora,
+# así que encender o apagar una no corta a las demás.
+estado_path = "#{config_dir}/estado.txt"
+# Una línea por emisora: "slug 1" (encendida) o "slug 0" (apagada). Texto, no JSON, para no mezclar tipos con la configuración.
+def leer_estado_lista() =
+  texto = file.exists(estado_path) ? file.contents(estado_path) : ""
+  lineas = list.filter(fun (l) -> l != "", string.split(separator="\n", texto))
+  list.map(fun (l) -> (list.nth(string.split(separator=" ", l), 0), list.nth(string.split(separator=" ", l), 1) == "1"), lineas)
+end
+estado_actual = ref(leer_estado_lista())
+thread.run.recurrent(delay=2., fun () -> begin
+  estado_actual := leer_estado_lista()
+  2.
+end)
+
+# Claves de estado.txt: "slug" (emisora encendida), "slug.autodj" (AutoDJ activo)
+def estado_on(clave) =
+  list.exists(fun (e) -> fst(e) == clave and snd(e), estado_actual())
+end
+
+def emisora_encendida(slug) = estado_on(slug) end
+
 # Emisión a Icecast con el bitrate elegido (Liquidsoap exige una constante).
+# fallible: si la fuente no tiene audio (emisora apagada), el mount se cierra en vez de transmitir silencio.
 def emitir(st, src) =
   def salida(enc) =
     output.icecast(
       enc,
+      fallible=true,
       id="#{st.slug}_icecast",
       host=icecast_host,
       port=icecast_port,
@@ -80,8 +105,9 @@ def en_horario(hs) =
 end
 
 # Fuente de una playlist: su .m3u, en orden o aleatoria.
+# Cada playlist se puede activar o pausar sin reiniciar: su clave en estado.txt es "slug/playlist".
 def fuente_playlist(st, p) =
-  playlist(
+  pl = playlist(
     id="#{st.slug}_#{p.id}",
     mode=(p.shuffle ? "randomize" : "normal"),
     # Se recarga cada 5 s: la radio-api reemplaza el .m3u con un renombrado, que "watch" no sigue
@@ -89,11 +115,12 @@ def fuente_playlist(st, p) =
     reload=5,
     "#{config_dir}/playlists/#{st.slug}/#{p.id}.m3u"
   )
+  switch(track_sensitive=false, [((fun () -> estado_on("#{st.slug}/#{p.id}")), pl)])
 end
 
 # Mezcla de playlists de rotación/secuencial, según el peso de cada una.
 def rotacion(st) =
-  ps = list.filter(fun (p) -> p.active and (p.mode == "rotacion" or p.mode == "secuencial"), st.playlists)
+  ps = list.filter(fun (p) -> (p.mode == "rotacion" or p.mode == "secuencial"), st.playlists)
   if list.length(ps) == 0 then
     []
   else
@@ -107,7 +134,7 @@ end
 
 # Playlists programadas: solo suenan en sus horarios.
 def programadas(st) =
-  ps = list.filter(fun (p) -> p.active and p.mode == "programada", st.playlists)
+  ps = list.filter(fun (p) -> p.mode == "programada", st.playlists)
   if list.length(ps) == 0 then
     []
   else
@@ -119,7 +146,7 @@ def programadas(st) =
 end
 
 def crear_estacion(st) =
-  log.important("Estación #{st.slug} -> #{st.mount} (#{st.bitrate} kbps, autodj=#{st.autodj})")
+  log.important("Estación #{st.slug} -> #{st.mount} (#{st.bitrate} kbps)")
 
   # Locutor en vivo: BUTT/OBS se conecta a harbor con mount = slug y su contraseña.
   vivo = input.harbor(
@@ -130,14 +157,20 @@ def crear_estacion(st) =
   )
 
   # Sin AutoDJ, la estación solo suena con el locutor o silencio.
-  automatico = st.autodj ? list.append(programadas(st), rotacion(st)) : []
-  fuentes = list.append([vivo], list.append(automatico, [blank()]))
+  # AutoDJ: se puede encender o apagar sin reiniciar (estado.txt, clave "slug.autodj").
+  automatico = list.append(programadas(st), rotacion(st))
+  musica = list.length(automatico) == 0 ? blank() : fallback(id="#{st.slug}_musica", track_sensitive=false, automatico)
+  musica_gated = switch(track_sensitive=false, [((fun () -> estado_on("#{st.slug}.autodj")), musica)])
+  fuentes = [vivo, musica_gated, blank()]
 
   radio = fallback(id="#{st.slug}", track_sensitive=false, fuentes)
-  emitir(st, mksafe(radio))
+  # Compuerta: la emisora solo suena si está encendida (estado.txt). Apagada, no hay fuente y el mount se cierra.
+  compuerta = switch(track_sensitive=false, [((fun () -> emisora_encendida(st.slug)), radio)])
+  emitir(st, compuerta)
 end
 
-list.iter(fun (st) -> if st.enabled then crear_estacion(st) end, config.stations)
+# Todas las emisoras se crean; cuál suena lo decide estado.json (no stations.json).
+list.iter(fun (st) -> crear_estacion(st), config.stations)
 
 # Mantiene vivo el proceso aunque no haya estaciones configuradas.
 output.dummy(blank())

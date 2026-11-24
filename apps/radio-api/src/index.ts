@@ -15,7 +15,8 @@ import {
   sinSecretos,
   slugSchema,
 } from './stations.js';
-import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro } from './tracks.js';
+import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro, rutaAudio } from './tracks.js';
+import { readFile } from 'node:fs/promises';
 import { guardarPlaylists, leerPistasDePlaylist, pistasFaltantes, playlistsSchema } from './playlists.js';
 
 /**
@@ -146,6 +147,18 @@ app.post(
     return c.json({ file: guardado, sizeBytes: archivo.size }, 201);
   },
 );
+
+// Lee un audio guardado: la API 1 usa esto para leer sus etiquetas (título, artista, álbum…)
+app.get('/v1/stations/:slug/tracks/:file', async (c) => {
+  const ruta = rutaAudio(c.req.param('slug'), c.req.param('file'));
+  if (!ruta) return c.json({ error: 'no_existe' }, 404);
+  try {
+    const datos = await readFile(ruta);
+    return c.body(datos, 200, { 'Content-Type': 'application/octet-stream', 'Content-Length': String(datos.byteLength) });
+  } catch {
+    return c.json({ error: 'no_existe' }, 404);
+  }
+});
 
 app.delete('/v1/stations/:slug/tracks/:file', async (c) => {
   const ok = await borrarAudio(c.req.param('slug'), c.req.param('file'));
