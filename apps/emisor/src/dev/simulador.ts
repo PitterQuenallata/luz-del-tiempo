@@ -208,8 +208,15 @@ w.simular = {
   },
   redLenta: () => (sim.redLentaHasta = Date.now() + 8000),
   corte: () => {
-    estado('reconectando', 'Se perdió la conexión con la radio. Reintentando…');
+    estado('reconectando', 'Se perdió la conexión con la radio. Reintento 1 de 2 en 3 s.');
     setTimeout(() => estado('al_aire', 'Estás al aire'), 4000);
+  },
+  caida: () => {
+    estado('reconectando', 'Se perdió la conexión con la radio. Reintento 1 de 2 en 3 s.');
+    setTimeout(() => {
+      clearInterval(reloj);
+      estado('error', 'Se perdió la conexión con la radio y entró el AutoDJ. Pulsa «Reintentar conexión» cuando vuelva la red.');
+    }, 1500);
   },
 };
 

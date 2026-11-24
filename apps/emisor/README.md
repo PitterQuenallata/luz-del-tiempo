@@ -19,7 +19,8 @@ y se asegura de que llegue siempre, llegue bien y, si algo falla, que el operado
 **Calidad**: MP3 de 64 a 320 kbps, 44.1 o 48 kHz, estéreo o mono, tres niveles de esfuerzo del codificador.
 
 **Que no se caiga**
-- Si se corta la red o se reinicia el servidor, **reintenta solo** (2 s … 15 s) y lo muestra como *Reconectando*.
+- Si se corta la red o la radio no responde, **reintenta 3 veces (unos 15 s)** y se detiene: el servidor pone al
+  AutoDJ solo. El operador vuelve con **Reintentar conexión**. Lo mismo si se desconecta la fuente de audio.
 - Envío real en kbps y aviso si la conexión no alcanza para el bitrate (se está perdiendo audio).
 - Si la contraseña es incorrecta, lo dice y **no** reintenta.
 
@@ -48,7 +49,7 @@ y se asegura de que llegue siempre, llegue bien y, si algo falla, que el operado
   de emisora con un selector. Servidor, puertos y contraseñas no se escriben ni se ven.
 - Token de sesión y contraseñas de las emisoras en el **llavero de Windows** (Credential Manager).
 - Sin conexión con el panel usa la última lista guardada: la API nunca impide salir al aire.
-- Avisa al panel al empezar, cada 30 s y al terminar: el panel muestra *En vivo ahora* (locutor, emisora,
+- Avisa al panel al empezar, cada 60 s y al terminar: el panel muestra *En vivo ahora* (locutor, emisora,
   PC, IP, envío, incidencias) y los reportes mensuales de horas al aire.
 - Sin cuenta se puede usar la **conexión manual** (servidor, puertos, mount y contraseña), como antes.
 

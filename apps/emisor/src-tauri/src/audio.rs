@@ -124,6 +124,8 @@ pub struct Medicion {
     pub reduccion: AtomicU32,
     /// Veces que la entrada llegó a 0 dBFS (saturó)
     pub recortes: AtomicU32,
+    /// El dispositivo desapareció (desconectado o apagado): la emisión debe soltarse
+    pub fuente_caida: AtomicBool,
 }
 
 /// Lectura de los medidores, ya puesta a cero en el origen.
@@ -255,10 +257,16 @@ fn abrir_stream(dispositivo: Option<&str>, captura: &Captura, salida: SyncSender
     let canales = config.channels as usize;
     let frecuencia = config.sample_rate.0;
 
-    let err_fn = |e| eprintln!("[emisor] error del micrófono: {e}");
+    let medicion = captura.medicion.clone();
+    let err_fn = move |e: cpal::StreamError| {
+        eprintln!("[emisor] error de la fuente de audio: {e}");
+        if matches!(e, cpal::StreamError::DeviceNotAvailable) {
+            medicion.fuente_caida.store(true, Ordering::Relaxed);
+        }
+    };
     let stream = match formato {
-        SampleFormat::F32 => construir::<f32>(&device, &config, canales, frecuencia, captura, salida, err_fn),
-        SampleFormat::I16 => construir::<i16>(&device, &config, canales, frecuencia, captura, salida, err_fn),
+        SampleFormat::F32 => construir::<f32>(&device, &config, canales, frecuencia, captura, salida, err_fn.clone()),
+        SampleFormat::I16 => construir::<i16>(&device, &config, canales, frecuencia, captura, salida, err_fn.clone()),
         SampleFormat::U16 => construir::<u16>(&device, &config, canales, frecuencia, captura, salida, err_fn),
         otro => return Err(format!("Formato de audio no soportado: {otro:?}")),
     };

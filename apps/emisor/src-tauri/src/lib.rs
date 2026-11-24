@@ -1,6 +1,7 @@
 // Emisor de La Luz del Tiempo: comandos que llama la interfaz y avisos del motor hacia las ventanas.
 pub mod ajustes;
 pub mod audio;
+pub mod candado;
 pub mod cuenta;
 pub mod emision;
 pub mod historial;
@@ -10,28 +11,39 @@ mod ventanas;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::ajustes::{AjustesEntrada, AjustesVista};
+use crate::candado::Candado;
 use crate::emision::{Emision, EstadoEmision, Medidores, Notificador};
 use crate::icecast::Sondeo;
 
 /// Estado de la app: la transmisión en curso y un resumen que cualquier ventana puede pedir al abrirse.
 #[derive(Default)]
 pub struct Estado {
-    pub emision: Mutex<Option<Emision>>,
+    pub emision: Candado<Option<Emision>>,
     /// Prueba de nivel de Configuración (captura sin transmitir); guarda su señal de parada
-    pub prueba: Mutex<Option<Arc<AtomicBool>>>,
-    pub resumen: Mutex<Resumen>,
+    pub prueba: Candado<Option<Arc<AtomicBool>>>,
+    pub resumen: Candado<Resumen>,
+    /// ¿Al aire, conectando o reconectando? Sin candado: lo consultan la ventana, la bandeja y el menú
+    pub transmitiendo: AtomicBool,
     /// Se está saliendo al aire (evita dos inicios a la vez sin tener el candado tomado mientras tanto)
     pub iniciando: AtomicBool,
 }
-// Regla para no colgar la app: ningún candado (emision, prueba, resumen) se mantiene tomado mientras se
-// espera algo lento (abrir el audio, la red) o algo que corre en el hilo de la ventana (bandeja, ventanas).
+// Reglas para que la app nunca quede "No responde":
+// 1. Ningún candado se mantiene tomado mientras se espera algo lento (audio, red) o el hilo de la ventana.
+// 2. Los candados esperan como mucho 2 s (candado.rs): en el peor caso se salta una actualización.
+// 3. Los comandos corren fuera del hilo de la ventana (async) y la ventana consulta `transmitiendo` sin candado.
+// 4. La bandeja y el parpadeo se piden desde un hilo aparte: nadie espera a que la ventana los ejecute.
+
+/// ¿Hay una transmisión en curso? (sin candados: seguro desde cualquier hilo, también el de la ventana)
+pub fn esta_transmitiendo(app: &AppHandle) -> bool {
+    app.state::<Estado>().transmitiendo.load(Ordering::SeqCst)
+}
 
 /// Foto del momento: lo que necesita una ventana recién abierta (la mini, por ejemplo) para dibujarse.
 #[derive(Serialize, Clone, Default)]
@@ -123,6 +135,9 @@ fn sincronizar_autoinicio(app: &AppHandle) {
 
 impl Notificador for AppHandle {
     fn estado(&self, estado: &str, mensaje: String) {
+        self.state::<Estado>()
+            .transmitiendo
+            .store(matches!(estado, "al_aire" | "conectando" | "reconectando"), Ordering::SeqCst);
         let ahora = chrono::Local::now().timestamp_millis();
         // Qué anotar en el historial según el cambio de estado
         let mut anotacion: Option<(&str, String)> = None;
@@ -202,9 +217,13 @@ impl Notificador for AppHandle {
         let _ = self.emit("historial", ());
     }
     fn atencion(&self) {
-        if let Some(w) = self.get_webview_window("main") {
-            let _ = w.request_user_attention(Some(tauri::UserAttentionType::Critical));
-        }
+        // Desde un hilo aparte: quien avisa (audio, red) nunca espera a la ventana
+        let app = self.clone();
+        std::thread::spawn(move || {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.request_user_attention(Some(tauri::UserAttentionType::Critical));
+            }
+        });
     }
     fn carpeta_grabaciones(&self) -> Option<PathBuf> {
         ajustes::carpeta_grabaciones(self).ok()
@@ -218,12 +237,12 @@ impl Notificador for AppHandle {
 }
 
 #[tauri::command]
-fn ajustes_cargar(app: AppHandle) -> AjustesVista {
+async fn ajustes_cargar(app: AppHandle) -> AjustesVista {
     ajustes::vista(&app)
 }
 
 #[tauri::command]
-fn ajustes_guardar(app: AppHandle, datos: AjustesEntrada) -> Result<(), String> {
+async fn ajustes_guardar(app: AppHandle, datos: AjustesEntrada) -> Result<(), String> {
     ajustes::guardar(&app, datos)?;
     sincronizar_autoinicio(&app);
     Ok(())
@@ -285,8 +304,8 @@ fn abrir_prueba(app: AppHandle, dispositivo: Option<String>, canal_izq: u16, can
 }
 
 #[tauri::command]
-fn prueba_detener(estado: State<'_, Estado>) {
-    if let Ok(mut prueba) = estado.prueba.lock() {
+async fn prueba_detener(app: AppHandle) {
+    if let Ok(mut prueba) = app.state::<Estado>().prueba.lock() {
         if let Some(stop) = prueba.take() {
             stop.store(true, Ordering::Relaxed);
         }
@@ -397,7 +416,10 @@ fn mostrar_titulo(app: AppHandle, conexion: (String, u16, String, String), nombr
         while !stop.load(Ordering::Relaxed) {
             let estado = app.state::<Estado>();
             let (deseado, cambio) = {
-                let Ok(mut r) = estado.resumen.lock() else { break };
+                let Ok(mut r) = estado.resumen.lock() else {
+                    std::thread::sleep(Duration::from_millis(500));
+                    continue;
+                };
                 if r.estado != "al_aire" {
                     enviado = None;
                     (None, false)
@@ -425,7 +447,7 @@ fn mostrar_titulo(app: AppHandle, conexion: (String, u16, String, String), nombr
     });
 }
 
-/// Mientras dura la transmisión: avisa al panel (al empezar, cada 30 s y al terminar) y trae el programa
+/// Mientras dura la transmisión: avisa al panel (al empezar, cada 60 s y al terminar) y trae el programa
 /// que corresponde según la programación. Si el panel no responde, la transmisión sigue igual.
 fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, stop: Arc<AtomicBool>) {
     let Some(avisos) = cuenta::Avisos::nuevo(&app) else { return };
@@ -461,7 +483,8 @@ fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, stop: Arc<AtomicBoo
                 }
                 break;
             }
-            if ultimo_aviso.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
+            // Cada 60 s: el panel da la transmisión por terminada tras 150 s sin aviso
+            if ultimo_aviso.is_none_or(|t| t.elapsed() >= Duration::from_secs(60)) {
                 ultimo_aviso = Some(std::time::Instant::now());
                 let r = resumen();
                 // Lo que se informa como programa es lo mismo que ven los oyentes
@@ -502,12 +525,13 @@ fn detener_emision(estado: &Estado) {
 }
 
 #[tauri::command]
-fn emision_detener(estado: State<'_, Estado>) {
-    detener_emision(&estado);
+async fn emision_detener(app: AppHandle) {
+    detener_emision(&app.state::<Estado>());
 }
 
 #[tauri::command]
-fn silencio(app: AppHandle, activo: bool, estado: State<'_, Estado>) -> Result<(), String> {
+async fn silencio(app: AppHandle, activo: bool) -> Result<(), String> {
+    let estado = app.state::<Estado>();
     let actual = estado.emision.lock().map_err(|_| "Estado interno bloqueado.")?;
     let hay = actual.as_ref().map(|e| e.silencio.store(activo, Ordering::Relaxed)).is_some();
     drop(actual);
@@ -522,8 +546,8 @@ fn silencio(app: AppHandle, activo: bool, estado: State<'_, Estado>) -> Result<(
 }
 
 #[tauri::command]
-fn estado_actual(estado: State<'_, Estado>) -> Resumen {
-    estado.resumen.lock().map(|r| r.clone()).unwrap_or_default()
+async fn estado_actual(app: AppHandle) -> Resumen {
+    app.state::<Estado>().resumen.lock().map(|r| r.clone()).unwrap_or_default()
 }
 
 #[tauri::command]
@@ -550,7 +574,7 @@ async fn en_segundo_plano<T: Send + 'static>(f: impl FnOnce() -> Result<T, Strin
 }
 
 #[tauri::command]
-fn cuenta_estado(app: AppHandle) -> cuenta::CuentaVista {
+async fn cuenta_estado(app: AppHandle) -> cuenta::CuentaVista {
     cuenta::vista(&app, false)
 }
 
@@ -566,7 +590,7 @@ async fn cuenta_iniciar(app: AppHandle, api_url: String, email: String, contrase
 
 #[tauri::command]
 async fn cuenta_cerrar(app: AppHandle) -> Result<(), String> {
-    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+    if esta_transmitiendo(&app) {
         return Err("Termina la transmisión antes de cerrar la sesión.".into());
     }
     en_segundo_plano(move || {
@@ -583,7 +607,7 @@ async fn emisoras_actualizar(app: AppHandle) -> Result<cuenta::CuentaVista, Stri
 
 /// El operador define qué se muestra al aire. Vacío = usar la programación del panel.
 #[tauri::command]
-fn titulo_definir(app: AppHandle, programa: String, conductor: String) -> Resumen {
+async fn titulo_definir(app: AppHandle, programa: String, conductor: String) -> Resumen {
     let limpio = |t: String| Some(t.trim().chars().take(120).collect::<String>()).filter(|t| !t.is_empty());
     let estado = app.state::<Estado>();
     let mut r = estado.resumen.lock().map(|r| r.clone()).unwrap_or_default();
@@ -642,7 +666,7 @@ async fn actualizacion_buscar(app: AppHandle) -> Result<Actualizacion, String> {
 /// Descarga, verifica la firma e instala la versión nueva; después reinicia el emisor.
 #[tauri::command]
 async fn actualizacion_instalar(app: AppHandle) -> Result<(), String> {
-    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+    if esta_transmitiendo(&app) {
         return Err("Termina la transmisión antes de actualizar.".into());
     }
     let u = actualizador(&app)?
@@ -656,20 +680,20 @@ async fn actualizacion_instalar(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn emisora_elegir(app: AppHandle, id: String) -> Result<cuenta::CuentaVista, String> {
-    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+async fn emisora_elegir(app: AppHandle, id: String) -> Result<cuenta::CuentaVista, String> {
+    if esta_transmitiendo(&app) {
         return Err("Termina la transmisión antes de cambiar de emisora.".into());
     }
     cuenta::elegir_emisora(&app, &id)
 }
 
 #[tauri::command]
-fn historial_leer(app: AppHandle) -> Vec<historial::Suceso> {
+async fn historial_leer(app: AppHandle) -> Vec<historial::Suceso> {
     carpeta_datos(&app).map(|d| historial::leer(&d, 500)).unwrap_or_default()
 }
 
 #[tauri::command]
-fn historial_borrar(app: AppHandle) {
+async fn historial_borrar(app: AppHandle) {
     if let Some(d) = carpeta_datos(&app) {
         historial::borrar(&d);
     }
@@ -677,7 +701,7 @@ fn historial_borrar(app: AppHandle) {
 
 /// Abre la carpeta de grabaciones en el explorador de archivos.
 #[tauri::command]
-fn abrir_grabaciones(app: AppHandle) -> Result<(), String> {
+async fn abrir_grabaciones(app: AppHandle) -> Result<(), String> {
     let carpeta = ajustes::carpeta_grabaciones(&app)?;
     std::fs::create_dir_all(&carpeta).map_err(|e| e.to_string())?;
     #[cfg(target_os = "windows")]
@@ -692,7 +716,7 @@ fn abrir_grabaciones(app: AppHandle) -> Result<(), String> {
 
 /// Cambia entre la ventana grande y la mini.
 #[tauri::command]
-fn ventana_mini(app: AppHandle, mostrar: bool) {
+async fn ventana_mini(app: AppHandle, mostrar: bool) {
     if mostrar {
         ventanas::mostrar_mini(&app, true);
     } else {
@@ -726,6 +750,11 @@ fn retomar_transmision(app: AppHandle) {
 
 pub fn run() {
     tauri::Builder::default()
+        // Una sola instancia: abrir el emisor otra vez trae al frente el que ya está abierto
+        // (dos emisores pelearían por el audio y por el punto de transmisión)
+        .plugin(tauri_plugin_single_instance::init(|app, _argumentos, _carpeta| {
+            ventanas::mostrar_principal(app);
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![ARG_AUTOINICIO]),
@@ -734,6 +763,14 @@ pub fn run() {
         .manage(Estado::default())
         .setup(|app| {
             let app = app.handle();
+            // Si algo falla por dentro, queda anotado en el historial (además de lo habitual)
+            if let Some(dir) = carpeta_datos(app) {
+                let previo = std::panic::take_hook();
+                std::panic::set_hook(Box::new(move |info| {
+                    historial::anotar(&dir, "error", &format!("Falla interna del emisor: {info}"));
+                    previo(info);
+                }));
+            }
             ventanas::preparar(app)?;
             sincronizar_autoinicio(app);
             let con_windows = std::env::args().any(|a| a == ARG_AUTOINICIO);

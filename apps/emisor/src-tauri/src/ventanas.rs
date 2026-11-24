@@ -6,7 +6,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
 
-use crate::{ajustes, detener_emision, Estado};
+use crate::{ajustes, detener_emision, esta_transmitiendo, Estado};
 
 const BANDEJA: &str = "principal";
 const MINI_ANCHO: f64 = 500.0;
@@ -87,17 +87,18 @@ pub fn mostrar_principal(app: &AppHandle) {
 }
 
 fn salir_de_la_app(app: &AppHandle) {
-    detener_emision(&app.state::<Estado>());
-    // Un momento para que la grabación se cierre y el servidor reciba el fin
+    // El menú de la bandeja corre en el hilo de la ventana: el trabajo, en otro hilo
     let app = app.clone();
     std::thread::spawn(move || {
+        detener_emision(&app.state::<Estado>());
+        // Un momento para que la grabación se cierre y el servidor reciba el fin
         std::thread::sleep(Duration::from_millis(700));
         app.exit(0);
     });
 }
 
 fn transmitiendo(app: &AppHandle) -> bool {
-    app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false)
+    esta_transmitiendo(app)
 }
 
 pub fn evento_ventana(ventana: &Window, evento: &WindowEvent) {
@@ -139,7 +140,11 @@ pub fn actualizar_bandeja(app: &AppHandle, estado: &str) {
         "error" => "Sin transmitir: error",
         _ => "Fuera del aire",
     };
-    if let Some(bandeja) = app.tray_by_id(BANDEJA) {
-        let _ = bandeja.set_tooltip(Some(format!("Emisor La Luz del Tiempo · {texto}")));
-    }
+    // Desde un hilo aparte: quien cambia el estado (audio, red) nunca espera a la ventana
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if let Some(bandeja) = app.tray_by_id(BANDEJA) {
+            let _ = bandeja.set_tooltip(Some(format!("Emisor La Luz del Tiempo · {texto}")));
+        }
+    });
 }

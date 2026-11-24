@@ -10,7 +10,7 @@ import { broadcastSessions, stationBroadcasters, stations, users } from '../../d
 export const radioEmisorRoutes = new Hono();
 const PERMISO = 'estaciones:todas';
 /** Sin aviso del emisor durante este tiempo, la transmisión se da por terminada */
-const VIGENCIA_MS = 90_000;
+const VIGENCIA_MS = 150_000;
 
 async function emisoraExiste(id: string) {
   const [e] = await db.select({ id: stations.id, name: stations.name }).from(stations).where(eq(stations.id, id));

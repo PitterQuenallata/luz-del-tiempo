@@ -583,7 +583,7 @@ export const stationBroadcasters = pgTable(
 );
 
 // Transmisiones hechas con el emisor: quién, desde qué PC, en qué emisora y cómo fue.
-// El emisor avisa al empezar, cada 30 s y al terminar. Sin aviso por 90 s se da por terminada.
+// El emisor avisa al empezar, cada 60 s y al terminar. Sin aviso por 150 s se da por terminada.
 export const broadcastSessions = pgTable(
   'broadcast_sessions',
   {

@@ -373,3 +373,6 @@ body.cuerpo-mini, body.cuerpo-mini #root { background: var(--superficie); overfl
 .titulo-aire .campo-acciones .boton { flex: none; }
 .boton-texto.en-linea { padding: 0; font-size: inherit; }
 .aviso-actualizacion { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+
+.aviso-reintentar .campo-acciones { margin-top: 10px; }
+.aviso-reintentar .boton { flex: none; }

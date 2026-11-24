@@ -151,7 +151,7 @@ function Transmision({
   const programa = programaVivo !== undefined && activo ? programaVivo : elegida?.programa?.nombre ?? null;
 
   useEffect(() => {
-    api.probarServidor().then((s) => emision.setOyentes(s.oyentes)).catch(() => {});
+    if (!activo) api.probarServidor().then((s) => emision.setOyentes(s.oyentes)).catch(() => {});
     let quitar: (() => void) | undefined;
     escuchar.programa(setProgramaVivo).then((u) => (quitar = u)).catch(() => {});
     return () => quitar?.();
@@ -202,6 +202,10 @@ function Transmision({
     }
   };
 
+  // Terminó sin que el operador la detuviera (se cayó la red o la radio, se desconectó la fuente, silencio largo).
+  // Mientras tanto la radio sigue con el AutoDJ; el operador vuelve con «Reintentar conexión».
+  const terminoSola =
+    estado.estado === 'error' || (estado.estado === 'detenido' && Boolean(estado.mensaje) && estado.mensaje !== 'Fuera del aire');
   const tono = estado.estado === 'al_aire' ? 'vivo' : estado.estado === 'error' ? 'error' : activo ? 'aviso' : 'neutro';
   const esSalida = ajustes.dispositivo?.startsWith('salida:');
 
@@ -280,6 +284,17 @@ function Transmision({
       )}
 
       {error && <Aviso tipo="error">{error}</Aviso>}
+      {!activo && !preparando && terminoSola && (
+        <div className="aviso aviso-error aviso-reintentar">
+          <p className="aviso-titulo">La transmisión se detuvo</p>
+          <p>{estado.mensaje}</p>
+          <div className="campo-acciones">
+            <button className="boton principal" onClick={iniciar} disabled={ocupado}>
+              {ocupado ? 'Conectando…' : 'Reintentar conexión'}
+            </button>
+          </div>
+        </div>
+      )}
       {emision.sinSonido && (
         <Aviso tipo="aviso" titulo={`Sin sonido desde hace ${minutos(m.silencioSeg)}`}>
           Los oyentes escuchan silencio. {esSalida ? 'Reproduce algo en esa salida' : 'Revisa la consola y el cable de entrada'}, o elige otra fuente.

@@ -294,20 +294,14 @@ fn codificar(
     }
 }
 
-/// Si nunca se logró salir al aire, cuánto se insiste antes de rendirse (servidor apagado, dirección mal escrita…).
-pub const LIMITE_AL_INICIAR: Duration = Duration::from_secs(60);
-/// Si la conexión se cae en pleno programa, cuánto se insiste. Mientras tanto la radio sigue con el AutoDJ.
-pub const LIMITE_EN_CORTE: Duration = Duration::from_secs(15 * 60);
-/// Espera entre intentos: crece de 2 s hasta este tope.
-const ESPERA_MAXIMA: u64 = 30;
+/// Intentos de conexión antes de rendirse. Pocos a propósito: si la radio no responde o se cae la conexión,
+/// el servidor pone al AutoDJ solo; insistir no sirve y solo carga la red. El operador vuelve con «Reintentar».
+pub const INTENTOS: u32 = 3;
+/// Espera antes de cada reintento (después del 1.º y del 2.º fallo)
+const ESPERAS: [u64; 2] = [3, 8];
 
-fn mm_ss(d: Duration) -> String {
-    let s = d.as_secs();
-    format!("{}:{:02}", s / 60, s % 60)
-}
-
-/// Mantiene la transmisión: envía, y si se corta vuelve a intentarlo con espera creciente,
-/// hasta un límite: 1 min si nunca se salió al aire, 15 min si se cayó durante el programa.
+/// Mantiene la transmisión: envía y, si se corta, reintenta unas pocas veces. Si no lo logra se detiene
+/// y entra el AutoDJ. Cada conexión que llega a salir al aire vuelve a dar los 3 intentos.
 fn mantener_conexion<N: Notificador>(
     a: Ajustes,
     clave: String,
@@ -317,13 +311,9 @@ fn mantener_conexion<N: Notificador>(
     stop: Arc<AtomicBool>,
     n: N,
 ) {
-    let mut espera: u64 = 2;
-    let mut intento: u32 = 0;
+    let mut fallos: u32 = 0;
     let mut estuvo_al_aire = false;
-    // Desde cuándo no hay conexión (el inicio de la emisión cuenta como el primer "corte")
-    let mut sin_conexion_desde = Instant::now();
     while !stop.load(Ordering::Relaxed) {
-        intento += 1;
         n.estado("conectando", format!("Conectando con {}…", a.servidor));
         let (tx, rx) = mpsc::sync_channel::<Vec<u8>>(128);
         if let Ok(mut canal) = salida.lock() {
@@ -335,11 +325,8 @@ fn mantener_conexion<N: Notificador>(
             *canal = None;
         }
         if en_aire.load(Ordering::Relaxed) {
-            // Hubo conexión: el próximo corte empieza a contar de cero
             estuvo_al_aire = true;
-            sin_conexion_desde = Instant::now();
-            espera = 2;
-            intento = 1;
+            fallos = 0;
         }
         let causa = match fin {
             transmision::Fin::Detenida => break,
@@ -357,34 +344,26 @@ fn mantener_conexion<N: Notificador>(
         if stop.load(Ordering::Relaxed) {
             break;
         }
-        let limite = if estuvo_al_aire { LIMITE_EN_CORTE } else { LIMITE_AL_INICIAR };
-        let transcurrido = sin_conexion_desde.elapsed();
-        if transcurrido >= limite {
+        fallos += 1;
+        if fallos >= INTENTOS {
             stop.store(true, Ordering::Relaxed);
             let texto = if estuvo_al_aire {
-                format!(
-                    "Se perdió la conexión con la radio durante {} min y la transmisión se detuvo. La radio sigue con el AutoDJ.",
-                    limite.as_secs() / 60
-                )
+                "Se perdió la conexión con la radio y entró el AutoDJ. Pulsa «Reintentar conexión» cuando vuelva la red.".to_string()
             } else {
-                format!("La radio no responde ({causa}) Revisa que el servidor esté encendido y la dirección en Configuración.")
+                format!("La radio no responde ({}). Revisa la red y que el servidor esté encendido.", causa.trim_end_matches('.'))
             };
             n.atencion();
             n.estado("error", texto);
             return;
         }
-        n.estado(
-            "reconectando",
-            format!("{causa} Intento {intento}; se detiene en {}.", mm_ss(limite - transcurrido)),
-        );
-        // Espera creciente (2 s, 4 s, … 30 s), revisando si el operador detuvo la emisión
+        let espera = ESPERAS[(fallos as usize - 1).min(ESPERAS.len() - 1)];
+        n.estado("reconectando", format!("{causa} Reintento {} de {} en {espera} s.", fallos, INTENTOS - 1));
         for _ in 0..(espera * 5) {
             if stop.load(Ordering::Relaxed) {
                 break;
             }
             std::thread::sleep(Duration::from_millis(200));
         }
-        espera = (espera * 2).min(ESPERA_MAXIMA);
     }
     let texto = motivo.lock().ok().and_then(|m| m.clone()).unwrap_or_else(|| "Fuera del aire".into());
     n.estado("detenido", texto);
@@ -408,6 +387,17 @@ fn medidores<N: Notificador>(
 
     while !stop.load(Ordering::Relaxed) {
         let l = medicion.leer();
+
+        // La fuente de audio desapareció (cable USB, interfaz apagada): se suelta el aire
+        if medicion.fuente_caida.load(Ordering::Relaxed) {
+            if let Ok(mut m) = motivo.lock() {
+                *m = Some("Se desconectó la fuente de audio y entró el AutoDJ. Conéctala y pulsa «Reintentar conexión».".into());
+            }
+            n.anotar("error", "Se desconectó la fuente de audio");
+            n.atencion();
+            stop.store(true, Ordering::Relaxed);
+            break;
+        }
 
         // Silencio (aire muerto)
         if l.izq.max(l.der) > UMBRAL_SONIDO {
@@ -469,7 +459,8 @@ fn medidores<N: Notificador>(
             red_lenta,
         });
 
-        if ultimo_oyentes.elapsed() >= Duration::from_secs(10) {
+        // Oyentes cada 30 s: suficiente para el contador y no carga al servidor
+        if ultimo_oyentes.elapsed() >= Duration::from_secs(30) {
             ultimo_oyentes = Instant::now();
             n.oyentes(icecast::sondear(&a.servidor, a.puerto_oyentes, a.mount_oyentes.as_deref().unwrap_or(&a.mount)));
         }
