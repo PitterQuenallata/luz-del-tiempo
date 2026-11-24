@@ -25,7 +25,8 @@ export const useActividades = () => useListaGestion('actividades', () => luzApi.
 export const useSeries = () => useListaGestion('series', () => luzApi.listSeries());
 export const useVideos = () => useListaGestion('videos', () => luzApi.listVideos());
 export const useEnVivo = () => useQuery({ queryKey: ['gestion', 'en-vivo'], queryFn: () => luzApi.getEnVivo() });
-export const useEmisoras = () => useListaGestion('emisoras', () => luzApi.listEmisoras());
+export const useEstaciones = () => useListaGestion('estaciones', () => luzApi.listEstaciones());
+export const useRadios = () => useListaGestion('radios', () => luzApi.listRadios());
 export const useProgramas = (emisoraId: string | null) =>
   useQuery({
     queryKey: ['gestion', 'programas', emisoraId ?? ''],

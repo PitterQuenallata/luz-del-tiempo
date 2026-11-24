@@ -2,7 +2,7 @@
 // Vacío = mismo origen: Vite reenvía /api a la API. En producción se define VITE_API_URL.
 
 import { normalizarNombre } from './../lib/validaciones';
-import type { DatosMinisterioInput, HeroInput, AreaInput, PersonaInput, PostInput, ActividadInput, SerieInput, VideoInput, EnVivoInput, EmisoraInput, ProgramaInput, FranjaInput, DonacionMetodoInput, NecesidadInput, EmisionInput, PistaEditarInput, PlaylistInput } from '@luz/shared';
+import type { RadioInput, EstacionInput, DatosMinisterioInput, HeroInput, AreaInput, PersonaInput, PostInput, ActividadInput, SerieInput, VideoInput, EnVivoInput, ProgramaInput, FranjaInput, DonacionMetodoInput, NecesidadInput, EmisionInput, PistaEditarInput, PistasCarpetaInput, PlaylistInput } from '@luz/shared';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -249,11 +249,21 @@ export interface ApiEnVivo {
   isLive: boolean; platform: 'youtube' | 'tiktok' | 'facebook' | 'radio' | null; url: string | null; title: string | null;
   startedAt: string | null; updatedAt: string | null;
 }
-export interface ApiEmisora {
-  id: string; slug: string; name: string; description: string | null; genre: string | null; kind: 'own' | 'external'; imageUrl: string | null; relleno: 'ninguno' | 'musica' | 'historias' | 'musica_historias';
-  isMain: boolean; areaId: string | null; operatedByName: string | null; visibleInMinistry: boolean;
-  status: 'active' | 'suspended' | 'disabled'; sortOrder: number; contactName: string | null; contactPhone: string | null;
+// Emisora (contenedor): «Radio La Luz del Tiempo», o la de un tercero. Dentro tiene sus estaciones.
+export type ArchivoDestino = 'estacion' | 'emisora';
+
+export interface ApiRadio {
+  id: string; slug: string; name: string; description: string | null; genre: string | null; kind: 'own' | 'external'; imageUrl: string | null;
+  isMain: boolean; areaId: string | null; operatedByName: string | null; ownerUserId: string | null; visibleInMinistry: boolean;
+  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; contactName: string | null; contactPhone: string | null;
   contactEmail: string | null; notes: string | null;
+  estaciones: { id: string; name: string; slug: string; status: string; autodjEnabled: boolean; mountPoint: string | null }[];
+}
+// Estación: lo que transmite dentro de una emisora (con su AutoDJ y su archivo)
+export interface ApiEmisora {
+  id: string; radioId: string; slug: string; name: string; kind: 'own' | 'external'; isMain: boolean; visibleInMinistry: boolean;
+  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean;
+  transmision: { mountPoint: string | null; livePasswordConfigurada: boolean; encendida: boolean; radioEncendida: boolean; enAire: boolean; oyentes: number; autodjEnabled: boolean };
 }
 export interface ApiFranja { id: string; programId: string; dayOfWeek: number; startTime: string; endTime: string; isLive: boolean; }
 export interface ApiPrograma {
@@ -263,7 +273,8 @@ export interface ApiPrograma {
 // ---------- Radio: transmisión, pistas y playlists ----------
 export interface ApiTransmision {
   mountPoint: string | null; livePasswordConfigurada: boolean; bitrateKbps: number; autodjEnabled: boolean;
-  maxListeners: number; storageQuotaMb: number; streamUrl: string | null;
+  maxListeners: number; storageQuotaMb: number; streamUrl: string | null; encendida: boolean;
+  streamName: string; streamNameEfectivo: string;
   locutor: { servidor: string; puerto: number; mount: string | null };
 }
 export interface ApiUsuarioBreve { id: string; nombre: string; email: string }
@@ -285,14 +296,19 @@ export interface ApiReporteTransmisiones {
 export interface ApiVersionEmisor { version: string; notas: string; fecha: string; archivo: string; bytes: number }
 export interface ApiEquipoEmisor { equipo: string; version: string | null; ultimaVez: string }
 export interface ApiEstadoRadio {
-  radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number;
+  radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number; encendida: boolean;
 }
 export interface ApiSincronizacion { estado: 'ok' | 'sin_transmision' | 'falta_contrasena' | 'radio_no_disponible' | 'error'; message?: string; status?: number }
-export interface ApiPista { id: string; stationId: string; storageKey: string; title: string; artist: string | null; durationSec: number | null; sizeBytes: number; createdAt: string }
+export interface ApiPista {
+  id: string; stationId: string | null; radioId: string | null; storageKey: string; title: string; artist: string | null; album: string | null;
+  year: number | null; genre: string | null; folder: string; durationSec: number | null; sizeBytes: number; createdAt: string;
+}
 export interface ApiHorarioPlaylist { dayOfWeek: number; startTime: string; endTime: string }
 export interface ApiPlaylist {
-  id: string; stationId: string; name: string; description: string | null; mode: 'rotacion' | 'secuencial' | 'programada';
+  id: string; stationId: string | null; radioId: string | null; ambito: 'estacion' | 'emisora'; activa: boolean; name: string; description: string | null; mode: 'rotacion' | 'secuencial' | 'programada';
   weight: number; shuffle: boolean; isActive: boolean; trackIds: string[]; schedules: ApiHorarioPlaylist[];
+  /** Solo en la biblioteca institucional: emisoras propias que la usan */
+  estacionesIds?: string[];
 }
 
 export interface ApiMetodoDonacion { id: 'qr' | 'bank' | 'paypal' | 'remittance'; title: string; detail: string; lines: string[]; }
@@ -505,13 +521,17 @@ export const luzApi = {
   getEnVivo(): Promise<{ estado: ApiEnVivo; transmisiones: { platform: 'youtube' | 'tiktok' | 'facebook' | 'radio'; url: string }[] }> { return request('/api/v1/contenido/en-vivo'); },
   setEnVivo(input: EnVivoInput) { return request('/api/v1/contenido/en-vivo', { method: 'PUT', body: json(input) }); },
 
-  async listEmisoras(): Promise<ApiEmisora[]> { return (await request<{ emisoras: ApiEmisora[] }>('/api/v1/radio/emisoras')).emisoras; },
-  createEmisora(input: EmisoraInput) { return request('/api/v1/radio/emisoras', { method: 'POST', body: json(input) }); },
-  updateEmisora(id: string, input: EmisoraInput) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'PATCH', body: json(input) }); },
-  deleteEmisora(id: string) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'DELETE' }); },
+  async listRadios(): Promise<ApiRadio[]> { return (await request<{ emisoras: ApiRadio[] }>('/api/v1/radio/emisoras')).emisoras; },
+  createRadio(input: RadioInput) { return request('/api/v1/radio/emisoras', { method: 'POST', body: json(input) }); },
+  updateRadio(id: string, input: RadioInput) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteRadio(id: string) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'DELETE' }); },
+  async listEstaciones(): Promise<ApiEmisora[]> { return (await request<{ estaciones: ApiEmisora[] }>('/api/v1/radio/estaciones')).estaciones; },
+  createEstacion(input: EstacionInput) { return request<{ estacion: ApiEmisora }>('/api/v1/radio/estaciones', { method: 'POST', body: json(input) }); },
+  updateEstacion(id: string, input: Partial<EstacionInput>) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteEstacion(id: string) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'DELETE' }); },
 
-  async listProgramas(emisoraId: string): Promise<ApiPrograma[]> { return (await request<{ programas: ApiPrograma[] }>(`/api/v1/radio/emisoras/${emisoraId}/programas`)).programas; },
-  createPrograma(emisoraId: string, input: ProgramaInput) { return request(`/api/v1/radio/emisoras/${emisoraId}/programas`, { method: 'POST', body: json(input) }); },
+  async listProgramas(emisoraId: string): Promise<ApiPrograma[]> { return (await request<{ programas: ApiPrograma[] }>(`/api/v1/radio/estaciones/${emisoraId}/programas`)).programas; },
+  createPrograma(emisoraId: string, input: ProgramaInput) { return request(`/api/v1/radio/estaciones/${emisoraId}/programas`, { method: 'POST', body: json(input) }); },
   updatePrograma(id: string, input: ProgramaInput) { return request(`/api/v1/radio/programas/${id}`, { method: 'PATCH', body: json(input) }); },
   deletePrograma(id: string) { return request(`/api/v1/radio/programas/${id}`, { method: 'DELETE' }); },
   createFranja(programaId: string, input: FranjaInput) { return request(`/api/v1/radio/programas/${programaId}/franjas`, { method: 'POST', body: json(input) }); },
@@ -519,10 +539,10 @@ export const luzApi = {
   // Transmisión (locutor), pistas y playlists
   getServicioRadio() { return request<ApiEstadoRadio>('/api/v1/radio/servicio'); },
   async getTransmision(emisoraId: string): Promise<{ transmision: ApiTransmision; radio?: unknown; sincronizado?: ApiSincronizacion }> {
-    return request(`/api/v1/radio/emisoras/${emisoraId}/transmision`);
+    return request(`/api/v1/radio/estaciones/${emisoraId}/transmision`);
   },
   saveTransmision(emisoraId: string, input: EmisionInput) {
-    return request<{ transmision: ApiTransmision; sincronizado: ApiSincronizacion }>(`/api/v1/radio/emisoras/${emisoraId}/transmision`, { method: 'PUT', body: json(input) });
+    return request<{ transmision: ApiTransmision; sincronizado: ApiSincronizacion }>(`/api/v1/radio/estaciones/${emisoraId}/transmision`, { method: 'PUT', body: json(input) });
   },
   getReporteTransmisiones(mes: string) { return request<ApiReporteTransmisiones>(`/api/v1/radio/reportes/transmisiones?mes=${mes}`); },
   getVersionesEmisor() { return request<{ publicada: ApiVersionEmisor | null; equipos: ApiEquipoEmisor[] }>('/api/v1/radio/emisor/versiones'); },
@@ -541,32 +561,47 @@ export const luzApi = {
   // Emisor de Windows: quién transmite y quién puede hacerlo
   getEnVivoEmisor() { return request<{ ahora: ApiTransmisionEmisor[]; recientes: ApiTransmisionEmisor[] }>('/api/v1/radio/en-vivo'); },
   getLocutores(emisoraId: string) {
-    return request<{ asignados: ApiUsuarioBreve[]; candidatos: ApiUsuarioBreve[] }>(`/api/v1/radio/emisoras/${emisoraId}/locutores`);
+    return request<{ asignados: ApiUsuarioBreve[]; candidatos: ApiUsuarioBreve[] }>(`/api/v1/radio/estaciones/${emisoraId}/locutores`);
   },
   saveLocutores(emisoraId: string, usuarios: string[]) {
-    return request<{ ok: boolean; total: number }>(`/api/v1/radio/emisoras/${emisoraId}/locutores`, { method: 'PUT', body: json({ usuarios }) });
+    return request<{ ok: boolean; total: number }>(`/api/v1/radio/estaciones/${emisoraId}/locutores`, { method: 'PUT', body: json({ usuarios }) });
   },
   sincronizarRadio(emisoraId: string) {
-    return request(`/api/v1/radio/emisoras/${emisoraId}/sincronizar`, { method: 'POST' });
+    return request(`/api/v1/radio/estaciones/${emisoraId}/sincronizar`, { method: 'POST' });
   },
-  async listPistas(emisoraId: string): Promise<{ pistas: ApiPista[]; espacioUsadoBytes: number; espacioCuotaBytes: number }> {
-    return request(`/api/v1/radio/emisoras/${emisoraId}/pistas`);
+  async listPistas(emisoraId: string): Promise<{ pistas: ApiPista[]; archivoEmisora: ApiPista[]; espacioUsadoBytes: number; espacioCuotaBytes: number; espacioEmisoraUsadoBytes: number; espacioEmisoraCuotaBytes: number }> {
+    return request(`/api/v1/radio/estaciones/${emisoraId}/pistas`);
   },
-  importarPistas(emisoraId: string) {
-    return request<{ importadas: number; total: number }>(`/api/v1/radio/emisoras/${emisoraId}/pistas/importar`, { method: 'POST' });
+  importarPistas(emisoraId: string, destino: ArchivoDestino = 'estacion') {
+    return request<{ importadas: number; total: number }>(`/api/v1/radio/estaciones/${emisoraId}/pistas/importar?destino=${destino}`, { method: 'POST' });
   },
-  async subirPista(emisoraId: string, archivo: File) {
+  async subirPista(emisoraId: string, archivo: File, destino: ArchivoDestino = 'estacion') {
     const cuerpo = new FormData();
     cuerpo.append('file', archivo);
-    const res = await fetch(`${API_URL}/api/v1/radio/emisoras/${emisoraId}/pistas`, { method: 'POST', body: cuerpo, credentials: 'include' });
+    const res = await fetch(`${API_URL}/api/v1/radio/estaciones/${emisoraId}/pistas?destino=${destino}`, { method: 'POST', body: cuerpo, credentials: 'include' });
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new ApiRequestError(data?.message ?? MENSAJES_ERROR[data?.error] ?? `Error ${res.status}`, res.status);
     return data;
   },
   editarPista(id: string, input: PistaEditarInput) { return request(`/api/v1/radio/pistas/${id}`, { method: 'PATCH', body: json(input) }); },
+  releerEtiquetas(emisoraId: string, destino: ArchivoDestino = 'estacion') {
+    return request<{ revisadas: number; actualizadas: number; sinEtiquetas: number; noLeidas: number }>(`/api/v1/radio/estaciones/${emisoraId}/pistas/releer?destino=${destino}`, { method: 'POST' });
+  },
+  setEmisoraEncendida(emisoraId: string, encendida: boolean) {
+    return request(`/api/v1/radio/estaciones/${emisoraId}/encendida`, { method: 'PUT', body: json({ encendida }) });
+  },
+  setRadioEncendida(encendida: boolean) {
+    return request<{ encendida: boolean }>('/api/v1/radio/encendida', { method: 'PUT', body: json({ encendida }) });
+  },
+  moverPistas(emisoraId: string, input: PistasCarpetaInput) { return request<{ movidas: number }>(`/api/v1/radio/estaciones/${emisoraId}/pistas/carpeta`, { method: 'POST', body: json(input) }); },
   borrarPista(id: string) { return request(`/api/v1/radio/pistas/${id}`, { method: 'DELETE' }); },
-  async listPlaylists(emisoraId: string): Promise<ApiPlaylist[]> { return (await request<{ playlists: ApiPlaylist[] }>(`/api/v1/radio/emisoras/${emisoraId}/playlists`)).playlists; },
-  createPlaylist(emisoraId: string, input: PlaylistInput) { return request(`/api/v1/radio/emisoras/${emisoraId}/playlists`, { method: 'POST', body: json(input) }); },
+  setUsoPlaylist(estacionId: string, playlistId: string, usar: boolean) {
+    return request(`/api/v1/radio/estaciones/${estacionId}/playlists/${playlistId}/uso`, { method: 'PUT', body: json({ usar }) });
+  },
+  async listPlaylists(estacionId: string): Promise<ApiPlaylist[]> { return (await request<{ playlists: ApiPlaylist[] }>(`/api/v1/radio/estaciones/${estacionId}/playlists`)).playlists; },
+  createPlaylist(estacionId: string, input: PlaylistInput, ambito: 'estacion' | 'emisora' = 'estacion') {
+    return request(`/api/v1/radio/estaciones/${estacionId}/playlists`, { method: 'POST', body: json({ ...input, ambito }) });
+  },
   updatePlaylist(id: string, input: PlaylistInput) { return request(`/api/v1/radio/playlists/${id}`, { method: 'PUT', body: json(input) }); },
   deletePlaylist(id: string) { return request(`/api/v1/radio/playlists/${id}`, { method: 'DELETE' }); },
 

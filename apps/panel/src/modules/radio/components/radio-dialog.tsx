@@ -1,28 +1,34 @@
 import React, { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
-import { emisoraSchema } from '@luz/shared';
-import type { EmisoraInput } from '@luz/shared';
+import { radioSchema } from '@luz/shared';
+import type { RadioInput } from '@luz/shared';
 import { Input } from '../../../shared/components/ui/input';
 import { Switch } from '../../../shared/components/ui/switch';
 import { SelectField } from '../../usuarios/components/select-field';
-import { ApiEmisora, luzApi } from '../../../shared/api/luz-api';
+import { ApiRadio, luzApi } from '../../../shared/api/luz-api';
+import { useUsuarios } from '../../usuarios/hooks/use-usuarios';
+import { useRadios } from '../../gestion/hooks/use-gestion';
 import { useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { useAreas } from '../../contenido/hooks/use-contenido';
 import { DialogoContenido, EtiquetaCampo, claseTextarea } from '../../contenido/components/dialogo-contenido';
 import { ImagenCampo } from '../../contenido/components/imagen-campo';
 import { slugDe } from '../../contenido/components/area-dialog';
 
-interface EmisoraDialogProps {
-  emisora: ApiEmisora | null;
+interface RadioDialogProps {
+  emisora: ApiRadio | null;
   onClose: () => void;
 }
 
-// Emisora del ministerio (propia) o de otra radio (externa, máximo una).
-export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }) => {
+// Emisora (contenedor): «Radio La Luz del Tiempo», o la de un tercero, que tiene un responsable y una sola estación.
+export const RadioDialog: React.FC<RadioDialogProps> = ({ emisora, onClose }) => {
   const areas = useAreas();
+  const usuarios = useUsuarios();
+  // Solo puede haber una emisora principal: si ya hay otra, esta no puede serlo
+  const radios = useRadios();
+  const otraPrincipal = (radios.data ?? []).some((r) => r.isMain && r.id !== emisora?.id);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const guardar = useMutacionGestion(
-    (datos: EmisoraInput) => (emisora ? luzApi.updateEmisora(emisora.id, datos) : luzApi.createEmisora(datos)),
+    (datos: RadioInput) => (emisora ? luzApi.updateRadio(emisora.id, datos) : luzApi.createRadio(datos)),
     emisora ? 'Emisora guardada' : 'Emisora creada',
     'No se pudo guardar la emisora',
   );
@@ -35,12 +41,12 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
       genre: emisora?.genre ?? '',
       kind: (emisora?.kind ?? 'own') as 'own' | 'external',
       imageUrl: emisora?.imageUrl ?? null,
-      relleno: (emisora?.relleno ?? 'musica') as 'ninguno' | 'musica' | 'historias' | 'musica_historias',
+      ownerUserId: emisora?.ownerUserId ?? '',
       isMain: emisora?.isMain ?? false,
       areaId: emisora?.areaId ?? '',
       operatedByName: emisora?.operatedByName ?? '',
       visibleInMinistry: emisora?.visibleInMinistry ?? true,
-      status: (emisora?.status ?? 'active') as 'active' | 'suspended' | 'disabled',
+      status: (emisora?.status ?? 'draft') as 'draft' | 'active' | 'suspended' | 'disabled',
       sortOrder: emisora?.sortOrder ?? 0,
       contactName: emisora?.contactName ?? '',
       contactPhone: emisora?.contactPhone ?? '',
@@ -48,14 +54,14 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
       notes: emisora?.notes ?? '',
     },
     onSubmit: async ({ value }) => {
-      const parsed = emisoraSchema.safeParse({
+      const parsed = radioSchema.safeParse({
         name: value.name,
         slug: value.slug,
         description: value.description.trim() || null,
         genre: value.genre.trim() || null,
         kind: value.kind,
         imageUrl: value.imageUrl,
-        relleno: value.relleno,
+        ownerUserId: value.kind === 'external' ? value.ownerUserId || null : null,
         isMain: value.isMain,
         areaId: value.areaId || null,
         operatedByName: value.kind === 'external' ? value.operatedByName.trim() || null : null,
@@ -123,21 +129,6 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
         </form.Field>
       </div>
 
-      <form.Field name="relleno">
-        {(f) => (
-          <div>
-            <EtiquetaCampo htmlFor="emisora-relleno">Cuando no hay programa, suena</EtiquetaCampo>
-            <SelectField id="emisora-relleno" value={f.state.value} onChange={(e) => f.handleChange(e.target.value as 'ninguno' | 'musica' | 'historias' | 'musica_historias')}>
-              <option value="musica">AutoDJ (música propia de la emisora)</option>
-              <option value="historias">Historias</option>
-              <option value="musica_historias">AutoDJ e historias</option>
-              <option value="ninguno">Nada (la franja queda vacía)</option>
-            </SelectField>
-            <p className="text-[11px] text-muted-foreground mt-1">Solo suena contenido de esta emisora. Nunca pasa a la música de otra estación.</p>
-          </div>
-        )}
-      </form.Field>
-
       <div className="grid grid-cols-2 gap-3">
         <form.Field name="kind">
           {(f) => (
@@ -178,6 +169,25 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
         }
       </form.Field>
 
+      <form.Subscribe selector={(st) => st.values.kind}>
+        {(tipo) =>
+          tipo === 'external' ? (
+            <form.Field name="ownerUserId">
+              {(f) => (
+                <div>
+                  <EtiquetaCampo htmlFor="emisora-responsable">Responsable (usuario)</EtiquetaCampo>
+                  <SelectField id="emisora-responsable" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)}>
+                    <option value="">Elige un usuario…</option>
+                    {(usuarios.data ?? []).map((u) => <option key={u.id} value={u.id}>{u.name} · {u.email}</option>)}
+                  </SelectField>
+                  <p className="text-[11px] text-muted-foreground mt-1">Solo verá esta emisora y su única estación. Dale el rol de operador de estación.</p>
+                </div>
+              )}
+            </form.Field>
+          ) : null
+        }
+      </form.Subscribe>
+
       <form.Field name="description">
         {(f) => (
           <div>
@@ -200,7 +210,8 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
           {(f) => (
             <div>
               <EtiquetaCampo htmlFor="emisora-estado">Estado</EtiquetaCampo>
-              <SelectField id="emisora-estado" value={f.state.value} onChange={(e) => f.handleChange(e.target.value as 'active' | 'suspended' | 'disabled')}>
+              <SelectField id="emisora-estado" value={f.state.value} onChange={(e) => f.handleChange(e.target.value as 'draft' | 'active' | 'suspended' | 'disabled')}>
+                <option value="draft">Borrador (no suena ni se ve)</option>
                 <option value="active">Activa</option>
                 <option value="suspended">Suspendida</option>
                 <option value="disabled">Deshabilitada</option>
@@ -241,8 +252,9 @@ export const EmisoraDialog: React.FC<EmisoraDialogProps> = ({ emisora, onClose }
         <form.Field name="isMain">
           {(f) => (
             <div className="flex items-center gap-2">
-              <Switch id="emisora-principal" checked={f.state.value} onCheckedChange={(v) => f.handleChange(v)} />
+              <Switch id="emisora-principal" checked={f.state.value} disabled={otraPrincipal && !f.state.value} onCheckedChange={(v) => f.handleChange(v)} />
               <EtiquetaCampo htmlFor="emisora-principal">Es la principal</EtiquetaCampo>
+              {otraPrincipal && !f.state.value && <span className="text-[11px] text-muted-foreground">Ya hay una principal: quítale esa marca primero.</span>}
             </div>
           )}
         </form.Field>

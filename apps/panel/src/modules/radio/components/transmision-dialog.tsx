@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, KeyRound } from 'lucide-react';
-import { emisionSchema, type EmisionInput } from '@luz/shared';
+import { emisionSchema, nombreSalidaPorDefecto, type EmisionInput } from '@luz/shared';
 import { Input } from '../../../shared/components/ui/input';
 import { Switch } from '../../../shared/components/ui/switch';
 import { Button } from '../../../shared/components/ui/button';
@@ -33,6 +33,7 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
   const [autodj, setAutodj] = useState(transmision.autodjEnabled);
   const [maxOyentes, setMaxOyentes] = useState(transmision.maxListeners);
   const [cuota, setCuota] = useState(transmision.storageQuotaMb);
+  const [nombreSalida, setNombreSalida] = useState(transmision.streamName ?? '');
   const [error, setError] = useState<string | null>(null);
   // Lo que el locutor necesita. La contraseña solo se muestra aquí, en el momento en que se guarda.
   const [recien, setRecien] = useState<{ clave: string | null; mount: string } | null>(null);
@@ -52,6 +53,7 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
       autodjEnabled: autodj,
       maxListeners: Number(maxOyentes),
       storageQuotaMb: Number(cuota),
+      streamName: nombreSalida.trim(),
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
@@ -93,6 +95,13 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
           <EtiquetaCampo htmlFor="tr-mount">Punto de transmisión (mount)</EtiquetaCampo>
           <Input id="tr-mount" value={mount} onChange={(e) => setMount(e.target.value)} className="font-mono text-xs" />
           <p className="text-[11px] text-muted-foreground mt-1">Empieza con /. Ej.: /salud. Cada emisora tiene el suyo.</p>
+        </div>
+        <div className="sm:col-span-2">
+          <EtiquetaCampo htmlFor="tr-salida">Nombre de salida (lo que ve el oyente)</EtiquetaCampo>
+          <Input id="tr-salida" value={nombreSalida} onChange={(e) => setNombreSalida(e.target.value)} placeholder={nombreSalidaPorDefecto(emisora.name)} maxLength={80} className="text-xs" />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Vacío = «{nombreSalidaPorDefecto(emisora.name)}». Es el nombre que ven los oyentes en su reproductor.
+          </p>
         </div>
         <div>
           <EtiquetaCampo htmlFor="tr-clave">Contraseña del locutor</EtiquetaCampo>

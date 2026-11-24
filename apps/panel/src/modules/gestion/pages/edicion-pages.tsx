@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../../shared/components/ui/card';
 import { ModoEdicion } from '../../contenido/components/dialogo-contenido';
 import { irA } from '../lib/navegar';
 import { useArea, useHero, usePersonas, useAreas } from '../../contenido/hooks/use-contenido';
-import { useActividades, useEmisoras, useNoticias, useProgramas, useSeries, useVideos } from '../hooks/use-gestion';
+import { useActividades, useEstaciones, useNoticias, useProgramas, useRadios, useSeries, useVideos } from '../hooks/use-gestion';
 import { HeroDialog } from '../../contenido/components/hero-dialog';
 import { AreaDialog } from '../../contenido/components/area-dialog';
 import { PersonaDialog } from '../../contenido/components/persona-dialog';
@@ -12,7 +12,8 @@ import { NoticiaDialog } from '../../noticias/components/noticia-dialog';
 import { ActividadEditorPage } from '../../actividades/pages/actividad-editor-page';
 import { VideoDialog } from '../../videos/components/video-dialog';
 import { SerieDialog } from '../../videos/components/serie-dialog';
-import { EmisoraDialog } from '../../radio/components/emisora-dialog';
+import { RadioDialog } from '../../radio/components/radio-dialog';
+import { EstacionDialog } from '../../radio/components/estacion-dialog';
 import { ProgramaDialog } from '../../radio/components/programa-dialog';
 
 // Cada edición tiene su propia página (no ventana emergente). Se abre desde la lista con su enlace.
@@ -152,16 +153,33 @@ export const SerieEdicionPage = () => {
   );
 };
 
-export const EmisoraEdicionPage = () => {
+export const RadioEdicionPage = () => {
   const { id = '' } = useIdRuta();
-  const { data, isLoading } = useEmisoras();
+  const { data, isLoading } = useRadios();
   if (id !== 'nueva' && isLoading) return <Cargando />;
   const emisora = id === 'nueva' ? null : (data ?? []).find((e) => e.id === id) ?? null;
   if (id !== 'nueva' && !emisora) return <NoEncontrado volver="/emisoras" />;
   return (
     <Pagina>
       <Entre clave={id}>
-        <EmisoraDialog emisora={emisora} onClose={() => irA('/emisoras')} />
+        <RadioDialog emisora={emisora} onClose={() => irA('/emisoras')} />
+      </Entre>
+    </Pagina>
+  );
+};
+
+export const EstacionEdicionPage = () => {
+  const { id = '' } = useIdRuta();
+  const estaciones = useEstaciones();
+  const radios = useRadios();
+  if (id !== 'nueva' && estaciones.isLoading) return <Cargando />;
+  const estacion = id === 'nueva' ? null : (estaciones.data ?? []).find((e) => e.id === id) ?? null;
+  if (id !== 'nueva' && !estacion) return <NoEncontrado volver="/emisoras" />;
+  const radioIdInicial = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('emisora') ?? undefined;
+  return (
+    <Pagina>
+      <Entre clave={id}>
+        <EstacionDialog estacion={estacion} emisoras={radios.data ?? []} radioIdInicial={radioIdInicial} onClose={() => irA('/emisoras')} />
       </Entre>
     </Pagina>
   );

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, FolderOpen, LayoutGrid, LucideIcon } from 'lucide-react';
 
 export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion' | 'configuracion';
 
@@ -23,7 +23,7 @@ export interface NavItem {
   badge?: string;
   category: NavigationCategoryKey;
   // Permiso que hace falta para ver este ítem y entrar a la ruta (ver app-router)
-  permiso?: string;
+  permiso?: string | string[];
 }
 
 // Solo las secciones del alcance (docs/PLAN.md).
@@ -35,8 +35,10 @@ export const navItems: NavItem[] = [
   { id: 'videos', title: 'Videos', path: '/videos', icon: Video, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'en-vivo', title: 'En vivo', path: '/en-vivo', icon: RadioTower, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },
-  { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: 'estaciones:todas' },
-  { id: 'configuracion-radio', title: 'Radio', path: '/configuracion-radio', icon: Settings2, category: 'configuracion', permiso: 'estaciones:todas' },
+  { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'archivos', title: 'Archivos', path: '/archivos', icon: FolderOpen, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'tablero', title: 'Playlists', path: '/tablero', icon: LayoutGrid, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'configuracion-radio', title: 'Radio', path: '/configuracion-radio', icon: Settings2, category: 'configuracion', permiso: ['estaciones:todas', 'estacion:propia'] },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
   { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },
   { id: 'logs', title: 'Auditoría', path: '/logs', icon: ScrollText, category: 'administracion', permiso: 'logs:ver' },
@@ -50,4 +52,4 @@ export const setPermisosActivos = (permisos: string[]) => {
 
 // Ítems del menú a los que el usuario tiene acceso
 export const navItemsVisibles = (): NavItem[] =>
-  navItems.filter((item) => !item.permiso || permisosActivos.includes(item.permiso));
+  navItems.filter((item) => !item.permiso || (Array.isArray(item.permiso) ? item.permiso.some((p) => permisosActivos.includes(p)) : permisosActivos.includes(item.permiso)));

@@ -23,7 +23,7 @@ export interface RouterContext {
 }
 
 // Guard de ruta: exige sesión (si no, login), cambio de contraseña inicial y el permiso indicado (si no, 403).
-const exigirPermiso = (permiso?: string) => async ({ context }: { context: RouterContext }) => {
+const exigirPermiso = (permiso?: string | string[]) => async ({ context }: { context: RouterContext }) => {
   let yo;
   try {
     yo = await context.queryClient.ensureQueryData({
@@ -35,7 +35,8 @@ const exigirPermiso = (permiso?: string) => async ({ context }: { context: Route
     throw redirect({ to: '/login' });
   }
   // El cambio de contraseña inicial lo cubre el layout raíz (y el login); aquí solo permisos.
-  if (permiso && !yo.permisos.includes(permiso)) throw redirect({ to: '/403' });
+  const lista = Array.isArray(permiso) ? permiso : permiso ? [permiso] : [];
+  if (lista.length && !lista.some((p) => yo.permisos.includes(p))) throw redirect({ to: '/403' });
 };
 
 // Fallback loader for smooth Apple-style deferred loading
@@ -70,6 +71,8 @@ const VideosPage = withSuspense(lazy(() => import('../../modules/videos/pages/vi
 const EnVivoPage = withSuspense(lazy(() => import('../../modules/en-vivo/pages/en-vivo-page').then((m) => ({ default: m.EnVivoPage }))));
 const EmisorasPage = withSuspense(lazy(() => import('../../modules/radio/pages/emisoras-page').then((m) => ({ default: m.EmisorasPage }))));
 const ConfiguracionRadioPage = withSuspense(lazy(() => import('../../modules/radio/pages/configuracion-radio-page').then((m) => ({ default: m.ConfiguracionRadioPage }))));
+const ArchivosPage = withSuspense(lazy(() => import('../../modules/radio/pages/archivos-page').then((m) => ({ default: m.ArchivosPage }))));
+const TableroPage = withSuspense(lazy(() => import('../../modules/radio/pages/tablero-page').then((m) => ({ default: m.TableroPage }))));
 const DonacionesPage = withSuspense(lazy(() => import('../../modules/donaciones/pages/donaciones-page').then((m) => ({ default: m.DonacionesPage }))));
 const ContenidoPage = withSuspense(lazy(() => import('../../modules/contenido/pages/contenido-page').then((m) => ({ default: m.ContenidoPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
@@ -163,6 +166,9 @@ const contenidoRoute = createRoute({
 const paginaEdicion = (nombre: string) =>
   withSuspense(lazy(() => import('../../modules/gestion/pages/edicion-pages').then((m) => ({ default: (m as unknown as Record<string, React.ComponentType>)[nombre] }))));
 
+// Radio: admin y superadmin gestionan todo; el responsable de una emisora de tercero, solo la suya (la API lo revisa)
+const RADIO_ACCESO = ['estaciones:todas', 'estacion:propia'];
+
 const rutasGestion = [
   { path: '/noticias', component: NoticiasPage, permiso: 'contenido:editar' },
   { path: '/noticias/nueva', component: paginaEdicion('NoticiaEdicionPage'), permiso: 'contenido:editar' },
@@ -177,12 +183,16 @@ const rutasGestion = [
   { path: '/videos/series/$id', component: paginaEdicion('SerieEdicionPage'), permiso: 'contenido:editar' },
   { path: '/videos/$id', component: paginaEdicion('VideoEdicionPage'), permiso: 'contenido:editar' },
   { path: '/en-vivo', component: EnVivoPage, permiso: 'contenido:editar' },
-  { path: '/emisoras', component: EmisorasPage, permiso: 'estaciones:todas' },
-  { path: '/configuracion-radio', component: ConfiguracionRadioPage, permiso: 'estaciones:todas' },
-  { path: '/emisoras/nueva', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
-  { path: '/emisoras/$id', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
-  { path: '/emisoras/$id/programas/nuevo', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
-  { path: '/emisoras/$id/programas/$programaId', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/emisoras', component: EmisorasPage, permiso: RADIO_ACCESO },
+  { path: '/archivos', component: ArchivosPage, permiso: RADIO_ACCESO },
+  { path: '/tablero', component: TableroPage, permiso: RADIO_ACCESO },
+  { path: '/configuracion-radio', component: ConfiguracionRadioPage, permiso: RADIO_ACCESO },
+  { path: '/emisoras/nueva', component: paginaEdicion('RadioEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/emisoras/$id', component: paginaEdicion('RadioEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/estaciones/nueva', component: paginaEdicion('EstacionEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/estaciones/$id', component: paginaEdicion('EstacionEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/estaciones/$id/programas/nuevo', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
+  { path: '/estaciones/$id/programas/$programaId', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },
   { path: '/donaciones', component: DonacionesPage, permiso: 'donaciones:ver' },
   { path: '/contenido/portada/nueva', component: paginaEdicion('HeroEdicionPage'), permiso: 'contenido:editar' },
   { path: '/contenido/portada/$id', component: paginaEdicion('HeroEdicionPage'), permiso: 'contenido:editar' },

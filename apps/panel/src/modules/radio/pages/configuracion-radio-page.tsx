@@ -5,7 +5,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { Badge } from '../../../shared/components/ui/badge';
 import { ApiEmisora, ApiTransmision, luzApi } from '../../../shared/api/luz-api';
 import { useSession } from '../../auth/hooks/use-session';
-import { useEmisoras, useMutacionGestion } from '../../gestion/hooks/use-gestion';
+import { useEstaciones, useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { useServicioRadio, useTransmision } from '../hooks/use-radio';
 import { TransmisionDialog } from '../components/transmision-dialog';
 import { EnVivoEmisor } from '../components/en-vivo-emisor';
@@ -13,12 +13,14 @@ import { ReporteTransmisiones } from '../components/reporte-transmisiones';
 import { VersionesEmisor } from '../components/versiones-emisor';
 import { LocutoresDialog } from '../components/locutores-dialog';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
+import { Switch } from '../../../shared/components/ui/switch';
+import { confirmar } from '../../../shared/lib/confirm';
 
 // Configuración de la radio: separada del sitio web. Lo sencillo para cualquier operador con acceso;
 // los límites y la capacidad, solo para el superadmin (permiso servidores:configurar).
 export const ConfiguracionRadioPage: React.FC = () => {
   const sesion = useSession();
-  const emisoras = useEmisoras();
+  const emisoras = useEstaciones();
   const servicio = useServicioRadio();
   const avanzado = (sesion.data?.permisos ?? []).includes('servidores:configurar');
 
@@ -53,18 +55,20 @@ export const ConfiguracionRadioPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      <RadioInterruptor encendida={servicio.data?.encendida ?? true} disponible={Boolean(servicio.data)} />
+
       <EnVivoEmisor />
 
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Transmisión por emisora</CardTitle>
+          <CardTitle className="text-sm font-semibold">Transmisión por estación</CardTitle>
           <CardDescription className="text-xs">Configura aquí lo que necesita quien va a transmitir: punto de transmisión, contraseña y calidad.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {emisoras.isLoading && <p className="p-4 text-xs text-muted-foreground">Cargando emisoras…</p>}
           <ul className="divide-y divide-border/60">
             {(emisoras.data ?? []).map((e) => (
-              <EmisoraTransmision key={e.id} emisora={e} avanzado={avanzado} />
+              <EmisoraTransmision key={e.id} emisora={e} avanzado={avanzado} radioEncendida={servicio.data?.encendida ?? true} />
             ))}
           </ul>
         </CardContent>
@@ -82,7 +86,7 @@ export const ConfiguracionRadioPage: React.FC = () => {
 // Estado en vivo de la radio para esta emisora (lo devuelve la API de transmisión)
 interface EstadoVivo { status?: { online: boolean; listeners: number; title: string | null } }
 
-const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> = ({ emisora, avanzado }) => {
+const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean; radioEncendida: boolean }> = ({ emisora, avanzado, radioEncendida }) => {
   const transmision = useTransmision(emisora.id);
   const [abierta, setAbierta] = useState(false);
   const [locutores, setLocutores] = useState(false);
@@ -114,9 +118,23 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
     }
   };
 
-  const estado = !t ? null : !t.mountPoint ? { texto: 'Sin transmisión', variante: 'outline' as const }
+  const cambiarEmisora = useMutacionGestion((encendida: boolean) => luzApi.setEmisoraEncendida(emisora.id, encendida), 'Emisora actualizada', 'No se pudo cambiar la emisora');
+  const alternarEmisora = async (encendida: boolean) => {
+    if (!encendida) {
+      const ok = await confirmar({ title: `¿Apagar ${emisora.name}?`, text: 'Deja de sonar para los oyentes hasta que la vuelvas a encender. Puede haber un corte de unos segundos en todas las emisoras.', type: 'danger', confirmText: 'Apagar' });
+      if (!ok) return;
+    }
+    cambiarEmisora.mutate(encendida);
+  };
+
+  // Estado en palabras simples: lo que ve el oyente y el operador
+  const estado = !t ? null : emisora.status === 'draft' ? { texto: 'Borrador', variante: 'outline' as const }
+    : !t.mountPoint ? { texto: 'Sin transmisión', variante: 'outline' as const }
     : !t.livePasswordConfigurada ? { texto: 'Falta contraseña', variante: 'warning' as const }
-    : { texto: 'Lista', variante: 'success' as const };
+    : !radioEncendida ? { texto: 'Radio apagada', variante: 'outline' as const }
+    : !t.encendida ? { texto: 'Apagada', variante: 'outline' as const }
+    : vivo?.online ? { texto: 'Al aire', variante: 'success' as const }
+    : { texto: 'Encendida, sin señal', variante: 'warning' as const };
 
   const copiarEnlace = async () => {
     if (!t?.streamUrl) return;
@@ -133,6 +151,7 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
       <div className="flex-1 min-w-[200px]">
         <p className="font-semibold text-sm">{emisora.name}</p>
         <p className="text-muted-foreground font-mono mt-0.5">{t?.mountPoint ?? 'Sin mount'}{t?.streamUrl ? ` · ${t.streamUrl}` : ''}</p>
+        {t && <p className="text-[11px] text-muted-foreground mt-0.5">Nombre de salida: <span className="text-foreground">{t.streamNameEfectivo}</span></p>}
         {vivo?.online && (
           <p className="text-[11px] text-emerald-500 mt-0.5">
             Al aire · {vivo.listeners} oyente{vivo.listeners === 1 ? '' : 's'}{vivo.title ? ` · ${vivo.title}` : ''}
@@ -140,6 +159,10 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
         )}
       </div>
       {estado && <Badge variant={estado.variante} className="text-[10px]">{estado.texto}</Badge>}
+      <label className="flex items-center gap-2 text-[11px] text-muted-foreground" title="Encender o apagar esta emisora">
+        <Switch checked={Boolean(t?.encendida)} onCheckedChange={alternarEmisora} disabled={!t?.mountPoint || cambiarEmisora.isPending} />
+        {t?.encendida ? 'Encendida' : 'Apagada'}
+      </label>
       <div className="flex items-center gap-1">
         {t?.streamUrl && (
           <Button type="button" variant={escuchando ? 'secondary' : 'ghost'} size="sm" className="text-xs" onClick={alternarEscucha}>
@@ -166,6 +189,32 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
       {locutores && <LocutoresDialog emisora={emisora} onClose={() => setLocutores(false)} />}
       {abierta && t && <TransmisionDialog emisora={emisora} transmision={t} avanzado={avanzado} onClose={() => setAbierta(false)} />}
     </li>
+  );
+};
+
+// Encender o apagar toda la radio. Ninguna emisora suena mientras esté apagada.
+const RadioInterruptor: React.FC<{ encendida: boolean; disponible: boolean }> = ({ encendida, disponible }) => {
+  const cambiar = useMutacionGestion((nuevo: boolean) => luzApi.setRadioEncendida(nuevo), 'Estado de la radio guardado', 'No se pudo cambiar el estado de la radio');
+  const alternar = async (nuevo: boolean) => {
+    if (!nuevo) {
+      const ok = await confirmar({ title: '¿Apagar toda la radio?', text: 'Ninguna emisora va a sonar hasta que la vuelvas a encender. Los oyentes se desconectan.', type: 'danger', confirmText: 'Apagar radio' });
+      if (!ok) return;
+    }
+    cambiar.mutate(nuevo);
+  };
+  return (
+    <Card className="border-border">
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2"><Radio className="h-4 w-4" /> Radio completa</CardTitle>
+          <CardDescription className="text-xs">Apaga todas las emisoras de una vez. Cada emisora conserva su propio interruptor.</CardDescription>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <Badge variant={encendida ? 'success' : 'outline'}>{encendida ? 'Encendida' : 'Apagada'}</Badge>
+          <Switch checked={encendida} onCheckedChange={alternar} disabled={!disponible || cambiar.isPending} />
+        </div>
+      </CardHeader>
+    </Card>
   );
 };
 

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CalendarClock, ListOrdered, Plus, Shuffle, Trash2, X } from 'lucide-react';
+import { CalendarClock, ListOrdered, Plus, Shuffle, Trash2 } from 'lucide-react';
 import { playlistSchema, type PlaylistInput } from '@luz/shared';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { SelectField } from '../../usuarios/components/select-field';
-import { ApiPista, ApiPlaylist, luzApi } from '../../../shared/api/luz-api';
+import { ApiPlaylist, luzApi } from '../../../shared/api/luz-api';
 import { useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/components/dialogo-contenido';
 import { cn } from '../../../shared/lib/utils';
@@ -23,29 +23,26 @@ const EN_MEZCLA: Modo[] = ['rotacion', 'secuencial'];
 interface PlaylistDialogProps {
   emisoraId: string;
   playlist: ApiPlaylist | null;
-  pistas: ApiPista[];
   otras: ApiPlaylist[]; // para calcular el reparto de la mezcla
+  ambito?: 'estacion' | 'emisora'; // al crear: de la estación o de la emisora entera
   onClose: () => void;
 }
 
-export const PlaylistDialog: React.FC<PlaylistDialogProps> = ({ emisoraId, playlist, pistas, otras, onClose }) => {
+export const PlaylistDialog: React.FC<PlaylistDialogProps> = ({ emisoraId, playlist, otras, ambito = 'estacion', onClose }) => {
   const [nombre, setNombre] = useState(playlist?.name ?? '');
   const [descripcion, setDescripcion] = useState(playlist?.description ?? '');
   const [modo, setModo] = useState<Modo>(playlist?.mode ?? 'rotacion');
   const [peso, setPeso] = useState(playlist?.weight ?? 50);
   const [activa, setActiva] = useState(playlist?.isActive ?? true);
-  const [trackIds, setTrackIds] = useState<string[]>(playlist?.trackIds ?? []);
+  const trackIds = playlist?.trackIds ?? []; // los audios se ordenan en el tablero
   const [horarios, setHorarios] = useState(playlist?.schedules ?? []);
   const [error, setError] = useState<string | null>(null);
 
   const guardar = useMutacionGestion(
-    (datos: PlaylistInput) => (playlist ? luzApi.updatePlaylist(playlist.id, datos) : luzApi.createPlaylist(emisoraId, datos)),
+    (datos: PlaylistInput) => (playlist ? luzApi.updatePlaylist(playlist.id, datos) : luzApi.createPlaylist(emisoraId, datos, ambito)),
     playlist ? 'Playlist guardada' : 'Playlist creada',
     'No se pudo guardar la playlist',
   );
-
-  const pistaPorId = useMemo(() => new Map(pistas.map((p) => [p.id, p])), [pistas]);
-  const biblioteca = pistas.filter((p) => !trackIds.includes(p.id));
 
   // Reparto real de la mezcla: suma de pesos de las playlists en mezcla y activas
   const reparto = useMemo(() => {
@@ -56,14 +53,6 @@ export const PlaylistDialog: React.FC<PlaylistDialogProps> = ({ emisoraId, playl
     const total = items.reduce((t, i) => t + i.peso, 0);
     return { total, items: items.map((i) => ({ ...i, porciento: total ? Math.round((i.peso / total) * 100) : 0 })) };
   }, [otras, playlist?.id, activa, modo, peso, nombre]);
-
-  const mover = (index: number, delta: number) => {
-    const copia = [...trackIds];
-    const destino = index + delta;
-    if (destino < 0 || destino >= copia.length) return;
-    [copia[index], copia[destino]] = [copia[destino], copia[index]];
-    setTrackIds(copia);
-  };
 
   const actualizarHorario = (i: number, cambios: Partial<(typeof horarios)[number]>) =>
     setHorarios(horarios.map((h, j) => (j === i ? { ...h, ...cambios } : h)));
@@ -164,43 +153,9 @@ export const PlaylistDialog: React.FC<PlaylistDialogProps> = ({ emisoraId, playl
           <span>Activa (si no, no suena en ningún horario)</span>
         </label>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="font-medium">Audios de la playlist</p>
-            <span className="text-[11px] text-muted-foreground">{trackIds.length} seleccionados</span>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-border">
-              <p className="px-3 py-2 text-[11px] font-semibold text-muted-foreground border-b border-border">Biblioteca (toca para agregar)</p>
-              <ul className="max-h-56 overflow-y-auto divide-y divide-border/60">
-                {biblioteca.length === 0 && <li className="px-3 py-3 text-muted-foreground">No quedan audios por agregar.</li>}
-                {biblioteca.map((p) => (
-                  <li key={p.id}>
-                    <button type="button" onClick={() => setTrackIds([...trackIds, p.id])} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-secondary/40 cursor-pointer">
-                      <span className="truncate">{p.title}</span>
-                      <Plus className="h-3.5 w-3.5 shrink-0 text-primary" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-xl border border-border">
-              <p className="px-3 py-2 text-[11px] font-semibold text-muted-foreground border-b border-border">En orden (así suena)</p>
-              <ol className="max-h-56 overflow-y-auto divide-y divide-border/60">
-                {trackIds.length === 0 && <li className="px-3 py-3 text-muted-foreground">Agrega audios desde la biblioteca.</li>}
-                {trackIds.map((id, i) => (
-                  <li key={id} className="flex items-center gap-1.5 px-2 py-1.5">
-                    <span className="w-5 text-right font-mono text-muted-foreground">{i + 1}</span>
-                    <span className="flex-1 truncate px-1">{pistaPorId.get(id)?.title ?? 'Audio eliminado'}</span>
-                    <button type="button" aria-label="Subir" onClick={() => mover(i, -1)} className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"><ArrowUp className="h-3.5 w-3.5" /></button>
-                    <button type="button" aria-label="Bajar" onClick={() => mover(i, 1)} className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"><ArrowDown className="h-3.5 w-3.5" /></button>
-                    <button type="button" aria-label="Quitar" onClick={() => setTrackIds(trackIds.filter((t) => t !== id))} className="p-1 text-muted-foreground hover:text-red-400 cursor-pointer"><X className="h-3.5 w-3.5" /></button>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-        </div>
+        <p className="text-[11px] text-muted-foreground rounded-xl bg-secondary/40 px-3 py-2">
+          Los audios de cada playlist y su orden se editan en <span className="font-semibold text-foreground">Playlists</span> (tablero).
+        </p>
 
         {modo === 'programada' && (
           <div>

@@ -51,8 +51,8 @@ export const ProgramacionCalendario: React.FC<{
         });
       }
     }
-    if (emisora.relleno !== 'ninguno') {
-      const etiqueta = RELLENO_ETIQUETA[emisora.relleno];
+    if (emisora.transmision.autodjEnabled) {
+      const etiqueta = RELLENO_ETIQUETA.musica;
       for (let dia = 0; dia < 7; dia++) {
         const franjasDia = programas.flatMap((p) => p.franjas.filter((f) => f.dayOfWeek === dia).map((f) => ({ inicio: toMin(f.startTime), fin: toMin(f.endTime) })));
         for (const [ini, fin] of huecosDelDia(franjasDia)) {
@@ -114,7 +114,7 @@ export const ProgramacionCalendario: React.FC<{
         eventClick={(info) => {
           info.jsEvent.preventDefault();
           if (info.event.extendedProps.relleno || !emisora) return;
-          irA(`/emisoras/${emisora.id}/programas/${info.event.extendedProps.programaId}`);
+          irA(`/estaciones/${emisora.id}/programas/${info.event.extendedProps.programaId}`);
         }}
       />
     </div>
