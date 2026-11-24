@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
+import { radioApi } from '../radio/radio-sync.js';
 import {
   areaGallery,
   areas,
@@ -178,9 +179,32 @@ publicRoutes.get('/live', async (c) => {
 
 // ---------- Emisoras ----------
 
+// Estado en vivo de las emisoras (oyentes y canción), leído de la radio-api.
+// Caché de 10 s: el sitio y la app consultan seguido y la radio no tiene por qué recibir cada consulta.
+type EstadoRadio = { online: boolean; listeners: number; title: string | null };
+let cacheRadio: { en: number; datos: Map<string, EstadoRadio> } = { en: 0, datos: new Map() };
+async function estadoDeRadio(): Promise<Map<string, EstadoRadio>> {
+  if (Date.now() - cacheRadio.en < 10_000) return cacheRadio.datos;
+  const datos = new Map<string, EstadoRadio>();
+  try {
+    const r = await radioApi<{ stations: { slug: string; status?: EstadoRadio }[] }>('/v1/stations');
+    for (const e of r.stations) {
+      if (e.status) datos.set(e.slug, { online: e.status.online, listeners: e.status.listeners, title: e.status.title });
+    }
+  } catch {
+    // Radio apagada: la web sigue funcionando, sin oyentes ni canción
+  }
+  cacheRadio = { en: Date.now(), datos };
+  return datos;
+}
+
+// Enlace de escucha: el mismo que usan los oyentes, con la IP de la red para que lo abran los celulares
+const BASE_STREAM = (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, '');
+
 publicRoutes.get('/stations', async (c) => {
   const rows = await db
     .select({
+      mountPoint: stations.mountPoint,
       slug: stations.slug,
       isMain: stations.isMain,
       name: stations.name,
@@ -199,11 +223,13 @@ publicRoutes.get('/stations', async (c) => {
     .leftJoin(areas, eq(stations.areaId, areas.id))
     .where(eq(stations.status, 'active'))
     .orderBy(desc(stations.isMain), asc(stations.sortOrder), asc(stations.name));
+  const enRadio = await estadoDeRadio();
   return c.json(
     rows
       .filter((e) => e.kind === 'own' || e.visibleInMinistry)
       .map((e) => {
         const color = e.areaColor ?? '#e2a927';
+        const estado = e.mountPoint ? enRadio.get(e.slug) : undefined;
         return {
           slug: e.slug,
           isMain: e.isMain,
@@ -213,11 +239,11 @@ publicRoutes.get('/stations', async (c) => {
           color,
           art: `linear-gradient(120deg, #0b1324 0%, ${color}66 60%, #0b1324 100%)`,
           imageUrl: e.imageUrl,
-          // El servidor de transmisión todavía no existe: sin enlace, la web no ofrece reproducir
-          streamUrl: '',
+          // Sin punto de transmisión no hay enlace; con él, el stream en vivo (la radio decide qué suena)
+          streamUrl: e.mountPoint ? `${BASE_STREAM}${e.mountPoint}` : '',
           areaSlug: e.areaSlug,
-          nowPlaying: null,
-          listeners: 0,
+          nowPlaying: estado?.online ? estado.title : null,
+          listeners: estado?.listeners ?? 0,
         };
       }),
   );

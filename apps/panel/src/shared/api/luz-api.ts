@@ -500,7 +500,7 @@ export const luzApi = {
   deleteFranja(id: string) { return request(`/api/v1/radio/franjas/${id}`, { method: 'DELETE' }); },
   // Transmisión (locutor), pistas y playlists
   getServicioRadio() { return request<ApiEstadoRadio>('/api/v1/radio/servicio'); },
-  async getTransmision(emisoraId: string): Promise<{ transmision: ApiTransmision; sincronizado?: ApiSincronizacion }> {
+  async getTransmision(emisoraId: string): Promise<{ transmision: ApiTransmision; radio?: unknown; sincronizado?: ApiSincronizacion }> {
     return request(`/api/v1/radio/emisoras/${emisoraId}/transmision`);
   },
   saveTransmision(emisoraId: string, input: EmisionInput) {

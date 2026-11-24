@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Copy, Radio, RefreshCw, Settings2, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Copy, Pause, Play, Radio, RefreshCw, Settings2, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { Badge } from '../../../shared/components/ui/badge';
@@ -69,11 +69,39 @@ export const ConfiguracionRadioPage: React.FC = () => {
   );
 };
 
+// Estado en vivo de la radio para esta emisora (lo devuelve la API de transmisión)
+interface EstadoVivo { status?: { online: boolean; listeners: number; title: string | null } }
+
 const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> = ({ emisora, avanzado }) => {
   const transmision = useTransmision(emisora.id);
   const [abierta, setAbierta] = useState(false);
+  const [escuchando, setEscuchando] = useState(false);
+  const audio = useRef<HTMLAudioElement | null>(null);
   const sincronizar = useMutacionGestion((id: string) => luzApi.sincronizarRadio(id), 'Radio sincronizada', 'No se pudo sincronizar la radio');
   const t: ApiTransmision | undefined = transmision.data?.transmision;
+  const vivo = (transmision.data?.radio as EstadoVivo | null)?.status;
+
+  // Al salir de la página, corta el audio de prueba
+  useEffect(() => () => { audio.current?.pause(); }, []);
+
+  const alternarEscucha = async () => {
+    const a = audio.current;
+    if (!a || !t?.streamUrl) return;
+    if (escuchando) {
+      a.pause();
+      a.removeAttribute('src');
+      a.load();
+      setEscuchando(false);
+      return;
+    }
+    a.src = t.streamUrl; // conexión nueva: el stream es en vivo
+    try {
+      await a.play();
+      setEscuchando(true);
+    } catch {
+      pillToast.error('No se pudo reproducir', 'Revisa que la radio esté al aire y que este equipo llegue al servidor.');
+    }
+  };
 
   const estado = !t ? null : !t.mountPoint ? { texto: 'Sin transmisión', variante: 'outline' as const }
     : !t.livePasswordConfigurada ? { texto: 'Falta contraseña', variante: 'warning' as const }
@@ -94,9 +122,21 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
       <div className="flex-1 min-w-[200px]">
         <p className="font-semibold text-sm">{emisora.name}</p>
         <p className="text-muted-foreground font-mono mt-0.5">{t?.mountPoint ?? 'Sin mount'}{t?.streamUrl ? ` · ${t.streamUrl}` : ''}</p>
+        {vivo?.online && (
+          <p className="text-[11px] text-emerald-500 mt-0.5">
+            Al aire · {vivo.listeners} oyente{vivo.listeners === 1 ? '' : 's'}{vivo.title ? ` · ${vivo.title}` : ''}
+          </p>
+        )}
       </div>
       {estado && <Badge variant={estado.variante} className="text-[10px]">{estado.texto}</Badge>}
       <div className="flex items-center gap-1">
+        {t?.streamUrl && (
+          <Button type="button" variant={escuchando ? 'secondary' : 'ghost'} size="sm" className="text-xs" onClick={alternarEscucha}>
+            {escuchando ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+            {escuchando ? 'Parar' : 'Escuchar'}
+          </Button>
+        )}
+        <audio ref={audio} preload="none" />
         {t?.streamUrl && (
           <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={copiarEnlace}><Copy className="h-3.5 w-3.5 mr-1" /> Enlace</Button>
         )}
