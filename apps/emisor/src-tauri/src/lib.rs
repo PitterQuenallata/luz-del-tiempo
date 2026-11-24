@@ -27,7 +27,11 @@ pub struct Estado {
     /// Prueba de nivel de Configuración (captura sin transmitir); guarda su señal de parada
     pub prueba: Mutex<Option<Arc<AtomicBool>>>,
     pub resumen: Mutex<Resumen>,
+    /// Se está saliendo al aire (evita dos inicios a la vez sin tener el candado tomado mientras tanto)
+    pub iniciando: AtomicBool,
 }
+// Regla para no colgar la app: ningún candado (emision, prueba, resumen) se mantiene tomado mientras se
+// espera algo lento (abrir el audio, la red) o algo que corre en el hilo de la ventana (bandeja, ventanas).
 
 /// Foto del momento: lo que necesita una ventana recién abierta (la mini, por ejemplo) para dibujarse.
 #[derive(Serialize, Clone, Default)]
@@ -159,8 +163,10 @@ impl Notificador for AppHandle {
             }
             r.estado = estado.into();
             r.mensaje = mensaje.clone();
-            ventanas::actualizar_bandeja(self, &r);
         }
+        // Fuera del candado: la bandeja se actualiza en el hilo de la ventana, y si este hilo esperara
+        // con el estado tomado mientras la ventana pide ese mismo estado, la app se colgaría.
+        ventanas::actualizar_bandeja(self, estado);
         if let Some((tipo, texto)) = anotacion {
             self.anotar(tipo, &texto);
         }
@@ -223,22 +229,22 @@ fn ajustes_guardar(app: AppHandle, datos: AjustesEntrada) -> Result<(), String> 
     Ok(())
 }
 
+/// Enumerar el audio de Windows puede tardar: fuera del hilo de la ventana
 #[tauri::command]
-fn dispositivos() -> Vec<audio::Dispositivo> {
-    audio::dispositivos()
+async fn dispositivos() -> Vec<audio::Dispositivo> {
+    tauri::async_runtime::spawn_blocking(audio::dispositivos).await.unwrap_or_default()
 }
 
 /// Abre el dispositivo elegido solo para mostrar su nivel (evento "nivel_prueba"), sin transmitir.
 #[tauri::command]
-fn prueba_iniciar(
-    app: AppHandle,
-    estado: State<'_, Estado>,
-    dispositivo: Option<String>,
-    canal_izq: u16,
-    canal_der: u16,
-) -> Result<(), String> {
-    let mut prueba = estado.prueba.lock().map_err(|_| "Estado interno bloqueado.")?;
-    if let Some(anterior) = prueba.take() {
+async fn prueba_iniciar(app: AppHandle, dispositivo: Option<String>, canal_izq: u16, canal_der: u16) -> Result<(), String> {
+    // Abrir el audio puede tardar: fuera del hilo de la ventana
+    en_segundo_plano(move || abrir_prueba(app, dispositivo, canal_izq, canal_der)).await
+}
+
+fn abrir_prueba(app: AppHandle, dispositivo: Option<String>, canal_izq: u16, canal_der: u16) -> Result<(), String> {
+    let estado = app.state::<Estado>();
+    if let Some(anterior) = estado.prueba.lock().map_err(|_| "Estado interno bloqueado.")?.take() {
         anterior.store(true, Ordering::Relaxed);
     }
     let stop = Arc::new(AtomicBool::new(false));
@@ -258,7 +264,7 @@ fn prueba_iniciar(
     std::thread::spawn(move || audio::correr_captura(dispositivo.filter(|d| !d.is_empty()), captura, pcm_tx, informe_tx));
     informe_rx.recv().map_err(|_| "El dispositivo no respondió.".to_string())??;
     {
-        let stop = stop.clone();
+        let (stop, app) = (stop.clone(), app.clone());
         std::thread::spawn(move || {
             while !stop.load(Ordering::Relaxed) {
                 let l = medicion.leer();
@@ -271,7 +277,10 @@ fn prueba_iniciar(
             let _ = app.emit("nivel_prueba", Medidores::default());
         });
     }
-    *prueba = Some(stop);
+    // Si mientras se abría empezó otra prueba, la anterior se cierra
+    if let Some(otra) = estado.prueba.lock().map_err(|_| "Estado interno bloqueado.")?.replace(stop) {
+        otra.store(true, Ordering::Relaxed);
+    }
     Ok(())
 }
 
@@ -307,18 +316,34 @@ fn ajustes_efectivos(app: &AppHandle) -> Result<(ajustes::Ajustes, String, Optio
     Ok((a, clave, None))
 }
 
+/// Salir al aire abre el audio y la red: nunca en el hilo de la ventana (la dejaría sin responder)
 #[tauri::command]
-fn emision_iniciar(app: AppHandle) -> Result<(), String> {
-    iniciar_emision(&app)
+async fn emision_iniciar(app: AppHandle) -> Result<(), String> {
+    en_segundo_plano(move || iniciar_emision(&app)).await
 }
 
 fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
     let estado = app.state::<Estado>();
-    let mut actual = estado.emision.lock().map_err(|_| "Estado interno bloqueado.")?;
     // Una emisión que terminó sola (p. ej. contraseña rechazada) ya no cuenta: se puede volver a salir al aire
-    if actual.as_ref().is_some_and(|e| !e.stop.load(Ordering::Relaxed)) {
+    let al_aire = estado
+        .emision
+        .lock()
+        .map_err(|_| "Estado interno bloqueado.")?
+        .as_ref()
+        .is_some_and(|e| !e.stop.load(Ordering::Relaxed));
+    if al_aire {
         return Err("Ya estás al aire.".into());
     }
+    if estado.iniciando.swap(true, Ordering::SeqCst) {
+        return Err("Ya se está saliendo al aire.".into());
+    }
+    let resultado = preparar_y_salir(app);
+    estado.iniciando.store(false, Ordering::SeqCst);
+    resultado
+}
+
+fn preparar_y_salir(app: &AppHandle) -> Result<(), String> {
+    let estado = app.state::<Estado>();
     let (ajustes, clave, emisora) = ajustes_efectivos(app)?;
     // Si la prueba de nivel sigue abierta, se cierra antes de salir al aire
     if let Ok(mut prueba) = estado.prueba.lock() {
@@ -353,7 +378,7 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
             if let Some(em) = emisora {
                 avisar_al_panel(app.clone(), em, e.stop.clone());
             }
-            *actual = Some(e);
+            *estado.emision.lock().map_err(|_| "Estado interno bloqueado.")? = Some(e);
             Ok(())
         }
         Err(e) => {
@@ -371,20 +396,24 @@ fn mostrar_titulo(app: AppHandle, conexion: (String, u16, String, String), nombr
         let mut enviado: Option<String> = None;
         while !stop.load(Ordering::Relaxed) {
             let estado = app.state::<Estado>();
-            let deseado = {
+            let (deseado, cambio) = {
                 let Ok(mut r) = estado.resumen.lock() else { break };
                 if r.estado != "al_aire" {
                     enviado = None;
-                    None
+                    (None, false)
                 } else {
                     let t = titulo_deseado(&r, &nombre);
-                    if r.titulo.as_deref() != Some(t.as_str()) {
+                    let cambio = r.titulo.as_deref() != Some(t.as_str());
+                    if cambio {
                         r.titulo = Some(t.clone());
-                        let _ = app.emit("titulo", t.clone());
                     }
-                    Some(t)
+                    (Some(t), cambio)
                 }
             };
+            // Avisos a las ventanas siempre sin candados tomados
+            if let (Some(t), true) = (&deseado, cambio) {
+                let _ = app.emit("titulo", t.clone());
+            }
             if let Some(t) = deseado {
                 if enviado.as_deref() != Some(t.as_str()) {
                     cuenta::enviar_titulo(&servidor, puerto, &mount, &clave, &t);
@@ -405,13 +434,17 @@ fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, stop: Arc<AtomicBoo
         let mut ultimo_aviso: Option<std::time::Instant> = None;
         let resumen = || app.state::<Estado>().resumen.lock().map(|r| r.clone()).unwrap_or_default();
         let actualizar_programa = |p: Option<cuenta::Programa>| {
-            if let Ok(mut r) = app.state::<Estado>().resumen.lock() {
-                let (nombre, conductor) = p.map(|p| (Some(p.nombre), p.conductor)).unwrap_or((None, None));
-                if r.programa != nombre || r.conductor != conductor {
+            let (nombre, conductor) = p.map(|p| (Some(p.nombre), p.conductor)).unwrap_or((None, None));
+            let cambio = match app.state::<Estado>().resumen.lock() {
+                Ok(mut r) if r.programa != nombre || r.conductor != conductor => {
                     r.programa = nombre.clone();
                     r.conductor = conductor;
-                    let _ = app.emit("programa", nombre);
+                    true
                 }
+                _ => false,
+            };
+            if cambio {
+                let _ = app.emit("programa", nombre);
             }
         };
         loop {
@@ -476,8 +509,9 @@ fn emision_detener(estado: State<'_, Estado>) {
 #[tauri::command]
 fn silencio(app: AppHandle, activo: bool, estado: State<'_, Estado>) -> Result<(), String> {
     let actual = estado.emision.lock().map_err(|_| "Estado interno bloqueado.")?;
-    if let Some(e) = actual.as_ref() {
-        e.silencio.store(activo, Ordering::Relaxed);
+    let hay = actual.as_ref().map(|e| e.silencio.store(activo, Ordering::Relaxed)).is_some();
+    drop(actual);
+    if hay {
         if let Ok(mut r) = estado.resumen.lock() {
             r.silencio = activo;
         }

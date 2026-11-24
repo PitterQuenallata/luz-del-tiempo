@@ -6,7 +6,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
 
-use crate::{ajustes, detener_emision, Estado, Resumen};
+use crate::{ajustes, detener_emision, Estado};
 
 const BANDEJA: &str = "principal";
 const MINI_ANCHO: f64 = 500.0;
@@ -130,8 +130,9 @@ pub fn evento_ventana(ventana: &Window, evento: &WindowEvent) {
     }
 }
 
-pub fn actualizar_bandeja(app: &AppHandle, r: &Resumen) {
-    let texto = match r.estado.as_str() {
+/// Nunca llamar con un candado tomado: se ejecuta en el hilo de la ventana y espera a que responda.
+pub fn actualizar_bandeja(app: &AppHandle, estado: &str) {
+    let texto = match estado {
         "al_aire" => "Al aire",
         "conectando" => "Conectando",
         "reconectando" => "Reconectando",
