@@ -453,7 +453,8 @@ export const enVivoSchema = z
   });
 
 // Emisoras y programación
-export const emisoraSchema = z
+// Emisora: el contenedor (p. ej. «Radio La Luz del Tiempo», o la de un tercero). Dentro tiene sus estaciones.
+export const radioSchema = z
   .object({
     slug: slugSchema,
     name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
@@ -461,12 +462,13 @@ export const emisoraSchema = z
     genre: opcionalTexto(60, 'Máximo 60 caracteres.'),
     kind: z.enum(['own', 'external']),
     imageUrl: z.string().nullable(),
-    relleno: z.enum(['ninguno', 'musica', 'historias', 'musica_historias']),
     isMain: z.boolean(),
     areaId: uuidSchema.nullable(),
     operatedByName: opcionalTexto(80, 'Máximo 80 caracteres.'),
+    // Usuario responsable de una emisora externa: solo ve esta emisora y su única estación
+    ownerUserId: z.string().nullable().optional(),
     visibleInMinistry: z.boolean(),
-    status: z.enum(['active', 'suspended', 'disabled']),
+    status: z.enum(['draft', 'active', 'suspended', 'disabled']),
     sortOrder: z.number().int().min(0),
     contactName: opcionalTexto(80, 'Máximo 80 caracteres.'),
     contactPhone: opcionalTexto(30, 'Máximo 30 caracteres.'),
@@ -477,6 +479,18 @@ export const emisoraSchema = z
     message: 'Una emisora externa no puede ser la principal.',
     path: ['isMain'],
   });
+
+// Estación: lo que transmite dentro de una emisora (con su AutoDJ y su archivo).
+export const estacionSchema = z.object({
+  radioId: uuidSchema,
+  slug: slugSchema,
+  name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
+  status: z.enum(['draft', 'active', 'suspended', 'disabled']),
+  // Crear AutoDJ (su propia lista de música). Desmarcado = solo transmisión, sin música automática.
+  autodjEnabled: z.boolean(),
+  visibleInMinistry: z.boolean(),
+  sortOrder: z.number().int().min(0),
+});
 
 export const programaSchema = z.object({
   name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(120, 'Máximo 120 caracteres.'),
@@ -510,12 +524,34 @@ export const emisionSchema = z.object({
   autodjEnabled: z.boolean(),
   maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.'),
   storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').max(10240, 'Máximo 10 GB.'),
+  // Nombre de salida (lo que ve el oyente). Vacío = «Radio La Luz del Tiempo - <nombre de la emisora>»
+  streamName: z.string().trim().max(80, 'Máximo 80 caracteres.').optional(),
 });
+
+// Nombre de salida por defecto: «Radio La Luz del Tiempo - <emisora>». Si la emisora ya lleva ese nombre, no se repite.
+export const nombreSalidaPorDefecto = (emisora: string) =>
+  /radio la luz del tiempo/i.test(emisora) ? emisora.trim() : `Radio La Luz del Tiempo - ${emisora.trim()}`;
 
 // Audios del AutoDJ: el título sale del nombre del archivo y se puede corregir
 export const pistaEditarSchema = z.object({
   title: z.string().trim().min(1, 'El título es obligatorio.').max(120, 'Máximo 120 caracteres.'),
-  artist: opcionalTexto(120, 'Máximo 120 caracteres.'),
+  artist: opcionalTexto(120, 'Máximo 120 caracteres.').optional(),
+  album: opcionalTexto(120, 'Máximo 120 caracteres.').optional(),
+  year: z.number().int('El año debe ser un número entero.').min(1900, 'Año no válido.').max(2100, 'Año no válido.').nullable().optional(),
+  genre: opcionalTexto(60, 'Máximo 60 caracteres.').optional(),
+  folder: z.string().trim().max(80, 'Máximo 80 caracteres.').optional(),
+});
+
+// Encender o apagar: una emisora o toda la radio
+export const interruptorSchema = z.object({ encendida: z.boolean() });
+// Usar o dejar de usar una playlist de la biblioteca en una emisora
+export const usoPlaylistSchema = z.object({ usar: z.boolean() });
+// Playlist nueva: de la estación, o de la emisora entera (que sus estaciones pueden activar)
+export const ambitoSchema = z.enum(['estacion', 'emisora']);
+
+export const pistasCarpetaSchema = z.object({
+  ids: z.array(uuidSchema).min(1, 'Elige al menos un audio.').max(2000),
+  folder: z.string().trim().max(80, 'Máximo 80 caracteres.'),
 });
 
 export const MODOS_PLAYLIST = ['rotacion', 'secuencial', 'programada'] as const;
@@ -568,11 +604,14 @@ export type SerieInput = z.infer<typeof serieSchema>;
 export type VideoInput = z.infer<typeof videoSchema>;
 export type EnVivoInput = z.infer<typeof enVivoSchema>;
 export type TransmisionInput = z.infer<typeof transmisionSchema>;
-export type EmisoraInput = z.infer<typeof emisoraSchema>;
+export type RadioInput = z.infer<typeof radioSchema>;
+export type EstacionInput = z.infer<typeof estacionSchema>;
 export type ProgramaInput = z.infer<typeof programaSchema>;
 export type FranjaInput = z.infer<typeof franjaSchema>;
 export type EmisionInput = z.infer<typeof emisionSchema>;
 export type PistaEditarInput = z.infer<typeof pistaEditarSchema>;
+export type PistasCarpetaInput = z.infer<typeof pistasCarpetaSchema>;
+export type InterruptorInput = z.infer<typeof interruptorSchema>;
 export type PlaylistInput = z.infer<typeof playlistSchema>;
 export type DonacionMetodoInput = z.infer<typeof donacionMetodoSchema>;
 export type NecesidadInput = z.infer<typeof necesidadSchema>;
@@ -580,12 +619,10 @@ export type NecesidadInput = z.infer<typeof necesidadSchema>;
 export const listaMetodosDonacionSchema = z.array(donacionMetodoSchema).max(4, 'Máximo 4 formas de donar.');
 export const listaNecesidadesSchema = z.array(necesidadSchema).max(20, 'Máximo 20 necesidades.');
 
-// Etiquetas del relleno (lo que suena cuando no hay programa)
-export const RELLENO_ETIQUETA: Record<'ninguno' | 'musica' | 'historias' | 'musica_historias', string> = {
+// Lo que suena cuando no hay programa: el AutoDJ de la emisora, o nada
+export const RELLENO_ETIQUETA: Record<'ninguno' | 'musica', string> = {
   ninguno: 'Nada (franja vacía)',
-  musica: 'AutoDJ (música propia)',
-  historias: 'Historias',
-  musica_historias: 'AutoDJ e historias',
+  musica: 'AutoDJ (música de sus playlists)',
 };
 
 // ---------- Datos del ministerio (contacto y redes) ----------

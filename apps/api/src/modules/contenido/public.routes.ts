@@ -13,6 +13,7 @@ import {
   programSlots,
   programs,
   siteSettings,
+  radios,
   stations,
   videoSeries,
   videos,
@@ -201,6 +202,7 @@ async function estadoDeRadio(): Promise<Map<string, EstadoRadio>> {
 // Enlace de escucha: el mismo que usan los oyentes, con la IP de la red para que lo abran los celulares
 const BASE_STREAM = (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, '');
 
+// Estaciones de Luz del Tiempo (la emisora del ministerio), con su emisora. Las de terceros van en /emisoras.
 publicRoutes.get('/stations', async (c) => {
   const rows = await db
     .select({
@@ -211,43 +213,106 @@ publicRoutes.get('/stations', async (c) => {
       description: stations.description,
       genre: stations.genre,
       imageUrl: stations.imageUrl,
-      kind: stations.kind,
       visibleInMinistry: stations.visibleInMinistry,
       status: stations.status,
       sortOrder: stations.sortOrder,
-      relleno: stations.relleno,
+      autodj: stations.autodjEnabled,
       areaSlug: areas.slug,
       areaColor: areas.color,
+      radioSlug: radios.slug,
+      radioName: radios.name,
+      radioKind: radios.kind,
+      radioIsMain: radios.isMain,
     })
     .from(stations)
+    .innerJoin(radios, eq(stations.radioId, radios.id))
     .leftJoin(areas, eq(stations.areaId, areas.id))
-    .where(eq(stations.status, 'active'))
-    .orderBy(desc(stations.isMain), asc(stations.sortOrder), asc(stations.name));
+    .where(and(eq(stations.status, 'active'), eq(stations.visibleInMinistry, true), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(radios.kind, 'own')))
+    .orderBy(desc(radios.isMain), desc(stations.isMain), asc(stations.sortOrder), asc(stations.name));
   const enRadio = await estadoDeRadio();
-  return c.json(
-    rows
-      .filter((e) => e.kind === 'own' || e.visibleInMinistry)
-      .map((e) => {
-        const color = e.areaColor ?? '#e2a927';
-        const estado = e.mountPoint ? enRadio.get(e.slug) : undefined;
-        return {
-          slug: e.slug,
-          isMain: e.isMain,
-          name: e.name,
-          description: e.description ?? '',
-          genre: e.genre ?? '',
-          color,
-          art: `linear-gradient(120deg, #0b1324 0%, ${color}66 60%, #0b1324 100%)`,
-          imageUrl: e.imageUrl,
-          // Sin punto de transmisión no hay enlace; con él, el stream en vivo (la radio decide qué suena)
-          streamUrl: e.mountPoint ? `${BASE_STREAM}${e.mountPoint}` : '',
-          areaSlug: e.areaSlug,
-          nowPlaying: estado?.online ? estado.title : null,
-          listeners: estado?.listeners ?? 0,
-        };
-      }),
-  );
+  return c.json(rows.map((e) => vistaPublicaEstacion(e, enRadio)));
 });
+
+/** Emisoras de terceros publicadas: cada una tiene una sola estación. */
+async function emisorasDeTerceros() {
+  const rows = await db
+    .select({
+      radioSlug: radios.slug,
+      radioName: radios.name,
+      radioDescription: radios.description,
+      radioGenre: radios.genre,
+      radioImageUrl: radios.imageUrl,
+      radioSortOrder: radios.sortOrder,
+      mountPoint: stations.mountPoint,
+      slug: stations.slug,
+      name: stations.name,
+      description: stations.description,
+      genre: stations.genre,
+      imageUrl: stations.imageUrl,
+      sortOrder: stations.sortOrder,
+      autodj: stations.autodjEnabled,
+      areaSlug: areas.slug,
+      areaColor: areas.color,
+      isMain: stations.isMain,
+      visibleInMinistry: stations.visibleInMinistry,
+      status: stations.status,
+    })
+    .from(radios)
+    .innerJoin(stations, eq(stations.radioId, radios.id))
+    .leftJoin(areas, eq(radios.areaId, areas.id))
+    .where(and(eq(radios.kind, 'external'), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(stations.status, 'active'), eq(stations.visibleInMinistry, true)))
+    .orderBy(asc(radios.sortOrder), asc(radios.name));
+  const enRadio = await estadoDeRadio();
+  return rows.map((r) => {
+    const estacion = vistaPublicaEstacion(r, enRadio);
+    return {
+      slug: r.radioSlug,
+      name: r.radioName,
+      description: r.radioDescription ?? '',
+      genre: r.radioGenre ?? '',
+      imageUrl: r.radioImageUrl ?? estacion.imageUrl,
+      color: estacion.color,
+      art: estacion.art,
+      streamUrl: estacion.streamUrl,
+      nowPlaying: estacion.nowPlaying,
+      listeners: estacion.listeners,
+      online: estacion.online,
+      estacionSlug: estacion.slug,
+    };
+  });
+}
+
+publicRoutes.get('/emisoras', async (c) => c.json(await emisorasDeTerceros()));
+
+publicRoutes.get('/emisoras/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  const emisora = (await emisorasDeTerceros()).find((e) => e.slug === slug);
+  return emisora ? c.json(emisora) : c.json({ error: 'no_encontrado' }, 404);
+});
+
+/** Lo que la web muestra de una estación (sin datos internos). */
+function vistaPublicaEstacion(
+  e: { mountPoint: string | null; slug: string; name: string; description: string | null; genre: string | null; imageUrl: string | null; sortOrder: number; autodj: boolean; areaColor: string | null; isMain: boolean; visibleInMinistry: boolean; status: string },
+  enRadio: Map<string, { online: boolean; listeners: number; title: string | null }>,
+) {
+  const color = e.areaColor ?? '#e2a927';
+  const estado = e.mountPoint ? enRadio.get(e.slug) : undefined;
+  return {
+    slug: e.slug,
+    isMain: e.isMain,
+    name: e.name,
+    description: e.description ?? '',
+    genre: e.genre ?? '',
+    color,
+    art: `linear-gradient(120deg, #0b1324 0%, ${color}66 60%, #0b1324 100%)`,
+    imageUrl: e.imageUrl,
+    // Sin punto de transmisión no hay enlace; con él, el stream en vivo (la radio decide qué suena)
+    streamUrl: e.mountPoint ? `${BASE_STREAM}${e.mountPoint}` : '',
+    online: Boolean(estado?.online),
+    nowPlaying: estado?.online ? estado.title : null,
+    listeners: estado?.listeners ?? 0,
+  };
+}
 
 // ---------- Programación ----------
 

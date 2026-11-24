@@ -11,7 +11,7 @@ import { db } from './index.js';
 import { eq, isNull, sql } from 'drizzle-orm';
 import { existsSync } from 'node:fs';
 import {
-  activities, activityAreas, activityChannels, activityPeople, activityProgramItems, activitySessions, areaGallery, areas, heroSlides, locations, people, posts, programSlots, programs, siteSettings, stations, videoSeries, videos,
+  activities, activityAreas, activityChannels, activityPeople, activityProgramItems, activitySessions, areaGallery, areas, heroSlides, locations, people, posts, programSlots, programs, radios, siteSettings, stations, videoSeries, videos,
 } from './schema.js';
 
 const DEMO = resolve(process.cwd(), '../web/public/demo');
@@ -227,11 +227,17 @@ async function sembrarEmisoras() {
     { slug: 'salud', name: 'Luz Salud', description: 'Consejos de salud, nutrición y vida sana', genre: 'Salud', area: 'salud', isMain: false },
     { slug: 'predicas', name: 'Luz Palabra', description: 'Prédicas y estudios bíblicos todo el día', genre: 'Prédicas', area: 'biblia', isMain: false },
   ];
+  // Emisora (contenedor) «Radio La Luz del Tiempo» con sus estaciones dentro
+  const [emisora] = await db
+    .insert(radios)
+    .values({ slug: 'radio-la-luz-del-tiempo', name: 'Radio La Luz del Tiempo', kind: 'own', isMain: true, visibleInMinistry: true, status: 'active', sortOrder: 0 })
+    .onConflictDoUpdate({ target: radios.slug, set: { name: 'Radio La Luz del Tiempo' } })
+    .returning();
   const idPorSlug = new Map<string, string>();
   for (const [i, e] of lista.entries()) {
     const [fila] = await db
       .insert(stations)
-      .values({ slug: e.slug, name: e.name, description: e.description, genre: e.genre, kind: 'own', isMain: e.isMain, areaId: await areaId(e.area), sortOrder: i })
+      .values({ radioId: emisora.id, slug: e.slug, name: e.name, description: e.description, genre: e.genre, kind: 'own', isMain: e.isMain, areaId: await areaId(e.area), sortOrder: i })
       .returning();
     idPorSlug.set(e.slug, fila.id);
   }

@@ -1,46 +1,61 @@
-import { Hono } from 'hono';
+import { Context, Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { asc, eq, inArray } from 'drizzle-orm';
-import { emisionSchema, pistaEditarSchema, playlistSchema, type PlaylistInput } from '@luz/shared';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { ambitoSchema, emisionSchema, interruptorSchema, pistaEditarSchema, pistasCarpetaSchema, playlistSchema, usoPlaylistSchema, type PlaylistInput } from '@luz/shared';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { cifrar } from '../../lib/cifrado.js';
 import { db } from '../../db/index.js';
-import { playlistSchedules, playlistTracks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { playlistSchedules, playlistTracks, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { CUOTA_ARCHIVO_MB, archivoRadio, filtroArchivoEmisora, filtroArchivoEstacion } from './archivo.js';
+import { leerEtiquetas, releerEtiquetas } from './etiquetas.js';
+import { esAdmin, estacionParaRuta, puedeGestionarEmisora, requireEstacionesAcceso } from './acceso.js';
 import {
+  asegurarArchivo,
   borrarAudioRadio,
-  RadioApiError,
+  emisoraDe,
+  enAirePorSlugRadio,
+  estacionesDePlaylists,
+  nombreSalida,
   radioApi,
+  radioEncendida,
+  RadioApiError,
+  sincronizarEstacionesDePlaylists,
   sincronizarPlaylists,
-  sincronizarTodo,
   sincronizarTransmision,
   subirAudio,
   type EstadoSync,
 } from './radio-sync.js';
 
-// Transmisión, AutoDJ (pistas y playlists) de cada emisora.
-// Fuente de verdad: esta API. Cada cambio se empuja a la radio-api (API 2).
+// Transmisión, archivos (pistas) y playlists de cada ESTACIÓN.
+// Cada estación tiene su archivo; la emisora tiene un archivo y listas compartidas que sus estaciones pueden usar.
+// Quien gestiona la emisora (admin, o el responsable de un tercero) puede tocar sus estaciones.
 export const radioMusicaRoutes = new Hono();
 const PERMISO = 'estaciones:todas';
+const ACCESO = requireEstacionesAcceso();
 const MAX_AUDIO = 300 * 1024 * 1024;
+type Estacion = typeof stations.$inferSelect;
+type Pista = typeof stationTracks.$inferSelect;
 
-async function emisora(id: string) {
+async function estacionPorId(id: string) {
   const [e] = await db.select().from(stations).where(eq(stations.id, id));
   return e ?? null;
 }
 
 /** Lo que el panel puede ver de la transmisión: nunca la contraseña. */
-function vistaTransmision(e: typeof stations.$inferSelect) {
+function vistaTransmision(e: Estacion) {
   return {
     mountPoint: e.mountPoint,
     livePasswordConfigurada: Boolean(e.livePasswordEnc),
+    encendida: e.encendida,
     bitrateKbps: e.bitrateKbps,
     autodjEnabled: e.autodjEnabled,
     maxListeners: e.maxListeners,
     storageQuotaMb: e.storageQuotaMb,
+    streamName: e.streamName ?? '',
+    streamNameEfectivo: nombreSalida(e),
     streamUrl: e.mountPoint ? `${process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000'}${e.mountPoint}` : null,
-    // Datos para el locutor (BUTT, OBS o la app de transmisión)
     locutor: {
       servidor: process.env.RADIO_HARBOR_HOST ?? 'localhost',
       puerto: Number(process.env.RADIO_HARBOR_PORT ?? 8005),
@@ -49,21 +64,29 @@ function vistaTransmision(e: typeof stations.$inferSelect) {
   };
 }
 
+/** Sincroniza transmisión y playlists de una estación. */
+async function sincronizarTodo(e: Estacion) {
+  const transmision = await sincronizarTransmision(e);
+  if (transmision.estado !== 'ok') return { transmision, playlists: transmision };
+  return { transmision, playlists: await sincronizarPlaylists(e) };
+}
+
 // Estado del servicio de radio (para la sección de configuración)
-radioMusicaRoutes.get('/servicio', requirePermission(PERMISO), async (c) => {
+radioMusicaRoutes.get('/servicio', ACCESO, async (c) => {
   try {
     const r = await radioApi<{ icecastOnline: boolean; stations: unknown[] }>('/v1/stations');
-    return c.json({ radioApi: 'ok', icecastOnline: r.icecastOnline, emisorasEnRadio: r.stations.length });
+    return c.json({ radioApi: 'ok', icecastOnline: r.icecastOnline, emisorasEnRadio: r.stations.length, encendida: await radioEncendida() });
   } catch (err) {
-    return c.json({ radioApi: 'sin_conexion', icecastOnline: false, emisorasEnRadio: 0, detalle: err instanceof Error ? err.message : null });
+    return c.json({ radioApi: 'sin_conexion', icecastOnline: false, emisorasEnRadio: 0, encendida: await radioEncendida(), detalle: err instanceof Error ? err.message : null });
   }
 });
 
 // ---------- Transmisión ----------
 
-radioMusicaRoutes.get('/emisoras/:id/transmision', requirePermission(PERMISO), async (c) => {
-  const e = await emisora(c.req.param('id') as string);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
+radioMusicaRoutes.get('/estaciones/:id/transmision', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
   let estado: unknown = null;
   if (e.mountPoint) {
     try {
@@ -75,187 +98,302 @@ radioMusicaRoutes.get('/emisoras/:id/transmision', requirePermission(PERMISO), a
   return c.json({ transmision: vistaTransmision(e), radio: estado });
 });
 
-radioMusicaRoutes.put('/emisoras/:id/transmision', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const id = c.req.param('id') as string;
+radioMusicaRoutes.put('/estaciones/:id/transmision', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
   const parsed = emisionSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return errorValidacion(c, parsed.error);
-  const actual = await emisora(id);
-  if (!actual) return c.json({ error: 'no_encontrado' }, 404);
+  const actual = acceso.estacion;
   if (!actual.livePasswordEnc && !parsed.data.livePassword) {
     return c.json({ error: 'validacion', campo: 'livePassword', message: 'Falta la contraseña del locutor.' }, 422);
   }
-
   const otra = await db.select({ id: stations.id }).from(stations).where(eq(stations.mountPoint, parsed.data.mountPoint));
-  if (otra.some((o) => o.id !== id)) {
-    return c.json({ error: 'validacion', campo: 'mountPoint', message: 'Ese mount ya lo usa otra emisora.' }, 422);
+  if (otra.some((o) => o.id !== actual.id)) {
+    return c.json({ error: 'validacion', campo: 'mountPoint', message: 'Ese punto de transmisión ya lo usa otra estación.' }, 422);
   }
-
   const cambios = {
     mountPoint: parsed.data.mountPoint,
     bitrateKbps: parsed.data.bitrateKbps,
     autodjEnabled: parsed.data.autodjEnabled,
     maxListeners: parsed.data.maxListeners,
     storageQuotaMb: parsed.data.storageQuotaMb,
+    ...(parsed.data.streamName !== undefined ? { streamName: parsed.data.streamName || null } : {}),
     ...(parsed.data.livePassword ? { livePasswordEnc: cifrar(parsed.data.livePassword) } : {}),
     updatedAt: new Date(),
   };
-  const [fila] = await db.update(stations).set(cambios).where(eq(stations.id, id)).returning();
+  const [fila] = await db.update(stations).set(cambios).where(eq(stations.id, actual.id)).returning();
   await registrarAuditoria({
-    userId: caller?.id ?? null,
+    userId: acceso.user.id,
     accion: 'transmision.editar',
-    entidad: 'emisora',
-    entidadId: id,
-    detalle: `${fila.name}: mount ${fila.mountPoint}${parsed.data.livePassword ? ' (contraseña cambiada)' : ''}`,
+    entidad: 'estacion',
+    entidadId: actual.id,
+    detalle: `${fila.name}: punto ${fila.mountPoint}${parsed.data.livePassword ? ' (contraseña cambiada)' : ''}`,
   });
-
-  const sync = await sincronizarTransmision(fila);
-  return c.json({ transmision: vistaTransmision(fila), sincronizado: sync });
+  const sincronizado = await sincronizarTransmision(fila);
+  return c.json({ transmision: vistaTransmision(fila), sincronizado });
 });
 
-radioMusicaRoutes.post('/emisoras/:id/sincronizar', requirePermission(PERMISO), async (c) => {
-  const e = await emisora(c.req.param('id') as string);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
-  return c.json(await sincronizarTodo(e));
+// Encender o apagar una estación (no toca las demás)
+radioMusicaRoutes.put('/estaciones/:id/encendida', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const parsed = interruptorSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const [fila] = await db.update(stations).set({ encendida: parsed.data.encendida, updatedAt: new Date() }).where(eq(stations.id, acceso.estacion.id)).returning();
+  await registrarAuditoria({ userId: acceso.user.id, accion: parsed.data.encendida ? 'estacion.encender' : 'estacion.apagar', entidad: 'estacion', entidadId: fila.id, detalle: fila.name });
+  const sincronizado = await sincronizarTransmision(fila);
+  return c.json({ transmision: vistaTransmision(fila), sincronizado });
 });
 
-// ---------- Pistas (audios del AutoDJ) ----------
+// Encender o apagar toda la radio: ninguna estación suena mientras esté apagada (solo admin)
+radioMusicaRoutes.put('/encendida', requirePermission(PERMISO), async (c) => {
+  const caller = await loadCurrentUser(c.req.raw.headers);
+  const parsed = interruptorSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const { radioAjustes } = await import('../../db/schema.js');
+  await db
+    .insert(radioAjustes)
+    .values({ id: 'global', encendida: parsed.data.encendida, updatedAt: new Date() })
+    .onConflictDoUpdate({ target: radioAjustes.id, set: { encendida: parsed.data.encendida, updatedAt: new Date() } });
+  await registrarAuditoria({ userId: caller?.id ?? null, accion: parsed.data.encendida ? 'radio.encender' : 'radio.apagar', entidad: 'radio', entidadId: 'global', detalle: parsed.data.encendida ? 'Radio encendida' : 'Radio apagada' });
+  const { sincronizarTodasLasEstaciones } = await import('./radio-sync.js');
+  const sincronizado = await sincronizarTodasLasEstaciones();
+  return c.json({ encendida: parsed.data.encendida, sincronizado });
+});
 
-radioMusicaRoutes.get('/emisoras/:id/pistas', requirePermission(PERMISO), async (c) => {
-  const id = c.req.param('id') as string;
-  const pistas = await db
-    .select()
-    .from(stationTracks)
-    .where(eq(stationTracks.stationId, id))
-    .orderBy(asc(stationTracks.title));
-  const usado = pistas.reduce((t, p) => t + p.sizeBytes, 0);
-  const e = await emisora(id);
-  return c.json({ pistas, espacioUsadoBytes: usado, espacioCuotaBytes: (e?.storageQuotaMb ?? 0) * 1024 * 1024 });
+radioMusicaRoutes.post('/estaciones/:id/sincronizar', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  return c.json(await sincronizarTodo(acceso.estacion));
+});
+
+// ---------- Archivos (pistas) ----------
+
+/** Carpeta de la radio-api que recibe los audios: la de la estación, o el archivo de la emisora. */
+async function destinoDeArchivo(estacion: Estacion, destino: string) {
+  if (destino === 'emisora') {
+    const emisora = await emisoraDe(estacion);
+    return { slug: await asegurarArchivo(emisora), radioId: emisora.id, stationId: null as string | null, emisora };
+  }
+  return { slug: estacion.slug, radioId: null as string | null, stationId: estacion.id, emisora: null };
+}
+
+/** Quién puede tocar un audio: la estación dueña, o la emisora dueña del archivo de la emisora. */
+async function accesoAPista(c: Context, pista: Pista) {
+  if (pista.stationId) return estacionParaRuta(c, pista.stationId);
+  const user = await loadCurrentUser(c.req.raw.headers);
+  if (!user) return c.json({ error: 'no_autenticado' }, 401) as unknown as Response;
+  if (!pista.radioId || !(await puedeGestionarEmisora(user, pista.radioId))) return c.json({ error: 'sin_permiso' }, 403) as unknown as Response;
+  return { user };
+}
+
+radioMusicaRoutes.get('/estaciones/:id/pistas', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const propias = await db.select().from(stationTracks).where(filtroArchivoEstacion(e.id)).orderBy(asc(stationTracks.title));
+  const deEmisora = await db.select().from(stationTracks).where(filtroArchivoEmisora(e.radioId)).orderBy(asc(stationTracks.title));
+  return c.json({
+    pistas: propias,
+    archivoEmisora: deEmisora,
+    espacioUsadoBytes: propias.reduce((t, p) => t + p.sizeBytes, 0),
+    espacioCuotaBytes: e.storageQuotaMb * 1024 * 1024,
+    espacioEmisoraUsadoBytes: deEmisora.reduce((t, p) => t + p.sizeBytes, 0),
+    espacioEmisoraCuotaBytes: CUOTA_ARCHIVO_MB * 1024 * 1024,
+  });
 });
 
 radioMusicaRoutes.post(
-  '/emisoras/:id/pistas',
+  '/estaciones/:id/pistas',
   bodyLimit({ maxSize: MAX_AUDIO, onError: (c) => c.json({ error: 'archivo_muy_grande' }, 413) }),
-  requirePermission(PERMISO),
+  ACCESO,
   async (c) => {
-    const caller = await loadCurrentUser(c.req.raw.headers);
-    const id = c.req.param('id') as string;
-    const e = await emisora(id);
-    if (!e) return c.json({ error: 'no_encontrado' }, 404);
-    if (!e.mountPoint) return c.json({ error: 'sin_transmision', message: 'Primero configura la transmisión de la emisora.' }, 409);
-
-    // La radio-api necesita la estación al día para aceptar audios
-    const sync = await sincronizarTransmision(e);
-    if (sync.estado !== 'ok') return c.json({ error: 'radio_no_lista', sincronizado: sync }, 409);
-
+    const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+    if (acceso instanceof Response) return acceso;
+    const e = acceso.estacion;
+    const destino = c.req.query('destino') === 'emisora' ? 'emisora' : 'estacion';
+    if (destino === 'estacion' && !e.mountPoint) return c.json({ error: 'sin_transmision', message: 'Primero configura la transmisión de la estación.' }, 409);
+    if (destino === 'estacion') {
+      const sync = await sincronizarTransmision(e);
+      if (sync.estado !== 'ok') return c.json({ error: 'radio_no_lista', sincronizado: sync }, 409);
+    }
     const cuerpo = await c.req.parseBody();
     const archivo = cuerpo.file;
     if (!(archivo instanceof File)) return c.json({ error: 'falta_archivo', message: 'Envía el audio en el campo "file".' }, 400);
-
+    const dest = await destinoDeArchivo(e, destino);
     let guardado: { file: string; sizeBytes: number };
     try {
-      guardado = await subirAudio(e.slug, archivo);
+      guardado = await subirAudio(dest.slug, archivo);
     } catch (err) {
-      if (err instanceof RadioApiError && err.status === 409) return c.json({ error: 'cuota_excedida', message: 'La emisora ya usó todo su espacio.' }, 409);
+      if (err instanceof RadioApiError && err.status === 409) return c.json({ error: 'cuota_excedida', message: 'Ya se usó todo el espacio disponible.' }, 409);
       if (err instanceof RadioApiError && err.status === 400) return c.json({ error: 'formato_no_permitido', detalle: err.body }, 400);
       throw err;
     }
-
-    const titulo = guardado.file.replace(/\.[^.]+$/, '');
+    const etiquetas = await leerEtiquetas(new Uint8Array(await archivo.arrayBuffer()), archivo.type);
     const [fila] = await db
       .insert(stationTracks)
-      .values({ stationId: id, storageKey: guardado.file, title: titulo, sizeBytes: guardado.sizeBytes })
+      .values({
+        stationId: dest.stationId,
+        radioId: dest.radioId,
+        storageKey: guardado.file,
+        title: etiquetas.title ?? guardado.file.replace(/\.[^.]+$/, ''),
+        artist: etiquetas.artist,
+        album: etiquetas.album,
+        year: etiquetas.year,
+        genre: etiquetas.genre,
+        durationSec: etiquetas.durationSec,
+        sizeBytes: guardado.sizeBytes,
+      })
       .returning();
-    await registrarAuditoria({ userId: caller?.id ?? null, accion: 'pista.subir', entidad: 'pista', entidadId: fila.id, detalle: `${e.name}: ${guardado.file}` });
+    await registrarAuditoria({ userId: acceso.user.id, accion: 'pista.subir', entidad: 'pista', entidadId: fila.id, detalle: `${destino === 'emisora' ? `Archivo de ${dest.emisora?.name}` : e.name}: ${guardado.file}` });
     return c.json({ pista: fila }, 201);
   },
 );
 
-// Trae a la base los audios que ya están en la radio (p. ej. subidos antes de existir esta API)
-radioMusicaRoutes.post('/emisoras/:id/pistas/importar', requirePermission(PERMISO), async (c) => {
-  const id = c.req.param('id') as string;
-  const e = await emisora(id);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
-  if (!e.mountPoint) return c.json({ error: 'sin_transmision', message: 'Primero configura la transmisión de la emisora.' }, 409);
-  const radio = await radioApi<{ tracks: { file: string; sizeBytes: number }[] }>(`/v1/stations/${e.slug}/tracks`);
-  const conocidas = new Set(
-    (await db.select({ k: stationTracks.storageKey }).from(stationTracks).where(eq(stationTracks.stationId, id))).map((r) => r.k),
-  );
+// Trae a la base los audios que ya están en la carpeta de la radio (estación o emisora)
+radioMusicaRoutes.post('/estaciones/:id/pistas/importar', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const destino = c.req.query('destino') === 'emisora' ? 'emisora' : 'estacion';
+  if (destino === 'estacion' && !e.mountPoint) return c.json({ error: 'sin_transmision', message: 'Primero configura la transmisión de la estación.' }, 409);
+  const dest = await destinoDeArchivo(e, destino);
+  const radio = await radioApi<{ tracks: { file: string; sizeBytes: number }[] }>(`/v1/stations/${dest.slug}/tracks`);
+  const filtro = dest.stationId ? filtroArchivoEstacion(dest.stationId) : filtroArchivoEmisora(dest.radioId!);
+  const conocidas = new Set((await db.select({ k: stationTracks.storageKey }).from(stationTracks).where(filtro)).map((r) => r.k));
   const nuevas = radio.tracks
     .filter((t) => !conocidas.has(t.file))
-    .map((t) => ({ stationId: id, storageKey: t.file, title: t.file.replace(/\.[^.]+$/, ''), sizeBytes: t.sizeBytes }));
-  if (nuevas.length) await db.insert(stationTracks).values(nuevas);
+    .map((t) => ({ stationId: dest.stationId, radioId: dest.radioId, storageKey: t.file, title: t.file.replace(/\.[^.]+$/, ''), sizeBytes: t.sizeBytes }));
+  if (nuevas.length) {
+    const filas = await db.insert(stationTracks).values(nuevas).returning();
+    await releerEtiquetas(dest.slug, filas);
+  }
   return c.json({ importadas: nuevas.length, total: radio.tracks.length });
 });
 
-radioMusicaRoutes.patch('/pistas/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const id = c.req.param('id') as string;
-  const parsed = pistaEditarSchema.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return errorValidacion(c, parsed.error);
-  const [fila] = await db
-    .update(stationTracks)
-    .set({ title: parsed.data.title, artist: parsed.data.artist })
-    .where(eq(stationTracks.id, id))
-    .returning();
-  if (!fila) return c.json({ error: 'no_encontrado' }, 404);
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'pista.editar', entidad: 'pista', entidadId: id, detalle: fila.title });
-  return c.json({ pista: fila });
+// Vuelve a leer las etiquetas de los audios (completa solo lo que falta)
+radioMusicaRoutes.post('/estaciones/:id/pistas/releer', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const destino = c.req.query('destino') === 'emisora' ? 'emisora' : 'estacion';
+  const dest = await destinoDeArchivo(e, destino);
+  const pistas = await db.select().from(stationTracks).where(dest.stationId ? filtroArchivoEstacion(dest.stationId) : filtroArchivoEmisora(dest.radioId!));
+  const resultado = await releerEtiquetas(dest.slug, pistas);
+  await registrarAuditoria({ userId: acceso.user.id, accion: 'pista.releer', entidad: 'estacion', entidadId: e.id, detalle: `${e.name}: ${resultado.actualizadas} actualizadas` });
+  return c.json(resultado);
 });
 
-radioMusicaRoutes.delete('/pistas/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
+// Mueve audios a una carpeta del panel (solo organización; la radio no se entera)
+radioMusicaRoutes.post('/estaciones/:id/pistas/carpeta', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const parsed = pistasCarpetaSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const carpeta = parsed.data.folder.replace(/^\/+|\/+$/g, '');
+  const e = acceso.estacion;
+  const movidas = await db
+    .update(stationTracks)
+    .set({ folder: carpeta })
+    .where(and(or(filtroArchivoEstacion(e.id), filtroArchivoEmisora(e.radioId)), inArray(stationTracks.id, parsed.data.ids)))
+    .returning({ id: stationTracks.id });
+  await registrarAuditoria({ userId: acceso.user.id, accion: 'pista.carpeta', entidad: 'pista', entidadId: e.id, detalle: `${movidas.length} audios → ${carpeta || 'sin carpeta'}` });
+  return c.json({ movidas: movidas.length });
+});
+
+radioMusicaRoutes.patch('/pistas/:id', ACCESO, async (c) => {
   const id = c.req.param('id') as string;
   const [pista] = await db.select().from(stationTracks).where(eq(stationTracks.id, id));
   if (!pista) return c.json({ error: 'no_encontrado' }, 404);
-  const e = await emisora(pista.stationId);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
+  const acceso = await accesoAPista(c, pista);
+  if (acceso instanceof Response) return acceso;
+  const parsed = pistaEditarSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const d = parsed.data;
+  const [fila] = await db
+    .update(stationTracks)
+    .set({
+      title: d.title,
+      artist: d.artist ?? null,
+      album: d.album ?? null,
+      year: d.year ?? null,
+      genre: d.genre ?? null,
+      ...(d.folder !== undefined ? { folder: d.folder.replace(/^\/+|\/+$/g, '') } : {}),
+    })
+    .where(eq(stationTracks.id, id))
+    .returning();
+  await registrarAuditoria({ userId: (acceso as { user: { id: string } }).user.id, accion: 'pista.editar', entidad: 'pista', entidadId: id, detalle: fila.title });
+  return c.json({ pista: fila });
+});
 
-  // Primero quitar de la radio, luego de la base; las playlists se actualizan después.
-  if (e.mountPoint) {
-    try {
-      await borrarAudioRadio(e.slug, pista.storageKey);
-    } catch (err) {
-      return c.json({ error: 'radio_no_disponible', message: 'No se pudo borrar el audio en la radio.' }, 502);
-    }
+radioMusicaRoutes.delete('/pistas/:id', ACCESO, async (c) => {
+  const id = c.req.param('id') as string;
+  const [pista] = await db.select().from(stationTracks).where(eq(stationTracks.id, id));
+  if (!pista) return c.json({ error: 'no_encontrado' }, 404);
+  const acceso = await accesoAPista(c, pista);
+  if (acceso instanceof Response) return acceso;
+  // Carpeta de la radio-api donde está el audio
+  let slug: string;
+  let dueno: string;
+  if (pista.stationId) {
+    const e = await estacionPorId(pista.stationId);
+    slug = e?.slug ?? '';
+    dueno = e?.name ?? '';
+  } else {
+    const [r] = await db.select().from(radios).where(eq(radios.id, pista.radioId!));
+    slug = archivoRadio(r);
+    dueno = `Archivo de ${r.name}`;
+  }
+  // Las estaciones que usan este audio, para actualizar sus playlists después
+  const enPlaylists = (await db.select({ p: playlistTracks.playlistId }).from(playlistTracks).where(eq(playlistTracks.trackId, id))).map((r) => r.p);
+  const afectadas = await estacionesDePlaylists(enPlaylists);
+  try {
+    await borrarAudioRadio(slug, pista.storageKey);
+  } catch {
+    return c.json({ error: 'radio_no_disponible', message: 'No se pudo borrar el audio en la radio.' }, 502);
   }
   await db.delete(stationTracks).where(eq(stationTracks.id, id));
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'pista.eliminar', entidad: 'pista', entidadId: id, detalle: `${e.name}: ${pista.storageKey}` });
-  const playlists: EstadoSync = await sincronizarPlaylists(e);
+  await registrarAuditoria({ userId: (acceso as { user: { id: string } }).user.id, accion: 'pista.eliminar', entidad: 'pista', entidadId: id, detalle: `${dueno}: ${pista.storageKey}` });
+  const playlists: EstadoSync[] = [];
+  for (const e of afectadas) if (e.mountPoint) playlists.push(await sincronizarPlaylists(e));
   return c.json({ ok: true, playlists });
 });
 
 // ---------- Playlists ----------
+// Una playlist es de la ESTACIÓN (solo ella la usa) o de la EMISORA (sus estaciones la activan con «Suena aquí»).
 
-async function cargarPlaylists(stationId: string) {
-  const ps = await db.select().from(stationPlaylists).where(eq(stationPlaylists.stationId, stationId)).orderBy(asc(stationPlaylists.createdAt));
+async function conDatos(ps: (typeof stationPlaylists.$inferSelect)[]) {
   const ids = ps.map((p) => p.id);
-  const pistas = ids.length
-    ? await db.select().from(playlistTracks).where(inArray(playlistTracks.playlistId, ids)).orderBy(asc(playlistTracks.position))
-    : [];
+  const pistas = ids.length ? await db.select().from(playlistTracks).where(inArray(playlistTracks.playlistId, ids)).orderBy(asc(playlistTracks.position)) : [];
   const horarios = ids.length ? await db.select().from(playlistSchedules).where(inArray(playlistSchedules.playlistId, ids)) : [];
+  const enlaces = ids.length ? await db.select().from(stationPlaylistLinks).where(inArray(stationPlaylistLinks.playlistId, ids)) : [];
   return ps.map((p) => ({
     ...p,
+    ambito: p.stationId ? ('estacion' as const) : ('emisora' as const),
     trackIds: pistas.filter((t) => t.playlistId === p.id).map((t) => t.trackId),
-    schedules: horarios
-      .filter((h) => h.playlistId === p.id)
-      .map((h) => ({ dayOfWeek: h.dayOfWeek, startTime: h.startTime.slice(0, 5), endTime: h.endTime.slice(0, 5) })),
+    schedules: horarios.filter((h) => h.playlistId === p.id).map((h) => ({ dayOfWeek: h.dayOfWeek, startTime: h.startTime.slice(0, 5), endTime: h.endTime.slice(0, 5) })),
+    estacionesIds: enlaces.filter((l) => l.playlistId === p.id).map((l) => l.stationId),
   }));
 }
 
-radioMusicaRoutes.get('/emisoras/:id/playlists', requirePermission(PERMISO), async (c) => {
-  return c.json({ playlists: await cargarPlaylists(c.req.param('id') as string) });
+/** Playlists que usa una estación: las suyas y las de su emisora (con si las tiene activadas). */
+radioMusicaRoutes.get('/estaciones/:id/playlists', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const propias = await db.select().from(stationPlaylists).where(eq(stationPlaylists.stationId, e.id)).orderBy(asc(stationPlaylists.createdAt));
+  const deEmisora = await db.select().from(stationPlaylists).where(eq(stationPlaylists.radioId, e.radioId)).orderBy(asc(stationPlaylists.createdAt));
+  const activadas = new Set((await db.select({ id: stationPlaylistLinks.playlistId }).from(stationPlaylistLinks).where(eq(stationPlaylistLinks.stationId, e.id))).map((x) => x.id));
+  const todas = await conDatos([...propias, ...deEmisora]);
+  return c.json({ playlists: todas.map((p) => ({ ...p, activa: p.stationId ? true : activadas.has(p.id) })) });
 });
 
-/** Valida que todas las pistas pertenezcan a la misma emisora. */
-async function pistasDeLaEmisora(stationId: string, trackIds: string[]) {
+/** Audios que puede usar una playlist: los de la estación (si es suya) y los del archivo de la emisora. */
+async function pistasPermitidas(trackIds: string[], radioId: string, stationId: string | null) {
   if (!trackIds.length) return true;
-  const filas = await db
-    .select({ id: stationTracks.id })
-    .from(stationTracks)
-    .where(eq(stationTracks.stationId, stationId));
-  const propias = new Set(filas.map((f) => f.id));
-  return trackIds.every((t) => propias.has(t));
+  const condicion = stationId ? or(filtroArchivoEstacion(stationId), filtroArchivoEmisora(radioId)) : filtroArchivoEmisora(radioId);
+  const filas = await db.select({ id: stationTracks.id }).from(stationTracks).where(and(inArray(stationTracks.id, trackIds), condicion));
+  return filas.length === new Set(trackIds).size;
 }
 
 async function guardarPlaylist(playlistId: string, datos: PlaylistInput) {
@@ -266,75 +404,114 @@ async function guardarPlaylist(playlistId: string, datos: PlaylistInput) {
       description: datos.description ?? null,
       mode: datos.mode,
       weight: datos.weight,
-      shuffle: datos.mode !== 'secuencial', // rotación y programadas: aleatorio; secuencial: en orden
+      shuffle: datos.mode !== 'secuencial',
       isActive: datos.isActive,
       updatedAt: new Date(),
     })
     .where(eq(stationPlaylists.id, playlistId));
   await db.delete(playlistTracks).where(eq(playlistTracks.playlistId, playlistId));
   await db.delete(playlistSchedules).where(eq(playlistSchedules.playlistId, playlistId));
-  if (datos.trackIds.length) {
-    await db.insert(playlistTracks).values(datos.trackIds.map((trackId, position) => ({ playlistId, trackId, position })));
-  }
+  if (datos.trackIds.length) await db.insert(playlistTracks).values(datos.trackIds.map((trackId, position) => ({ playlistId, trackId, position })));
   if (datos.schedules.length) {
-    await db.insert(playlistSchedules).values(
-      datos.schedules.map((h) => ({
-        playlistId,
-        dayOfWeek: h.dayOfWeek,
-        startTime: h.startTime,
-        endTime: h.endTime,
-      })),
-    );
+    await db.insert(playlistSchedules).values(datos.schedules.map((h) => ({ playlistId, dayOfWeek: h.dayOfWeek, startTime: h.startTime, endTime: h.endTime })));
   }
 }
 
-radioMusicaRoutes.post('/emisoras/:id/playlists', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
-  const stationId = c.req.param('id') as string;
-  const e = await emisora(stationId);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
-  const parsed = playlistSchema.safeParse(await c.req.json().catch(() => ({})));
+radioMusicaRoutes.post('/estaciones/:id/playlists', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const cuerpo = await c.req.json().catch(() => ({}));
+  const parsed = playlistSchema.safeParse(cuerpo);
   if (!parsed.success) return errorValidacion(c, parsed.error);
-  if (!(await pistasDeLaEmisora(stationId, parsed.data.trackIds))) {
-    return c.json({ error: 'validacion', campo: 'trackIds', message: 'Alguna pista no pertenece a esta emisora.' }, 422);
+  const ambito = ambitoSchema.safeParse((cuerpo as { ambito?: unknown }).ambito ?? 'estacion');
+  if (!ambito.success) return c.json({ error: 'validacion', campo: 'ambito' }, 422);
+  if (!(await pistasPermitidas(parsed.data.trackIds, e.radioId, ambito.data === 'estacion' ? e.id : null))) {
+    return c.json({ error: 'validacion', campo: 'trackIds', message: 'Alguno de los audios no está disponible para esta playlist.' }, 422);
   }
+  const esEmisora = ambito.data === 'emisora';
   const [nueva] = await db
     .insert(stationPlaylists)
-    .values({ stationId, name: parsed.data.name, mode: parsed.data.mode, weight: parsed.data.weight, shuffle: parsed.data.mode !== 'secuencial', isActive: parsed.data.isActive, description: parsed.data.description ?? null })
+    .values({
+      stationId: esEmisora ? null : e.id,
+      radioId: esEmisora ? e.radioId : null,
+      name: parsed.data.name,
+      mode: parsed.data.mode,
+      weight: parsed.data.weight,
+      shuffle: parsed.data.mode !== 'secuencial',
+      isActive: parsed.data.isActive,
+      description: parsed.data.description ?? null,
+    })
     .returning();
+  // Una lista de la emisora la activa la estación que la crea
+  if (esEmisora) await db.insert(stationPlaylistLinks).values({ stationId: e.id, playlistId: nueva.id });
   await guardarPlaylist(nueva.id, parsed.data);
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'playlist.crear', entidad: 'playlist', entidadId: nueva.id, detalle: `${e.name}: ${nueva.name}` });
-  const sync = await sincronizarPlaylists(e);
-  return c.json({ playlist: (await cargarPlaylists(stationId)).find((p) => p.id === nueva.id), sincronizado: sync }, 201);
+  await registrarAuditoria({ userId: acceso.user.id, accion: 'playlist.crear', entidad: 'playlist', entidadId: nueva.id, detalle: `${esEmisora ? 'Emisora' : e.name}: ${nueva.name}` });
+  const sincronizado = await sincronizarEstacionesDePlaylists([nueva.id]);
+  const [creada] = await conDatos([nueva]);
+  return c.json({ playlist: creada, sincronizado }, 201);
 });
 
-radioMusicaRoutes.put('/playlists/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
+// Activa o desactiva una playlist de la emisora en esta estación
+radioMusicaRoutes.put('/estaciones/:id/playlists/:playlistId/uso', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const parsed = usoPlaylistSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return errorValidacion(c, parsed.error);
+  const playlistId = c.req.param('playlistId') as string;
+  const [p] = await db.select().from(stationPlaylists).where(eq(stationPlaylists.id, playlistId));
+  if (!p || p.radioId !== e.radioId) return c.json({ error: 'no_encontrado' }, 404);
+  if (parsed.data.usar) {
+    await db.insert(stationPlaylistLinks).values({ stationId: e.id, playlistId }).onConflictDoNothing();
+  } else {
+    await db.delete(stationPlaylistLinks).where(and(eq(stationPlaylistLinks.stationId, e.id), eq(stationPlaylistLinks.playlistId, playlistId)));
+  }
+  await registrarAuditoria({ userId: acceso.user.id, accion: parsed.data.usar ? 'playlist.usar' : 'playlist.dejar_de_usar', entidad: 'playlist', entidadId: playlistId, detalle: `${e.name}: ${p.name}` });
+  const sincronizado = e.mountPoint ? await sincronizarPlaylists(e) : ({ estado: 'sin_transmision' } as EstadoSync);
+  return c.json({ ok: true, sincronizado });
+});
+
+/** Acceso a una playlist: por su estación, o por la emisora dueña de la lista de emisora. */
+async function accesoAPlaylist(c: Context, p: typeof stationPlaylists.$inferSelect) {
+  if (p.stationId) return estacionParaRuta(c, p.stationId);
+  const user = await loadCurrentUser(c.req.raw.headers);
+  if (!user) return c.json({ error: 'no_autenticado' }, 401) as unknown as Response;
+  if (!p.radioId || !(await puedeGestionarEmisora(user, p.radioId))) return c.json({ error: 'sin_permiso' }, 403) as unknown as Response;
+  return { user };
+}
+
+radioMusicaRoutes.put('/playlists/:id', ACCESO, async (c) => {
   const id = c.req.param('id') as string;
   const [actual] = await db.select().from(stationPlaylists).where(eq(stationPlaylists.id, id));
   if (!actual) return c.json({ error: 'no_encontrado' }, 404);
-  const e = await emisora(actual.stationId);
-  if (!e) return c.json({ error: 'no_encontrado' }, 404);
+  const acceso = await accesoAPlaylist(c, actual);
+  if (acceso instanceof Response) return acceso;
   const parsed = playlistSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return errorValidacion(c, parsed.error);
-  if (!(await pistasDeLaEmisora(actual.stationId, parsed.data.trackIds))) {
-    return c.json({ error: 'validacion', campo: 'trackIds', message: 'Alguna pista no pertenece a esta emisora.' }, 422);
+  const radioId = actual.radioId ?? (await estacionPorId(actual.stationId!))!.radioId;
+  if (!(await pistasPermitidas(parsed.data.trackIds, radioId, actual.stationId))) {
+    return c.json({ error: 'validacion', campo: 'trackIds', message: 'Alguno de los audios no está disponible para esta playlist.' }, 422);
   }
   await guardarPlaylist(id, parsed.data);
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'playlist.editar', entidad: 'playlist', entidadId: id, detalle: `${e.name}: ${parsed.data.name}` });
-  const sync = await sincronizarPlaylists(e);
-  return c.json({ playlist: (await cargarPlaylists(actual.stationId)).find((p) => p.id === id), sincronizado: sync });
+  await registrarAuditoria({ userId: (acceso as { user: { id: string } }).user.id, accion: 'playlist.editar', entidad: 'playlist', entidadId: id, detalle: parsed.data.name });
+  const sincronizado = await sincronizarEstacionesDePlaylists([id]);
+  const [actualizada] = await conDatos([(await db.select().from(stationPlaylists).where(eq(stationPlaylists.id, id)))[0]]);
+  return c.json({ playlist: actualizada, sincronizado });
 });
 
-radioMusicaRoutes.delete('/playlists/:id', requirePermission(PERMISO), async (c) => {
-  const caller = await loadCurrentUser(c.req.raw.headers);
+radioMusicaRoutes.delete('/playlists/:id', ACCESO, async (c) => {
   const id = c.req.param('id') as string;
   const [actual] = await db.select().from(stationPlaylists).where(eq(stationPlaylists.id, id));
   if (!actual) return c.json({ error: 'no_encontrado' }, 404);
-  const e = await emisora(actual.stationId);
+  const acceso = await accesoAPlaylist(c, actual);
+  if (acceso instanceof Response) return acceso;
+  const afectadas = await estacionesDePlaylists([id]);
   await db.delete(stationPlaylists).where(eq(stationPlaylists.id, id));
-  await registrarAuditoria({ userId: caller?.id ?? null, accion: 'playlist.eliminar', entidad: 'playlist', entidadId: id, detalle: actual.name });
-  const sync = e ? await sincronizarPlaylists(e) : ({ estado: 'sin_transmision' } as EstadoSync);
-  return c.json({ ok: true, sincronizado: sync });
+  await registrarAuditoria({ userId: (acceso as { user: { id: string } }).user.id, accion: 'playlist.eliminar', entidad: 'playlist', entidadId: id, detalle: actual.name });
+  const sincronizado: EstadoSync[] = [];
+  for (const e of afectadas) if (e.mountPoint) sincronizado.push(await sincronizarPlaylists(e));
+  return c.json({ ok: true, sincronizado });
 });
 
+export { esAdmin };

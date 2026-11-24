@@ -18,7 +18,7 @@ async function emisoraExiste(id: string) {
 }
 
 // Locutores autorizados de una emisora y usuarios del panel que se pueden agregar
-radioEmisorRoutes.get('/emisoras/:id/locutores', requirePermission(PERMISO), async (c) => {
+radioEmisorRoutes.get('/estaciones/:id/locutores', requirePermission(PERMISO), async (c) => {
   const id = c.req.param('id') as string;
   if (!(await emisoraExiste(id))) return c.json({ error: 'no_encontrado' }, 404);
   const asignados = await db
@@ -35,7 +35,7 @@ radioEmisorRoutes.get('/emisoras/:id/locutores', requirePermission(PERMISO), asy
   return c.json({ asignados, candidatos });
 });
 
-radioEmisorRoutes.put('/emisoras/:id/locutores', requirePermission(PERMISO), async (c) => {
+radioEmisorRoutes.put('/estaciones/:id/locutores', requirePermission(PERMISO), async (c) => {
   const id = c.req.param('id') as string;
   const e = await emisoraExiste(id);
   if (!e) return c.json({ error: 'no_encontrado' }, 404);

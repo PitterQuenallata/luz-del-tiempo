@@ -1,6 +1,9 @@
+import { randomBytes } from 'node:crypto';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { playlistSchedules, playlistTracks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { playlistSchedules, playlistTracks, radioAjustes, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { CUOTA_ARCHIVO_MB, archivoRadio } from './archivo.js';
+import { nombreSalidaPorDefecto } from '@luz/shared';
 import { descifrar } from '../../lib/cifrado.js';
 
 // Cliente de la radio-api (API 2) y sincronización de la configuración.
@@ -22,6 +25,9 @@ export type EstadoSync =
   | { estado: 'radio_no_disponible'; message: string }
   | { estado: 'error'; status: number; body: unknown };
 
+type Estacion = typeof stations.$inferSelect;
+type Emisora = typeof radios.$inferSelect;
+
 function base() {
   return (process.env.RADIO_API_URL ?? 'http://localhost:4100').replace(/\/$/, '');
 }
@@ -35,12 +41,7 @@ export async function radioApi<T = unknown>(ruta: string, init: { method?: strin
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify(init.json);
   }
-  const res = await fetch(`${base()}${ruta}`, {
-    method: init.method ?? 'GET',
-    headers,
-    body,
-    signal: AbortSignal.timeout(15_000),
-  });
+  const res = await fetch(`${base()}${ruta}`, { method: init.method ?? 'GET', headers, body, signal: AbortSignal.timeout(15_000) });
   const texto = await res.text();
   const datos = texto ? safeJson(texto) : null;
   if (!res.ok) throw new RadioApiError(res.status, datos);
@@ -60,22 +61,39 @@ const minutos = (hora: string) => {
   return h * 60 + m;
 };
 
-type Emisora = typeof stations.$inferSelect;
+/** Nombre que ven los oyentes: el de la estación o, si no hay, «Radio La Luz del Tiempo - <estación>». */
+export function nombreSalida(e: { name: string; streamName: string | null }) {
+  return e.streamName?.trim() || nombreSalidaPorDefecto(e.name);
+}
+
+/** Interruptor de toda la radio (true si no hay fila: arranca encendida). */
+export async function radioEncendida(): Promise<boolean> {
+  const [fila] = await db.select().from(radioAjustes).where(eq(radioAjustes.id, 'global'));
+  return fila?.encendida ?? true;
+}
+
+export async function emisoraDe(e: { radioId: string }): Promise<Emisora> {
+  const [r] = await db.select().from(radios).where(eq(radios.id, e.radioId));
+  return r;
+}
 
 /** Empuja mount, contraseña, bitrate, AutoDJ y límites de la estación a la radio-api. */
-export async function sincronizarTransmision(e: Emisora): Promise<EstadoSync> {
+export async function sincronizarTransmision(e: Estacion): Promise<EstadoSync> {
   if (!e.mountPoint) return { estado: 'sin_transmision' };
   if (!e.livePasswordEnc) return { estado: 'falta_contrasena' };
+  // Suena solo si la estación y su emisora están activas y encendidas, y la radio completa también.
+  const emisora = await emisoraDe(e);
+  const sonara = e.status === 'active' && emisora.status === 'active' && e.encendida && (await radioEncendida());
   try {
     await radioApi(`/v1/stations/${e.slug}`, {
       method: 'PUT',
       json: {
-        name: e.name,
+        name: nombreSalida(e),
         mount: e.mountPoint,
         bitrate: e.bitrateKbps,
         livePassword: descifrar(e.livePasswordEnc),
         autodj: e.autodjEnabled,
-        enabled: e.status === 'active',
+        enabled: sonara,
         maxListeners: e.maxListeners,
         storageQuotaMb: e.storageQuotaMb,
       },
@@ -86,14 +104,67 @@ export async function sincronizarTransmision(e: Emisora): Promise<EstadoSync> {
   }
 }
 
-/** Empuja todas las playlists de la estación (lista de pistas, modo, peso y horarios). */
-export async function sincronizarPlaylists(e: Emisora): Promise<EstadoSync> {
+/** Empuja a la radio-api el estado de todas las estaciones con transmisión (al encender o apagar toda la radio). */
+export async function sincronizarTodasLasEstaciones(): Promise<EstadoSync[]> {
+  const todas = await db.select().from(stations).orderBy(asc(stations.sortOrder));
+  const resultados: EstadoSync[] = [];
+  for (const e of todas) if (e.mountPoint) resultados.push(await sincronizarTransmision(e));
+  return resultados;
+}
+
+// ---------- Archivos ----------
+
+const archivosListos = new Set<string>();
+
+/** Crea en la radio-api la carpeta del archivo de una emisora (una vez). Es una estación interna, apagada: solo guarda audios. */
+export async function asegurarArchivo(emisora: Emisora): Promise<string> {
+  const slug = archivoRadio(emisora);
+  if (archivosListos.has(slug)) return slug;
+  try {
+    await radioApi(`/v1/stations/${slug}`);
+  } catch (err) {
+    if (!(err instanceof RadioApiError && err.status === 404)) throw err;
+    await radioApi(`/v1/stations/${slug}`, {
+      method: 'PUT',
+      json: {
+        name: `Archivo de ${emisora.name}`,
+        mount: `/arch-${emisora.id.replace(/-/g, '').slice(0, 12)}`,
+        bitrate: 128,
+        livePassword: randomBytes(18).toString('hex'),
+        autodj: false,
+        enabled: false,
+        maxListeners: 1,
+        storageQuotaMb: CUOTA_ARCHIVO_MB,
+      },
+    });
+  }
+  archivosListos.add(slug);
+  return slug;
+}
+
+// ---------- Playlists ----------
+
+/**
+ * Empuja a la radio-api las playlists que suenan en una estación:
+ * las suyas, y las de la emisora que tenga activadas. Cada pista sale de su archivo (la estación o la emisora).
+ */
+export async function sincronizarPlaylists(e: Estacion): Promise<EstadoSync> {
   if (!e.mountPoint) return { estado: 'sin_transmision' };
-  const ps = await db.select().from(stationPlaylists).where(eq(stationPlaylists.stationId, e.id)).orderBy(asc(stationPlaylists.createdAt));
-  const ids = ps.map((p) => p.id);
+  const emisora = await emisoraDe(e);
+  const propias = await db.select().from(stationPlaylists).where(eq(stationPlaylists.stationId, e.id)).orderBy(asc(stationPlaylists.createdAt));
+  const deEmisora = await db.select().from(stationPlaylists).where(eq(stationPlaylists.radioId, e.radioId)).orderBy(asc(stationPlaylists.createdAt));
+  const activadas = new Set(
+    (await db.select({ id: stationPlaylistLinks.playlistId }).from(stationPlaylistLinks).where(eq(stationPlaylistLinks.stationId, e.id))).map((x) => x.id),
+  );
+  // Las playlists se mandan todas; `active` dice cuáles suenan (eso va a estado.txt, sin reiniciar).
+  const lista = [
+    ...propias.map((p) => ({ p, activa: true })),
+    ...deEmisora.map((p) => ({ p, activa: activadas.has(p.id) })),
+  ];
+  const ids = lista.map((x) => x.p.id);
   const pistas = ids.length
     ? await db
-        .select({ playlistId: playlistTracks.playlistId, position: playlistTracks.position, storageKey: stationTracks.storageKey })
+        .select({ playlistId: playlistTracks.playlistId, position: playlistTracks.position, storageKey: stationTracks.storageKey, stationId: stationTracks.stationId })
         .from(playlistTracks)
         .innerJoin(stationTracks, eq(playlistTracks.trackId, stationTracks.id))
         .where(inArray(playlistTracks.playlistId, ids))
@@ -101,15 +172,17 @@ export async function sincronizarPlaylists(e: Emisora): Promise<EstadoSync> {
     : [];
   const horarios = ids.length ? await db.select().from(playlistSchedules).where(inArray(playlistSchedules.playlistId, ids)) : [];
 
+  // Ruta de cada pista para la radio-api: la del archivo de la estación, o "carpeta-de-la-emisora/archivo"
+  const ruta = (t: { storageKey: string; stationId: string | null }) => (t.stationId ? t.storageKey : `${archivoRadio(emisora)}/${t.storageKey}`);
   const payload = {
-    playlists: ps.map((p) => ({
+    playlists: lista.map(({ p, activa }) => ({
       id: p.id,
       name: p.name,
       mode: p.mode,
       weight: p.weight,
       shuffle: p.shuffle,
-      active: p.isActive,
-      tracks: pistas.filter((t) => t.playlistId === p.id).map((t) => t.storageKey),
+      active: p.isActive && activa,
+      tracks: pistas.filter((t) => t.playlistId === p.id).map(ruta),
       schedules: horarios
         .filter((h) => h.playlistId === p.id)
         .map((h) => ({ day: h.dayOfWeek, inicio: minutos(h.startTime), fin: minutos(h.endTime) })),
@@ -123,11 +196,41 @@ export async function sincronizarPlaylists(e: Emisora): Promise<EstadoSync> {
   }
 }
 
-/** Sincroniza transmisión y playlists de una estación. */
-export async function sincronizarTodo(e: Emisora) {
-  const transmision = await sincronizarTransmision(e);
-  if (transmision.estado !== 'ok') return { transmision, playlists: transmision };
-  return { transmision, playlists: await sincronizarPlaylists(e) };
+/** Estaciones a las que afecta un cambio en estas playlists: la dueña, las que la activaron y, si es de la emisora, todas sus estaciones. */
+export async function estacionesDePlaylists(playlistIds: string[]): Promise<Estacion[]> {
+  if (!playlistIds.length) return [];
+  const ids = new Set<string>();
+  const filas = await db
+    .select({ stationId: stationPlaylists.stationId, radioId: stationPlaylists.radioId })
+    .from(stationPlaylists)
+    .where(inArray(stationPlaylists.id, playlistIds));
+  for (const f of filas) {
+    if (f.stationId) ids.add(f.stationId);
+    if (f.radioId) for (const e of await db.select({ id: stations.id }).from(stations).where(eq(stations.radioId, f.radioId))) ids.add(e.id);
+  }
+  for (const l of await db.select({ s: stationPlaylistLinks.stationId }).from(stationPlaylistLinks).where(inArray(stationPlaylistLinks.playlistId, playlistIds))) ids.add(l.s);
+  return ids.size ? db.select().from(stations).where(inArray(stations.id, [...ids])) : [];
+}
+
+/** Sincroniza las estaciones que usan estas playlists (tras cambiarlas). */
+export async function sincronizarEstacionesDePlaylists(playlistIds: string[]) {
+  const resultados: EstadoSync[] = [];
+  for (const e of await estacionesDePlaylists(playlistIds)) if (e.mountPoint) resultados.push(await sincronizarPlaylists(e));
+  return resultados;
+}
+
+// ---------- Radio-api: quitar, subir, leer, borrar ----------
+
+/** Estado en vivo de cada estación (la radio-api lo lee de Icecast). Si la radio no responde, todas aparecen sin señal. */
+export async function enAirePorSlugRadio() {
+  const enAire = new Map<string, { online: boolean; listeners: number; title: string | null }>();
+  try {
+    const r = await radioApi<{ stations: { slug: string; status: { online: boolean; listeners: number; title: string | null } }[] }>('/v1/stations');
+    for (const s of r.stations) enAire.set(s.slug, { online: s.status.online, listeners: s.status.listeners, title: s.status.title });
+  } catch {
+    // sin radio-api: todas aparecen sin señal
+  }
+  return enAire;
 }
 
 /** Quita la estación de la radio-api (al borrarla en el panel). */
@@ -140,11 +243,23 @@ export async function quitarTransmision(slug: string) {
   return { estado: 'ok' as const };
 }
 
-/** Sube un audio al AutoDJ de la estación. */
+/** Sube un audio a la carpeta indicada (la de la estación o la del archivo de la emisora). */
 export async function subirAudio(slug: string, archivo: File) {
   const form = new FormData();
   form.append('file', archivo, archivo.name);
   return radioApi<{ file: string; sizeBytes: number }>(`/v1/stations/${slug}/tracks`, { method: 'POST', body: form });
+}
+
+/** Bytes de un audio que ya está en la radio (para leer sus etiquetas). */
+export async function leerAudioRadio(slug: string, nombre: string): Promise<Uint8Array> {
+  const token = process.env.RADIO_API_TOKEN;
+  if (!token) throw new RadioApiError(503, { error: 'radio_api_sin_token' });
+  const res = await fetch(`${base()}/v1/stations/${slug}/tracks/${encodeURIComponent(nombre)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) throw new RadioApiError(res.status, null);
+  return new Uint8Array(await res.arrayBuffer());
 }
 
 export async function borrarAudioRadio(slug: string, nombre: string) {

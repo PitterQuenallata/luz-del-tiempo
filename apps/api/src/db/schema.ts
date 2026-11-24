@@ -424,9 +424,36 @@ export const liveStreams = pgTable(
   (t) => [uniqueIndex('live_streams_platform_idx').on(t.platform)],
 );
 
-// Emisoras: la principal, las del ministerio y (máximo una) externa. Sin datos de transmisión todavía.
+// Emisora (contenedor): «Radio La Luz del Tiempo», o la de un tercero. Dentro tiene sus estaciones.
+// Lleva el archivo de la emisora y sus listas de producción, que todas sus estaciones pueden usar.
+export const radios = pgTable('radios', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  genre: text('genre'),
+  imageUrl: text('image_url'),
+  kind: text('kind', { enum: ['own', 'external'] }).notNull().default('own'),
+  isMain: boolean('is_main').notNull().default(false),
+  areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
+  operatedByName: text('operated_by_name'),
+  // Responsable de una emisora externa: su usuario solo ve esta emisora y su única estación
+  ownerUserId: text('owner_user_id').references(() => users.id, { onDelete: 'set null' }),
+  visibleInMinistry: boolean('visible_in_ministry').notNull().default(true),
+  status: text('status', { enum: ['draft', 'active', 'suspended', 'disabled'] }).notNull().default('active'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  contactName: text('contact_name'),
+  contactPhone: text('contact_phone'),
+  contactEmail: text('contact_email'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Estaciones: cada una transmite (mount, contraseña), tiene su AutoDJ y su archivo, y pertenece a una emisora.
 export const stations = pgTable('stations', {
   id: uuid('id').primaryKey().defaultRandom(),
+  radioId: uuid('radio_id').notNull().references(() => radios.id, { onDelete: 'cascade' }),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   description: text('description'),
@@ -441,12 +468,15 @@ export const stations = pgTable('stations', {
   maxListeners: integer('max_listeners').notNull().default(100),
   storageQuotaMb: integer('storage_quota_mb').notNull().default(5120),
   // Qué suena en las franjas sin programa: música, historias, ambas o nada (configurable por emisora)
-  relleno: text('relleno', { enum: ['ninguno', 'musica', 'historias', 'musica_historias'] }).notNull().default('musica'),
+  // Interruptor de la emisora («al aire» / «apagada»). Con la radio completa apagada, no suena aunque esté en true.
+  encendida: boolean('encendida').notNull().default(true),
   isMain: boolean('is_main').notNull().default(false),
   areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
   operatedByName: text('operated_by_name'),
+  // Nombre de salida que ven los oyentes (Icecast). Vacío = «Radio La Luz del Tiempo - <nombre>»
+  streamName: text('stream_name'),
   visibleInMinistry: boolean('visible_in_ministry').notNull().default(true),
-  status: text('status', { enum: ['active', 'suspended', 'disabled'] }).notNull().default('active'),
+  status: text('status', { enum: ['draft', 'active', 'suspended', 'disabled'] }).notNull().default('active'),
   sortOrder: integer('sort_order').notNull().default(0),
   contactName: text('contact_name'),
   contactPhone: text('contact_phone'),
@@ -485,16 +515,28 @@ export const programSlots = pgTable(
 );
 
 // Audios del AutoDJ de una emisora. El archivo vive en la radio-api (storage_key = nombre en disco).
+// Ajustes globales de la radio (una sola fila): interruptor de toda la radio.
+export const radioAjustes = pgTable('radio_ajustes', {
+  id: text('id').primaryKey(), // siempre 'global'
+  encendida: boolean('encendida').notNull().default(true),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const stationTracks = pgTable(
   'station_tracks',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    stationId: uuid('station_id')
-      .notNull()
-      .references(() => stations.id, { onDelete: 'cascade' }),
+    // Archivo de la ESTACIÓN (stationId) o archivo de la EMISORA entera (radioId). Siempre uno de los dos.
+    stationId: uuid('station_id').references(() => stations.id, { onDelete: 'cascade' }),
+    radioId: uuid('radio_id').references(() => radios.id, { onDelete: 'cascade' }),
     storageKey: text('storage_key').notNull(),
     title: text('title').notNull(),
     artist: text('artist'),
+    album: text('album'),
+    year: smallint('year'),
+    genre: text('genre'),
+    // Carpeta del panel (organización, no afecta a la radio). '' = sin carpeta
+    folder: text('folder').notNull().default(''),
     durationSec: integer('duration_sec'),
     sizeBytes: integer('size_bytes').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -510,9 +552,9 @@ export const stationPlaylists = pgTable(
   'station_playlists',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    stationId: uuid('station_id')
-      .notNull()
-      .references(() => stations.id, { onDelete: 'cascade' }),
+    // Lista de la ESTACIÓN (stationId) o lista de la EMISORA (radioId), que sus estaciones pueden activar. Siempre una de las dos.
+    stationId: uuid('station_id').references(() => stations.id, { onDelete: 'cascade' }),
+    radioId: uuid('radio_id').references(() => radios.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     description: text('description'),
     mode: text('mode', { enum: ['rotacion', 'secuencial', 'programada'] }).notNull().default('rotacion'),
@@ -523,6 +565,20 @@ export const stationPlaylists = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('station_playlists_station_idx').on(t.stationId)],
+);
+
+// Qué emisoras propias usan cada playlist de la biblioteca institucional
+export const stationPlaylistLinks = pgTable(
+  'station_playlist_links',
+  {
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    playlistId: uuid('playlist_id')
+      .notNull()
+      .references(() => stationPlaylists.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.stationId, t.playlistId] })],
 );
 
 export const playlistTracks = pgTable(

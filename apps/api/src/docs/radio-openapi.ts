@@ -105,7 +105,6 @@ export const radioOpenApi = {
           kind: { type: 'string', enum: ['own', 'external'] },
           isMain: { type: 'boolean' },
           status: { type: 'string', enum: ['active', 'suspended', 'disabled'] },
-          relleno: { type: 'string', enum: ['ninguno', 'musica', 'historias', 'musica_historias'] },
           mountPoint: { type: ['string', 'null'], example: '/salud' },
           sortOrder: { type: 'integer' },
         },
@@ -113,12 +112,11 @@ export const radioOpenApi = {
       EmisoraInput: {
         type: 'object',
         description: 'Datos de la emisora (ver packages/shared emisoraSchema).',
-        required: ['slug', 'name', 'kind', 'relleno', 'isMain', 'visibleInMinistry', 'status', 'sortOrder'],
+        required: ['slug', 'name', 'kind', 'isMain', 'visibleInMinistry', 'status', 'sortOrder'],
         properties: {
           slug: { type: 'string' },
           name: { type: 'string', minLength: 2, maxLength: 80 },
           kind: { type: 'string', enum: ['own', 'external'] },
-          relleno: { type: 'string', enum: ['ninguno', 'musica', 'historias', 'musica_historias'] },
           isMain: { type: 'boolean' },
           status: { type: 'string', enum: ['active', 'suspended', 'disabled'] },
           visibleInMinistry: { type: 'boolean' },
