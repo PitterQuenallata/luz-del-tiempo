@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { emisoraSchema, franjaSchema, programaSchema } from '@luz/shared';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
+import { quitarTransmision } from './radio-sync.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
 import { areas, programSlots, programs, stations } from '../../db/schema.js';
@@ -81,6 +82,8 @@ radioRoutes.delete('/emisoras/:id', requirePermission(PERMISO), async (c) => {
   if (!borrada) return c.json({ error: 'no_encontrado' }, 404);
   if (borrada.isMain) return c.json({ error: 'validacion', message: 'No se puede eliminar la emisora principal.' }, 422);
   await db.delete(stations).where(eq(stations.id, id));
+  // Quita la estación de la radio-api (los audios quedan en disco de la radio)
+  if (borrada.mountPoint) await quitarTransmision(borrada.slug);
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'emisora.eliminar', entidad: 'emisora', entidadId: id, detalle: borrada.name });
   return c.json({ ok: true });
 });

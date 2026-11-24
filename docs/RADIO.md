@@ -45,7 +45,7 @@ Los datos quedan en `infra/radio/data/` (ignorado por git):
 | 8005 | Liquidsoap harbor | Locutores en vivo. Mount = slug de la estación, contraseña = `livePassword` |
 | 4100 | radio-api | Solo la API 1 |
 
-**Sin Docker** (solo la radio-api, para desarrollar): `cp apps/radio-api/.env.example apps/radio-api/.env` y `pnpm --filter @luz/radio-api dev`.
+**Sin Docker** (solo la radio-api, para desarrollar): `cp apps/radio-api/.env.example apps/radio-api/.env` y `pnpm --filter @luz/radio-api dev:local` (no lo uses si Docker ya tiene la radio-api encendida: ambas usan el puerto 4100).
 
 ## 3. Endpoints de la radio-api
 

@@ -498,6 +498,55 @@ export const franjaSchema = z
     path: ['endTime'],
   });
 
+// Transmisión de una emisora: lo que necesita quien va a transmitir (mount, contraseña, AutoDJ, límites)
+export const emisionSchema = z.object({
+  mountPoint: z
+    .string()
+    .trim()
+    .regex(/^\/[a-z0-9][a-z0-9-]{0,39}$/, 'Usa minúsculas, números y guiones, empezando con /. Ej.: /salud'),
+  // Solo se envía cuando se cambia. Vacío = conservar la actual.
+  livePassword: z.string().min(8, 'La contraseña tiene al menos 8 caracteres.').max(128).optional(),
+  bitrateKbps: z.number().int().min(32, 'Mínimo 32 kbps.').max(320, 'Máximo 320 kbps.'),
+  autodjEnabled: z.boolean(),
+  maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.'),
+  storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').max(10240, 'Máximo 10 GB.'),
+});
+
+// Audios del AutoDJ: el título sale del nombre del archivo y se puede corregir
+export const pistaEditarSchema = z.object({
+  title: z.string().trim().min(1, 'El título es obligatorio.').max(120, 'Máximo 120 caracteres.'),
+  artist: opcionalTexto(120, 'Máximo 120 caracteres.'),
+});
+
+export const MODOS_PLAYLIST = ['rotacion', 'secuencial', 'programada'] as const;
+
+export const horarioPlaylistSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    startTime: horaSchema,
+    endTime: horaSchema,
+  })
+  .refine((d) => d.endTime > d.startTime, {
+    message: 'La hora de fin debe ser después del inicio. Si cruza la medianoche, crea dos horarios.',
+    path: ['endTime'],
+  });
+
+// Playlist del AutoDJ. El modo decide cómo suena (ver "Cómo suena" en el panel).
+export const playlistSchema = z
+  .object({
+    name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
+    description: opcionalTexto(300, 'Máximo 300 caracteres.').optional(),
+    mode: z.enum(MODOS_PLAYLIST),
+    weight: z.number().int().min(1, 'Mínimo 1.').max(100, 'Máximo 100.'),
+    isActive: z.boolean(),
+    trackIds: z.array(uuidSchema).max(5000, 'Máximo 5000 audios por playlist.'),
+    schedules: z.array(horarioPlaylistSchema).max(50, 'Máximo 50 horarios.'),
+  })
+  .refine((d) => d.mode !== 'programada' || d.schedules.length > 0, {
+    message: 'Una playlist programada necesita al menos un horario.',
+    path: ['schedules'],
+  });
+
 // Donaciones: métodos y necesidades (ajustes del sitio)
 export const DONACION_METODOS = ['qr', 'bank', 'paypal', 'remittance'] as const;
 
@@ -522,6 +571,9 @@ export type TransmisionInput = z.infer<typeof transmisionSchema>;
 export type EmisoraInput = z.infer<typeof emisoraSchema>;
 export type ProgramaInput = z.infer<typeof programaSchema>;
 export type FranjaInput = z.infer<typeof franjaSchema>;
+export type EmisionInput = z.infer<typeof emisionSchema>;
+export type PistaEditarInput = z.infer<typeof pistaEditarSchema>;
+export type PlaylistInput = z.infer<typeof playlistSchema>;
 export type DonacionMetodoInput = z.infer<typeof donacionMetodoSchema>;
 export type NecesidadInput = z.infer<typeof necesidadSchema>;
 

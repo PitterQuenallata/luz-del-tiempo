@@ -1,0 +1,149 @@
+import { mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promises';
+import path from 'node:path';
+import { z } from 'zod';
+import { config } from './config.js';
+import { enCola, guardarEstaciones, leerEstaciones } from './stations.js';
+
+/**
+ * Playlists del AutoDJ.
+ * - La lista de pistas (qué audios y en qué orden) va en un .m3u por playlist: Liquidsoap la recarga sola.
+ * - El modo, peso y horarios van en stations.json: si cambian, Liquidsoap se reinicia (~2 s).
+ */
+
+export const MODOS = ['rotacion', 'secuencial', 'programada'] as const;
+
+const horario = z
+  .object({
+    day: z.number().int().min(0).max(6), // 0 = domingo … 6 = sábado
+    inicio: z.number().int().min(0).max(1439), // minutos desde medianoche
+    fin: z.number().int().min(1).max(1440),
+  })
+  .refine((h) => h.fin > h.inicio, 'La hora de fin debe ser posterior a la de inicio (las franjas que cruzan medianoche se parten en dos).');
+
+export const playlistEntradaSchema = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, 'id de playlist inválido'),
+  name: z.string().trim().min(1).max(80),
+  mode: z.enum(MODOS),
+  weight: z.number().int().min(1).max(100).default(50),
+  shuffle: z.boolean().default(true),
+  active: z.boolean().default(true),
+  tracks: z.array(z.string().min(1).max(120)).max(5000).default([]),
+  schedules: z.array(horario).max(200).default([]),
+});
+export type PlaylistEntrada = z.infer<typeof playlistEntradaSchema>;
+
+/** Forma guardada en stations.json (sin la lista de pistas). */
+export interface PlaylistMeta {
+  id: string;
+  name: string;
+  mode: (typeof MODOS)[number];
+  weight: number;
+  shuffle: boolean;
+  active: boolean;
+  schedules: { day: number; inicio: number; fin: number }[];
+}
+
+export const playlistsSchema = z.object({ playlists: z.array(playlistEntradaSchema).max(100) });
+
+// Ruta con la que Liquidsoap ve la carpeta de audios (en Docker es /music)
+const RUTA_LIQUIDSOAP = process.env.LIQUIDSOAP_MUSIC_DIR ?? '/music';
+
+const carpetaPlaylists = (slug: string) => path.join(config.configDir, 'playlists', slug);
+const carpetaAudios = (slug: string) => path.join(config.musicDir, slug);
+
+/** Ruta del .m3u de una playlist (la usa Liquidsoap). */
+export function rutaM3u(slug: string, id: string) {
+  return `${config.configDir}/playlists/${slug}/${id}.m3u`.replace(/\\/g, '/');
+}
+
+async function archivosExistentes(slug: string): Promise<Set<string>> {
+  try {
+    const nombres = await readdir(carpetaAudios(slug));
+    return new Set(nombres.filter((n) => !n.startsWith('.')));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return new Set();
+    throw err;
+  }
+}
+
+/** Devuelve los nombres de pista que no existen en disco. */
+export async function pistasFaltantes(slug: string, entradas: PlaylistEntrada[]): Promise<string[]> {
+  const existentes = await archivosExistentes(slug);
+  const faltan = new Set<string>();
+  for (const p of entradas) for (const t of p.tracks) if (!existentes.has(t)) faltan.add(t);
+  return [...faltan];
+}
+
+function metaDe(p: PlaylistEntrada): PlaylistMeta {
+  return {
+    id: p.id,
+    name: p.name,
+    mode: p.mode,
+    weight: p.weight,
+    shuffle: p.shuffle,
+    active: p.active,
+    schedules: p.schedules,
+  };
+}
+
+/** Escribe el .m3u de forma atómica. Liquidsoap lo recarga al cambiar. */
+async function escribirM3u(slug: string, p: PlaylistEntrada) {
+  const dir = carpetaPlaylists(slug);
+  await mkdir(dir, { recursive: true });
+  const lineas = ['#EXTM3U', ...p.tracks.map((t) => `${RUTA_LIQUIDSOAP}/${slug}/${t}`)];
+  const tmp = path.join(dir, `.${p.id}.tmp`);
+  await writeFile(tmp, lineas.join('\n') + '\n');
+  await rename(tmp, path.join(dir, `${p.id}.m3u`));
+}
+
+async function quitarM3uHuerfanos(slug: string, ids: Set<string>) {
+  let nombres: string[] = [];
+  try {
+    nombres = await readdir(carpetaPlaylists(slug));
+  } catch {
+    return;
+  }
+  for (const n of nombres) {
+    if (!n.endsWith('.m3u')) continue;
+    if (!ids.has(n.replace(/\.m3u$/, ''))) await rm(path.join(carpetaPlaylists(slug), n), { force: true });
+  }
+}
+
+/**
+ * Reemplaza todas las playlists de una estación.
+ * Devuelve si hubo que reiniciar Liquidsoap (cambió modo, peso, horarios o si estén activas).
+ */
+export function guardarPlaylists(slug: string, entradas: PlaylistEntrada[]) {
+  return enCola(async () => {
+    const estaciones = await leerEstaciones();
+    const i = estaciones.findIndex((s) => s.slug === slug);
+    if (i === -1) return { error: 'no_existe' as const };
+
+    for (const p of entradas) await escribirM3u(slug, p);
+    await quitarM3uHuerfanos(slug, new Set(entradas.map((p) => p.id)));
+
+    const metaNueva = entradas.map(metaDe);
+    const metaAnterior = estaciones[i].playlists ?? [];
+    const cambioConfig = JSON.stringify(metaNueva) !== JSON.stringify(metaAnterior);
+    if (cambioConfig) {
+      estaciones[i] = { ...estaciones[i], playlists: metaNueva };
+      await guardarEstaciones(estaciones);
+    }
+    return { cambioConfig, playlists: metaNueva.length };
+  });
+}
+
+/** Lista de pistas de una playlist, leída de su .m3u (para la API 1 o diagnóstico). */
+export async function leerPistasDePlaylist(slug: string, id: string): Promise<string[] | null> {
+  try {
+    const texto = await readFile(path.join(carpetaPlaylists(slug), `${id}.m3u`), 'utf8');
+    return texto
+      .split('\n')
+      .filter((l) => l && !l.startsWith('#'))
+      .map((l) => path.basename(l));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
+}
+

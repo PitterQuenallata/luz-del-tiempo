@@ -35,6 +35,8 @@ services:
       HARBOR_PORT: "8005"
       STATIONS_CONFIG: /config/stations.json
       MUSIC_DIR: /music
+      CONFIG_DIR: /config
+      TZ: America/La_Paz
     volumes:
       - ./liquidsoap/radio.liq:/radio/radio.liq:ro
       - ./data/config:/config:ro

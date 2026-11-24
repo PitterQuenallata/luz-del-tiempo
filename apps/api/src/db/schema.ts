@@ -433,6 +433,13 @@ export const stations = pgTable('stations', {
   genre: text('genre'),
   kind: text('kind', { enum: ['own', 'external'] }).notNull().default('own'),
   imageUrl: text('image_url'), // foto de la emisora (16:9)
+  // Transmisión (Icecast/Liquidsoap en la radio-api). Sin mount no hay transmisión.
+  mountPoint: text('mount_point').unique(),
+  livePasswordEnc: text('live_password_enc'), // AES-256-GCM; nunca sale de la API
+  bitrateKbps: smallint('bitrate_kbps').notNull().default(128),
+  autodjEnabled: boolean('autodj_enabled').notNull().default(true),
+  maxListeners: integer('max_listeners').notNull().default(100),
+  storageQuotaMb: integer('storage_quota_mb').notNull().default(5120),
   // Qué suena en las franjas sin programa: música, historias, ambas o nada (configurable por emisora)
   relleno: text('relleno', { enum: ['ninguno', 'musica', 'historias', 'musica_historias'] }).notNull().default('musica'),
   isMain: boolean('is_main').notNull().default(false),
@@ -475,6 +482,88 @@ export const programSlots = pgTable(
     isLive: boolean('is_live').notNull().default(false),
   },
   (t) => [index('program_slots_program_idx').on(t.programId)],
+);
+
+// Audios del AutoDJ de una emisora. El archivo vive en la radio-api (storage_key = nombre en disco).
+export const stationTracks = pgTable(
+  'station_tracks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    storageKey: text('storage_key').notNull(),
+    title: text('title').notNull(),
+    artist: text('artist'),
+    durationSec: integer('duration_sec'),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('station_tracks_key_idx').on(t.stationId, t.storageKey)],
+);
+
+// Playlists del AutoDJ. Modos (lenguaje del panel):
+// - rotacion: se mezcla con otras playlists según su peso (p. ej. 70 % música, 30 % historias)
+// - secuencial: suena en el orden fijo de la lista
+// - programada: solo suena en los horarios que se le asignan
+export const stationPlaylists = pgTable(
+  'station_playlists',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    mode: text('mode', { enum: ['rotacion', 'secuencial', 'programada'] }).notNull().default('rotacion'),
+    weight: smallint('weight').notNull().default(50), // 1–100, solo en modo rotación
+    shuffle: boolean('shuffle').notNull().default(true), // en rotación/programada: orden aleatorio
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('station_playlists_station_idx').on(t.stationId)],
+);
+
+export const playlistTracks = pgTable(
+  'playlist_tracks',
+  {
+    playlistId: uuid('playlist_id')
+      .notNull()
+      .references(() => stationPlaylists.id, { onDelete: 'cascade' }),
+    trackId: uuid('track_id')
+      .notNull()
+      .references(() => stationTracks.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.playlistId, t.trackId] }), index('playlist_tracks_position_idx').on(t.playlistId, t.position)],
+);
+
+export const playlistSchedules = pgTable(
+  'playlist_schedules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    playlistId: uuid('playlist_id')
+      .notNull()
+      .references(() => stationPlaylists.id, { onDelete: 'cascade' }),
+    dayOfWeek: smallint('day_of_week').notNull(), // 0 = domingo … 6 = sábado
+    startTime: time('start_time').notNull(),
+    endTime: time('end_time').notNull(),
+  },
+  (t) => [index('playlist_schedules_playlist_idx').on(t.playlistId)],
+);
+
+// Muestras de oyentes (una cada 1–5 min, leídas de Icecast por la radio-api)
+export const stationListenerSamples = pgTable(
+  'station_listener_samples',
+  {
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    sampledAt: timestamp('sampled_at', { withTimezone: true }).notNull(),
+    listeners: integer('listeners').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.stationId, t.sampledAt] })],
 );
 
 // Ajustes del sitio en pares clave/valor (donaciones: métodos y necesidades)

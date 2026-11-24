@@ -2,7 +2,7 @@
 // Vacío = mismo origen: Vite reenvía /api a la API. En producción se define VITE_API_URL.
 
 import { normalizarNombre } from './../lib/validaciones';
-import type { DatosMinisterioInput, HeroInput, AreaInput, PersonaInput, PostInput, ActividadInput, SerieInput, VideoInput, EnVivoInput, EmisoraInput, ProgramaInput, FranjaInput, DonacionMetodoInput, NecesidadInput } from '@luz/shared';
+import type { DatosMinisterioInput, HeroInput, AreaInput, PersonaInput, PostInput, ActividadInput, SerieInput, VideoInput, EnVivoInput, EmisoraInput, ProgramaInput, FranjaInput, DonacionMetodoInput, NecesidadInput, EmisionInput, PistaEditarInput, PlaylistInput } from '@luz/shared';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -260,6 +260,23 @@ export interface ApiPrograma {
   id: string; stationId: string; areaId: string | null; name: string; description: string | null; hostName: string | null;
   isActive: boolean; franjas: ApiFranja[];
 }
+// ---------- Radio: transmisión, pistas y playlists ----------
+export interface ApiTransmision {
+  mountPoint: string | null; livePasswordConfigurada: boolean; bitrateKbps: number; autodjEnabled: boolean;
+  maxListeners: number; storageQuotaMb: number; streamUrl: string | null;
+  locutor: { servidor: string; puerto: number; mount: string | null };
+}
+export interface ApiEstadoRadio {
+  radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number;
+}
+export interface ApiSincronizacion { estado: 'ok' | 'sin_transmision' | 'falta_contrasena' | 'radio_no_disponible' | 'error'; message?: string; status?: number }
+export interface ApiPista { id: string; stationId: string; storageKey: string; title: string; artist: string | null; durationSec: number | null; sizeBytes: number; createdAt: string }
+export interface ApiHorarioPlaylist { dayOfWeek: number; startTime: string; endTime: string }
+export interface ApiPlaylist {
+  id: string; stationId: string; name: string; description: string | null; mode: 'rotacion' | 'secuencial' | 'programada';
+  weight: number; shuffle: boolean; isActive: boolean; trackIds: string[]; schedules: ApiHorarioPlaylist[];
+}
+
 export interface ApiMetodoDonacion { id: 'qr' | 'bank' | 'paypal' | 'remittance'; title: string; detail: string; lines: string[]; }
 export interface ApiNecesidad { title: string; detail: string; }
 
@@ -481,6 +498,38 @@ export const luzApi = {
   deletePrograma(id: string) { return request(`/api/v1/radio/programas/${id}`, { method: 'DELETE' }); },
   createFranja(programaId: string, input: FranjaInput) { return request(`/api/v1/radio/programas/${programaId}/franjas`, { method: 'POST', body: json(input) }); },
   deleteFranja(id: string) { return request(`/api/v1/radio/franjas/${id}`, { method: 'DELETE' }); },
+  // Transmisión (locutor), pistas y playlists
+  getServicioRadio() { return request<ApiEstadoRadio>('/api/v1/radio/servicio'); },
+  async getTransmision(emisoraId: string): Promise<{ transmision: ApiTransmision; sincronizado?: ApiSincronizacion }> {
+    return request(`/api/v1/radio/emisoras/${emisoraId}/transmision`);
+  },
+  saveTransmision(emisoraId: string, input: EmisionInput) {
+    return request<{ transmision: ApiTransmision; sincronizado: ApiSincronizacion }>(`/api/v1/radio/emisoras/${emisoraId}/transmision`, { method: 'PUT', body: json(input) });
+  },
+  sincronizarRadio(emisoraId: string) {
+    return request(`/api/v1/radio/emisoras/${emisoraId}/sincronizar`, { method: 'POST' });
+  },
+  async listPistas(emisoraId: string): Promise<{ pistas: ApiPista[]; espacioUsadoBytes: number; espacioCuotaBytes: number }> {
+    return request(`/api/v1/radio/emisoras/${emisoraId}/pistas`);
+  },
+  importarPistas(emisoraId: string) {
+    return request<{ importadas: number; total: number }>(`/api/v1/radio/emisoras/${emisoraId}/pistas/importar`, { method: 'POST' });
+  },
+  async subirPista(emisoraId: string, archivo: File) {
+    const cuerpo = new FormData();
+    cuerpo.append('file', archivo);
+    const res = await fetch(`${API_URL}/api/v1/radio/emisoras/${emisoraId}/pistas`, { method: 'POST', body: cuerpo, credentials: 'include' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiRequestError(data?.message ?? MENSAJES_ERROR[data?.error] ?? `Error ${res.status}`, res.status);
+    return data;
+  },
+  editarPista(id: string, input: PistaEditarInput) { return request(`/api/v1/radio/pistas/${id}`, { method: 'PATCH', body: json(input) }); },
+  borrarPista(id: string) { return request(`/api/v1/radio/pistas/${id}`, { method: 'DELETE' }); },
+  async listPlaylists(emisoraId: string): Promise<ApiPlaylist[]> { return (await request<{ playlists: ApiPlaylist[] }>(`/api/v1/radio/emisoras/${emisoraId}/playlists`)).playlists; },
+  createPlaylist(emisoraId: string, input: PlaylistInput) { return request(`/api/v1/radio/emisoras/${emisoraId}/playlists`, { method: 'POST', body: json(input) }); },
+  updatePlaylist(id: string, input: PlaylistInput) { return request(`/api/v1/radio/playlists/${id}`, { method: 'PUT', body: json(input) }); },
+  deletePlaylist(id: string) { return request(`/api/v1/radio/playlists/${id}`, { method: 'DELETE' }); },
+
 
   getDonaciones(): Promise<{ metodos: ApiMetodoDonacion[]; necesidades: ApiNecesidad[] }> { return request('/api/v1/donaciones'); },
   setMetodosDonacion(metodos: DonacionMetodoInput[]) { return request('/api/v1/donaciones/metodos', { method: 'PUT', body: json(metodos) }); },
