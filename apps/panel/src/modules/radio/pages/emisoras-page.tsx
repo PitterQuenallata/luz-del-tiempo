@@ -12,9 +12,10 @@ import { irA } from '../../gestion/lib/navegar';
 import { FranjaDialog } from '../components/franja-dialog';
 import { ProgramaDialog } from '../components/programa-dialog';
 import { ProgramacionCalendario } from '../components/programacion-calendario';
+import { MusicaPanel } from '../components/musica-panel';
 import { RELLENO_ETIQUETA } from '@luz/shared';
 
-type Pestana = 'emisoras' | 'programacion';
+type Pestana = 'emisoras' | 'programacion' | 'musica';
 
 const ETIQUETA_ESTADO: Record<string, string> = { active: 'Activa', suspended: 'Suspendida', disabled: 'Deshabilitada' };
 
@@ -27,6 +28,7 @@ export const EmisorasPage: React.FC = () => {
   const pestanas: { id: Pestana; label: string }[] = [
     { id: 'emisoras', label: 'Emisoras' },
     { id: 'programacion', label: 'Programación' },
+    { id: 'musica', label: 'Música (AutoDJ)' },
   ];
 
   const borrar = async (e: ApiEmisora) => {
@@ -121,6 +123,7 @@ export const EmisorasPage: React.FC = () => {
       )}
 
       {pestana === 'programacion' && <ProgramacionTab emisoras={emisoras.data ?? []} />}
+      {pestana === 'musica' && <MusicaPanel emisoras={emisoras.data ?? []} />}
     </div>
   );
 };

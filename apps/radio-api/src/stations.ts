@@ -29,6 +29,8 @@ export interface Estacion {
   enabled: boolean;
   max_listeners: number;
   storage_quota_mb: number;
+  /** Modo, peso y horarios de cada playlist (la lista de pistas está en su .m3u) */
+  playlists?: import('./playlists.js').PlaylistMeta[];
 }
 
 const archivo = () => path.join(config.configDir, 'stations.json');
@@ -36,7 +38,8 @@ const archivo = () => path.join(config.configDir, 'stations.json');
 export async function leerEstaciones(): Promise<Estacion[]> {
   try {
     const datos = JSON.parse(await readFile(archivo(), 'utf8')) as { stations?: Estacion[] };
-    return datos.stations ?? [];
+    // Estaciones guardadas antes de las playlists: siempre con lista (Liquidsoap la necesita)
+    return (datos.stations ?? []).map((s) => ({ ...s, playlists: s.playlists ?? [] }));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw err;
@@ -44,7 +47,7 @@ export async function leerEstaciones(): Promise<Estacion[]> {
 }
 
 /** Escritura atómica: Liquidsoap nunca lee un archivo a medias. */
-async function guardarEstaciones(estaciones: Estacion[]): Promise<void> {
+export async function guardarEstaciones(estaciones: Estacion[]): Promise<void> {
   await mkdir(config.configDir, { recursive: true });
   const tmp = `${archivo()}.tmp`;
   await writeFile(tmp, JSON.stringify({ stations: estaciones }, null, 2));
@@ -53,7 +56,7 @@ async function guardarEstaciones(estaciones: Estacion[]): Promise<void> {
 
 // Serializa los cambios para que dos peticiones simultáneas no se pisen.
 let cola: Promise<unknown> = Promise.resolve();
-function enCola<T>(fn: () => Promise<T>): Promise<T> {
+export function enCola<T>(fn: () => Promise<T>): Promise<T> {
   const siguiente = cola.then(fn, fn);
   cola = siguiente.catch(() => undefined);
   return siguiente;
@@ -75,6 +78,7 @@ export function guardarEstacion(slug: string, e: EstacionEntrada) {
       enabled: e.enabled,
       max_listeners: e.maxListeners,
       storage_quota_mb: e.storageQuotaMb,
+      playlists: estaciones.find((s) => s.slug === slug)?.playlists ?? [],
     };
     const i = estaciones.findIndex((s) => s.slug === slug);
     const creada = i === -1;

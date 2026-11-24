@@ -15,11 +15,13 @@ interface DialogoContenidoProps {
   enviando: boolean;
   textoBoton: string;
   children: React.ReactNode;
+  /** Solo en ventana emergente: ancho del diálogo. Por defecto 'lg' (como antes). */
+  ancho?: 'lg' | 'xl';
 }
 
 // Contenedor común de los formularios de contenido.
 export const DialogoContenido: React.FC<DialogoContenidoProps> = ({
-  titulo, onClose, onSubmit, puedeEnviar, enviando, textoBoton, children,
+  titulo, onClose, onSubmit, puedeEnviar, enviando, textoBoton, children, ancho = 'lg',
 }) => {
   const modo = useContext(ModoEdicion);
   const formulario = (
@@ -32,7 +34,7 @@ export const DialogoContenido: React.FC<DialogoContenidoProps> = ({
       onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); onSubmit(e); }}
       className={
         modo === 'modal'
-          ? 'flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-xl'
+          ? `flex max-h-[90vh] w-full ${ancho === 'xl' ? 'max-w-3xl' : 'max-w-lg'} flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-xl`
           : 'mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card text-card-foreground shadow-xs'
       }
     >

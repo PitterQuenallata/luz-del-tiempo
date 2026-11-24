@@ -69,6 +69,7 @@ const ActividadesPage = withSuspense(lazy(() => import('../../modules/actividade
 const VideosPage = withSuspense(lazy(() => import('../../modules/videos/pages/videos-page').then((m) => ({ default: m.VideosPage }))));
 const EnVivoPage = withSuspense(lazy(() => import('../../modules/en-vivo/pages/en-vivo-page').then((m) => ({ default: m.EnVivoPage }))));
 const EmisorasPage = withSuspense(lazy(() => import('../../modules/radio/pages/emisoras-page').then((m) => ({ default: m.EmisorasPage }))));
+const ConfiguracionRadioPage = withSuspense(lazy(() => import('../../modules/radio/pages/configuracion-radio-page').then((m) => ({ default: m.ConfiguracionRadioPage }))));
 const DonacionesPage = withSuspense(lazy(() => import('../../modules/donaciones/pages/donaciones-page').then((m) => ({ default: m.DonacionesPage }))));
 const ContenidoPage = withSuspense(lazy(() => import('../../modules/contenido/pages/contenido-page').then((m) => ({ default: m.ContenidoPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
@@ -177,6 +178,7 @@ const rutasGestion = [
   { path: '/videos/$id', component: paginaEdicion('VideoEdicionPage'), permiso: 'contenido:editar' },
   { path: '/en-vivo', component: EnVivoPage, permiso: 'contenido:editar' },
   { path: '/emisoras', component: EmisorasPage, permiso: 'estaciones:todas' },
+  { path: '/configuracion-radio', component: ConfiguracionRadioPage, permiso: 'estaciones:todas' },
   { path: '/emisoras/nueva', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
   { path: '/emisoras/$id', component: paginaEdicion('EmisoraEdicionPage'), permiso: 'estaciones:todas' },
   { path: '/emisoras/$id/programas/nuevo', component: paginaEdicion('ProgramaEdicionPage'), permiso: 'estaciones:todas' },

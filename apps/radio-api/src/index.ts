@@ -3,16 +3,20 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { config } from './config.js';
+import { radioApiOpenApi } from './openapi.js';
 import { estadoApagado, estadoIcecast } from './icecast.js';
 import {
   estacionEntradaSchema,
   guardarEstacion,
+  enCola,
+  guardarEstaciones,
   leerEstaciones,
   quitarEstacion,
   sinSecretos,
   slugSchema,
 } from './stations.js';
 import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro } from './tracks.js';
+import { guardarPlaylists, leerPistasDePlaylist, pistasFaltantes, playlistsSchema } from './playlists.js';
 
 /**
  * API 2 (radio-api). Solo la API 1 le habla, con un token interno.
@@ -21,6 +25,27 @@ import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nom
 const app = new Hono();
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
+
+// Documentación (Swagger UI). Pública porque no tiene datos sensibles; la API solo es alcanzable desde la red interna.
+app.get('/openapi.json', (c) => c.json(radioApiOpenApi));
+app.get('/docs', (c) =>
+  c.html(`<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>radio-api · Documentación</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.18.2/swagger-ui.css" />
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({ url: '/openapi.json', dom_id: '#swagger-ui', deepLinking: true });
+  </script>
+</body>
+</html>`),
+);
 
 // --- Token interno -------------------------------------------------------
 const tokenEsperado = Buffer.from(config.token);
@@ -127,10 +152,44 @@ app.delete('/v1/stations/:slug/tracks/:file', async (c) => {
   return ok ? c.body(null, 204) : c.json({ error: 'no_existe' }, 404);
 });
 
+// --- Playlists del AutoDJ --------------------------------------------------
+// Reemplazo completo: la API 1 manda todas las playlists de la estación.
+app.get('/v1/stations/:slug/playlists', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  const playlists = await Promise.all(
+    (e.playlists ?? []).map(async (p) => ({ ...p, tracks: (await leerPistasDePlaylist(slug, p.id)) ?? [] })),
+  );
+  return c.json({ playlists });
+});
+
+app.put('/v1/stations/:slug/playlists', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  const datos = playlistsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!datos.success) return c.json({ error: 'datos_invalidos', issues: datos.error.issues }, 400);
+
+  const ids = datos.data.playlists.map((p) => p.id);
+  if (new Set(ids).size !== ids.length) return c.json({ error: 'id_repetido' }, 400);
+
+  const faltantes = await pistasFaltantes(slug, datos.data.playlists);
+  if (faltantes.length) return c.json({ error: 'pistas_no_existen', faltantes }, 422);
+
+  const r = await guardarPlaylists(slug, datos.data.playlists);
+  if ('error' in r) return c.json({ error: r.error }, 404);
+  return c.json({ playlists: r.playlists, liquidsoapReiniciado: r.cambioConfig }, 200);
+});
+
 app.onError((err, c) => {
   console.error(`[radio-api] ${c.req.method} ${c.req.path}`, err);
   return c.json({ error: 'error_interno' }, 500);
 });
+
+// Al arrancar: stations.json siempre con la lista de playlists (Liquidsoap la necesita)
+const estacionesIniciales = await leerEstaciones();
+if (estacionesIniciales.length) await enCola(() => guardarEstaciones(estacionesIniciales));
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`radio-api en http://localhost:${info.port}`);

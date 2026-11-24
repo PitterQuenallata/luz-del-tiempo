@@ -1,6 +1,6 @@
-import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, LucideIcon } from 'lucide-react';
 
-export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion';
+export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion' | 'configuracion';
 
 export interface NavigationCategory {
   key: NavigationCategoryKey;
@@ -12,6 +12,7 @@ export const navigationCategories: NavigationCategory[] = [
   { key: 'sitio', title: 'Sitio web' },
   { key: 'radio', title: 'Radio' },
   { key: 'administracion', title: 'Administración' },
+  { key: 'configuracion', title: 'Configuración' },
 ];
 
 export interface NavItem {
@@ -35,6 +36,7 @@ export const navItems: NavItem[] = [
   { id: 'en-vivo', title: 'En vivo', path: '/en-vivo', icon: RadioTower, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: 'estaciones:todas' },
+  { id: 'configuracion-radio', title: 'Radio', path: '/configuracion-radio', icon: Settings2, category: 'configuracion', permiso: 'estaciones:todas' },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
   { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },
   { id: 'logs', title: 'Auditoría', path: '/logs', icon: ScrollText, category: 'administracion', permiso: 'logs:ver' },
