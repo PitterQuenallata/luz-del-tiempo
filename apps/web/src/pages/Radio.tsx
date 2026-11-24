@@ -2,7 +2,7 @@ import { CalendarDays, Users } from "lucide-react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { useEffect } from "react";
 import { Link } from "react-router";
-import { useSchedule, useStations } from "../api";
+import { useEmisorasPublicas, useSchedule, useStations } from "../api";
 import type { Station } from "../api/types";
 import { absoluta, Seo } from "../components/Seo";
 import { Equalizer } from "../components/ui/Equalizer";
@@ -243,6 +243,8 @@ export default function Radio() {
           </div>
         </section>
       )}
+
+      <EmisorasDeTerceros />
     </>
   );
 }
@@ -284,5 +286,33 @@ function RadioSkeleton() {
         </span>
       </section>
     </SkeletonRegion>
+  );
+}
+
+// Emisoras de otras organizaciones: cada una tiene su propia página (/emisora/:slug), no se mezclan con las de Luz del Tiempo.
+function EmisorasDeTerceros() {
+  const { data: emisoras = [] } = useEmisorasPublicas();
+  if (!emisoras.length) return null;
+  return (
+    <section className="contenedor flex flex-col gap-4 pb-14">
+      <RowHeading title="Otras emisoras" />
+      <p className="-mt-2 text-sm text-niebla-300">Emisoras de otras organizaciones que transmiten con nosotros</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {emisoras.map((e) => (
+          <Link key={e.slug} to={`/emisora/${e.slug}`} className="flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-noche-900 transition-colors hover:border-white/25">
+            <span className="relative flex aspect-[16/8] items-end overflow-hidden p-4" style={{ background: e.art }}>
+              <SmartImage src={e.imageUrl} alt="" sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="absolute inset-0 h-full w-full object-cover" />
+              <span className="absolute inset-0 bg-gradient-to-t from-noche-900/85 to-transparent" />
+              <span className="relative font-serif text-2xl font-semibold uppercase">{e.genre}</span>
+            </span>
+            <span className="flex flex-col gap-1 p-4">
+              <span className="titulo text-lg">{e.name}</span>
+              <span className="text-sm text-niebla-200">{e.description}</span>
+              <span className="text-xs text-niebla-300">{e.online ? "En vivo" : "Fuera del aire"}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

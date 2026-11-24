@@ -4,7 +4,7 @@
  * En desarrollo, VITE_API_URL apunta a http://localhost:4000/api/v1.
  */
 import { useQuery } from "@tanstack/react-query";
-import type { Activity, ActivityDetail, AgendaFiltros, Area, DonationMethod, HeroSlide, LiveStatus, MinistryNeed, Person, Post, ScheduleItem, SiteInfo, Station, Video } from "./types";
+import type { Activity, ActivityDetail, AgendaFiltros, Area, DonationMethod, HeroSlide, LiveStatus, MinistryNeed, Person, Post, PublicEmisora, ScheduleItem, SiteInfo, Station, Video } from "./types";
 
 const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api/v1").replace(/\/$/, "");
 // Origen de la API: las imágenes que guarda llegan como /api/v1/... y se completan con este origen
@@ -90,6 +90,12 @@ export const api = {
   live: () => leer<LiveStatus>("/public/live"),
   stations: async (): Promise<Station[]> =>
     (await leer<Station[]>("/public/stations")).map((s) => ({ ...s, imageUrl: imagen(s.imageUrl) })),
+  emisorasPublicas: async (): Promise<PublicEmisora[]> =>
+    (await leer<PublicEmisora[]>("/public/emisoras")).map((e) => ({ ...e, imageUrl: imagen(e.imageUrl) })),
+  emisoraPublica: async (slug: string): Promise<PublicEmisora | null> => {
+    const e = await leerOpcional<PublicEmisora>(`/public/emisoras/${slug}`);
+    return e && { ...e, imageUrl: imagen(e.imageUrl) };
+  },
   schedule: () => leer<ScheduleItem[]>("/public/schedule/today"),
   scheduleDay: (day: number) => leer<ScheduleItem[]>(`/public/schedule?day=${day}`),
   donationMethods: () => leer<DonationMethod[]>("/public/donations/methods"),
@@ -102,6 +108,8 @@ export const useArea = (slug: string) => useQuery({ queryKey: ["area", slug], qu
 export const useSlides = () => useQuery({ queryKey: ["slides"], queryFn: api.slides });
 export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.people });
 export const useStations = () => useQuery({ queryKey: ["stations"], queryFn: api.stations });
+export const useEmisorasPublicas = () => useQuery({ queryKey: ["emisoras-publicas"], queryFn: api.emisorasPublicas });
+export const useEmisoraPublica = (slug: string) => useQuery({ queryKey: ["emisora-publica", slug], queryFn: () => api.emisoraPublica(slug), refetchInterval: 30_000 });
 export const useActivities = (filtros: AgendaQuery = {}) => useQuery({ queryKey: ["activities", filtros], queryFn: () => api.activities(filtros) });
 export const useActivity = (slug: string) => useQuery({ queryKey: ["activity", slug], queryFn: () => api.activity(slug) });
 export const useAgendaFiltros = () => useQuery({ queryKey: ["agenda-filtros"], queryFn: api.agendaFiltros });

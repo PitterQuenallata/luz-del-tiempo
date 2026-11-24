@@ -20,6 +20,7 @@ const paginas = {
   ComingSoon: () => import("./pages/ComingSoon"),
   Contacto: () => import("./pages/Contacto"),
   Donar: () => import("./pages/Donar"),
+  Emisora: () => import("./pages/Emisora"),
   Noticia: () => import("./pages/Noticia"),
   Noticias: () => import("./pages/Noticias"),
   Nosotros: () => import("./pages/Nosotros"),
@@ -34,6 +35,7 @@ const Areas = lazy(paginas.Areas);
 const ComingSoon = lazy(paginas.ComingSoon);
 const Contacto = lazy(paginas.Contacto);
 const Donar = lazy(paginas.Donar);
+const Emisora = lazy(paginas.Emisora);
 const Noticia = lazy(paginas.Noticia);
 const Noticias = lazy(paginas.Noticias);
 const Nosotros = lazy(paginas.Nosotros);
@@ -85,6 +87,7 @@ createRoot(document.getElementById("root")!).render(
               <Route element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="radio" element={<Radio />} />
+                <Route path="emisora/:slug" element={<Emisora />} />
                 <Route path="programacion" element={<Programacion />} />
                 <Route path="videos" element={<Videos />} />
                 <Route path="noticias" element={<Noticias />} />

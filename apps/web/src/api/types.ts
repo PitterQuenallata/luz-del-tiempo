@@ -21,6 +21,22 @@ export type Area = {
   eventEnabled: boolean;
 };
 
+/** Emisora de un tercero: página propia con su única estación. */
+export type PublicEmisora = {
+  slug: string;
+  name: string;
+  description: string;
+  genre: string;
+  imageUrl: string | null;
+  color: string;
+  art: string;
+  streamUrl: string;
+  nowPlaying: string | null;
+  listeners: number;
+  online: boolean;
+  estacionSlug: string;
+};
+
 export type Station = {
   slug: string;
   /** La radio principal (Radio La Luz del Tiempo). Las demás son emisoras temáticas. */
