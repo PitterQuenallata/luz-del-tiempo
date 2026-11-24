@@ -92,6 +92,13 @@
       "when": 1795482738304,
       "tag": "0012_radio_transmision",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795525680508,
+      "tag": "0013_emisor_sesiones",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { bearer } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema.js';
@@ -18,6 +19,9 @@ export const auth = betterAuth({
   // Contraseña inicial de los usuarios del panel = apellido (puede ser corto)
   // Las cuentas las crea un administrador: no se inicia sesión al crearlas (no cuenta como actividad).
   emailAndPassword: { enabled: true, minPasswordLength: 4, autoSignIn: false },
+  // El emisor de Windows no usa cookies: inicia sesión y recibe un token (cabecera set-auth-token)
+  // que manda después como "Authorization: Bearer <token>"
+  plugins: [bearer()],
   databaseHooks: {
     account: {
       update: {

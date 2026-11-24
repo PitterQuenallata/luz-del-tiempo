@@ -48,6 +48,9 @@ pub struct Ajustes {
     pub retomar_transmision: bool,
     /// Segundos de cuenta regresiva antes de salir al aire (0 = sin cuenta)
     pub cuenta_regresiva: u32,
+    /// Mount de Icecast donde escuchan los oyentes, si difiere del de locutores (viene de la emisora elegida)
+    #[serde(skip)]
+    pub mount_oyentes: Option<String>,
 }
 
 impl Default for Ajustes {
@@ -73,6 +76,7 @@ impl Default for Ajustes {
             iniciar_con_windows: true,
             retomar_transmision: true,
             cuenta_regresiva: 5,
+            mount_oyentes: None,
         }
     }
 }
@@ -161,10 +165,13 @@ pub fn vista(app: &AppHandle) -> AjustesVista {
 pub fn guardar(app: &AppHandle, e: AjustesEntrada) -> Result<(), String> {
     let servidor = e.servidor.trim().to_string();
     let mount = e.mount.trim().to_string();
-    if servidor.is_empty() {
+    // Con sesión del panel la conexión viene de la emisora: la manual puede quedar vacía
+    let manual_vacia = servidor.is_empty() && (mount.is_empty() || mount == "/");
+    if servidor.is_empty() && !manual_vacia {
         return Err("Escribe la dirección del servidor de radio (por ejemplo 192.168.1.11).".into());
     }
-    if !mount.starts_with('/') || mount.len() < 2 {
+    let mount = if manual_vacia { String::new() } else { mount };
+    if !manual_vacia && (!mount.starts_with('/') || mount.len() < 2) {
         return Err("El mount debe empezar con / (por ejemplo /principal).".into());
     }
     if e.puerto == 0 || e.puerto_oyentes == 0 {
@@ -209,6 +216,7 @@ pub fn guardar(app: &AppHandle, e: AjustesEntrada) -> Result<(), String> {
         iniciar_con_windows: e.iniciar_con_windows,
         retomar_transmision: e.retomar_transmision,
         cuenta_regresiva: e.cuenta_regresiva,
+        mount_oyentes: None,
     };
     let json = serde_json::to_string_pretty(&ajustes).map_err(|e| e.to_string())?;
     fs::write(archivo(app)?, json).map_err(|e| e.to_string())?;

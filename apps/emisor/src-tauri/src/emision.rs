@@ -471,7 +471,7 @@ fn medidores<N: Notificador>(
 
         if ultimo_oyentes.elapsed() >= Duration::from_secs(10) {
             ultimo_oyentes = Instant::now();
-            n.oyentes(icecast::sondear(&a.servidor, a.puerto_oyentes, &a.mount));
+            n.oyentes(icecast::sondear(&a.servidor, a.puerto_oyentes, a.mount_oyentes.as_deref().unwrap_or(&a.mount)));
         }
         std::thread::sleep(Duration::from_millis(100));
     }

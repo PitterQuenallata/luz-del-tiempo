@@ -22,6 +22,7 @@ export const PERMISOS: PermisoDef[] = [
   { key: 'contenido:editar', descripcion: 'Noticias, áreas, actividades, videos y en vivo', roles: ['superadmin', 'admin', 'editor'], aplicado: true },
   { key: 'donaciones:ver', descripcion: 'Donaciones', roles: ['superadmin', 'admin'], aplicado: true },
   { key: 'estaciones:todas', descripcion: 'Ver y gestionar todas las estaciones', roles: ['superadmin', 'admin'], aplicado: true },
+  { key: 'radio:transmitir', descripcion: 'Transmitir en vivo con el emisor de Windows', roles: ['superadmin', 'admin', 'station_operator'], aplicado: true },
   { key: 'estacion:propia', descripcion: 'Gestionar solo su estación', roles: ['station_operator'], aplicado: false },
   { key: 'servidores:configurar', descripcion: 'Servidores, Icecast/Liquidsoap y límites', roles: ['superadmin'], aplicado: false },
 ];

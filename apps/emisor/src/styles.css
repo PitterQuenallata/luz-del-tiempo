@@ -340,3 +340,27 @@ body.cuerpo-mini, body.cuerpo-mini #root { background: var(--superficie); overfl
 .cuenta { display: flex; align-items: baseline; gap: 10px; }
 .cuenta-numero { font-size: 46px; font-weight: 600; line-height: 1; }
 .cuenta-texto { color: var(--texto-2); }
+
+/* ---------- Cuenta y emisora ---------- */
+
+.emisora { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--borde); }
+.programa { font-size: 13px; }
+.programa .tenue { margin-right: 6px; }
+.formulario-sesion { display: flex; flex-direction: column; gap: 12px; }
+.inicio-sesion { max-width: 380px; width: 100%; margin: 0 auto; padding-top: 48px; display: flex; flex-direction: column; gap: 14px; }
+.inicio-sesion .marca-nombre { font-size: 18px; }
+.inicio-sesion-texto { font-size: 13px; line-height: 1.5; }
+.boton-texto {
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: var(--texto-2);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.boton-texto:hover { color: var(--texto); }
+.boton-texto:focus-visible { outline: 2px solid var(--dorado); outline-offset: 2px; }
+.formulario-sesion .boton.grande { flex: none; margin-top: 4px; }

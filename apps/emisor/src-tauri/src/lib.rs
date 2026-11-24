@@ -1,6 +1,7 @@
 // Emisor de La Luz del Tiempo: comandos que llama la interfaz y avisos del motor hacia las ventanas.
 pub mod ajustes;
 pub mod audio;
+pub mod cuenta;
 pub mod emision;
 pub mod historial;
 pub mod icecast;
@@ -40,6 +41,13 @@ pub struct Resumen {
     pub oyentes: Option<u32>,
     /// MP3 que se está grabando
     pub grabacion: Option<String>,
+    /// Contadores de esta emisión (se informan al panel)
+    pub cortes: u32,
+    pub silencios: u32,
+    pub saturaciones: u32,
+    pub kbps: u32,
+    /// Programa que corresponde ahora según la programación del panel
+    pub programa: Option<String>,
     #[serde(skip)]
     en_corte: bool,
     #[serde(skip)]
@@ -142,6 +150,9 @@ impl Notificador for AppHandle {
         let _ = self.emit("estado", EstadoEmision { estado: estado.into(), mensaje });
     }
     fn medidores(&self, m: Medidores) {
+        if let Ok(mut r) = self.state::<Estado>().resumen.lock() {
+            r.kbps = m.kbps;
+        }
         let _ = self.emit("medidores", m);
     }
     fn oyentes(&self, sondeo: Sondeo) {
@@ -153,6 +164,14 @@ impl Notificador for AppHandle {
     fn anotar(&self, tipo: &str, mensaje: &str) {
         if let Some(dir) = carpeta_datos(self) {
             historial::anotar(&dir, tipo, mensaje);
+        }
+        if let Ok(mut r) = self.state::<Estado>().resumen.lock() {
+            match tipo {
+                "corte" => r.cortes += 1,
+                "silencio" => r.silencios += 1,
+                "saturacion" => r.saturaciones += 1,
+                _ => {}
+            }
         }
         let _ = self.emit("historial", ());
     }
@@ -245,6 +264,29 @@ fn prueba_detener(estado: State<'_, Estado>) {
     }
 }
 
+/// Ajustes con los que se sale al aire y la contraseña del locutor.
+/// Con sesión del panel, la conexión es la de la emisora elegida; sin sesión, la configurada a mano.
+fn ajustes_efectivos(app: &AppHandle) -> Result<(ajustes::Ajustes, String, Option<cuenta::Emisora>), String> {
+    let mut a = ajustes::cargar(app);
+    if cuenta::con_sesion() {
+        let em = cuenta::emisora_elegida(app).ok_or("Elige una emisora en la pantalla de Transmisión.")?;
+        let clave = cuenta::contrasena_emisora(&em.id)
+            .ok_or("Falta la contraseña de esta emisora. Pulsa «Actualizar emisoras» con conexión al panel.")?;
+        a.servidor = em.servidor.clone();
+        a.puerto = em.puerto;
+        a.mount = em.mount.clone();
+        a.puerto_oyentes = em.puerto_oyentes;
+        a.mount_oyentes = em.mount_oyentes.clone();
+        a.nombre_emision = em.nombre.clone();
+        return Ok((a, clave, Some(em)));
+    }
+    if a.servidor.is_empty() || a.mount.is_empty() {
+        return Err("Inicia sesión o completa la conexión manual en Configuración.".into());
+    }
+    let clave = ajustes::contrasena().ok_or("Falta la contraseña del locutor. Guárdala en Configuración.")?;
+    Ok((a, clave, None))
+}
+
 #[tauri::command]
 fn emision_iniciar(app: AppHandle) -> Result<(), String> {
     iniciar_emision(&app)
@@ -257,17 +299,13 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
     if actual.as_ref().is_some_and(|e| !e.stop.load(Ordering::Relaxed)) {
         return Err("Ya estás al aire.".into());
     }
-    let ajustes = ajustes::cargar(app);
-    if ajustes.servidor.is_empty() || ajustes.mount.is_empty() {
-        return Err("Completa la configuración antes de salir al aire.".into());
-    }
+    let (ajustes, clave, emisora) = ajustes_efectivos(app)?;
     // Si la prueba de nivel sigue abierta, se cierra antes de salir al aire
     if let Ok(mut prueba) = estado.prueba.lock() {
         if let Some(stop) = prueba.take() {
             stop.store(true, Ordering::Relaxed);
         }
     }
-    let clave = ajustes::contrasena().ok_or("Falta la contraseña del locutor. Guárdala en Configuración.")?;
     let fuente = ajustes
         .dispositivo
         .as_deref()
@@ -279,9 +317,18 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
     );
     if let Ok(mut r) = estado.resumen.lock() {
         r.silencio = false;
+        r.cortes = 0;
+        r.silencios = 0;
+        r.saturaciones = 0;
+        r.kbps = 0;
+        r.programa = emisora.as_ref().and_then(|e| e.programa.as_ref().map(|p| p.nombre.clone()));
     }
+    let conexion = (ajustes.servidor.clone(), ajustes.puerto, ajustes.mount.clone(), clave.clone());
     match emision::iniciar(ajustes, clave, app.clone()) {
         Ok(e) => {
+            if let Some(em) = emisora {
+                avisar_al_panel(app.clone(), em, conexion, e.stop.clone());
+            }
             *actual = Some(e);
             Ok(())
         }
@@ -290,6 +337,79 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
             Err(e)
         }
     }
+}
+
+/// Mientras dura la transmisión: avisa al panel (al empezar, cada 30 s y al terminar) y pone el nombre
+/// del programa como título de la radio. Si el panel no responde, la transmisión sigue igual.
+fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, conexion: (String, u16, String, String), stop: Arc<AtomicBool>) {
+    let Some(avisos) = cuenta::Avisos::nuevo(&app) else { return };
+    std::thread::spawn(move || {
+        let (servidor, puerto, mount, clave) = conexion;
+        let mut id: Option<String> = None;
+        let mut programa: Option<String> = emisora.programa.as_ref().map(|p| p.nombre.clone());
+        let mut titulo_enviado: Option<String> = None;
+        let mut ultimo_aviso: Option<std::time::Instant> = None;
+        let resumen = || app.state::<Estado>().resumen.lock().map(|r| r.clone()).unwrap_or_default();
+        loop {
+            if stop.load(Ordering::Relaxed) {
+                // Se espera el mensaje final (p. ej. "Se soltó el aire al AutoDJ…") para el cierre
+                for _ in 0..10 {
+                    if !resumen().transmitiendo() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(200));
+                }
+                if let Some(id) = &id {
+                    avisos.cerrar(id, &resumen().mensaje);
+                }
+                break;
+            }
+            if ultimo_aviso.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
+                ultimo_aviso = Some(std::time::Instant::now());
+                match &id {
+                    None => {
+                        if let Some((nuevo, p)) = avisos.abrir(&emisora.id, programa.as_deref()) {
+                            id = Some(nuevo);
+                            if let Some(p) = p {
+                                programa = Some(p.nombre);
+                            }
+                        }
+                    }
+                    Some(actual) => {
+                        let r = resumen();
+                        let cuerpo = serde_json::json!({
+                            "estado": if r.estado == "al_aire" { "al_aire" } else if r.estado == "reconectando" { "reconectando" } else { "conectando" },
+                            "kbps": r.kbps,
+                            "cortes": r.cortes,
+                            "silencios": r.silencios,
+                            "saturaciones": r.saturaciones,
+                        });
+                        if let Some(p) = avisos.avisar(actual, &cuerpo) {
+                            programa = p.map(|p| p.nombre);
+                        }
+                    }
+                }
+                if let Ok(mut r) = app.state::<Estado>().resumen.lock() {
+                    if r.programa != programa {
+                        r.programa = programa.clone();
+                        let _ = app.emit("programa", programa.clone());
+                    }
+                }
+            }
+            // Título de la radio: al quedar al aire y cada vez que cambia el programa (o tras reconectar)
+            let al_aire = resumen().estado == "al_aire";
+            if !al_aire {
+                titulo_enviado = None;
+            } else {
+                let deseado = programa.clone().unwrap_or_else(|| format!("En vivo · {}", emisora.nombre));
+                if titulo_enviado.as_deref() != Some(&deseado) {
+                    cuenta::enviar_titulo(&servidor, puerto, &mount, &clave, &deseado);
+                    titulo_enviado = Some(deseado);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    });
 }
 
 fn detener_emision(estado: &Estado) {
@@ -325,12 +445,66 @@ fn estado_actual(estado: State<'_, Estado>) -> Resumen {
 }
 
 #[tauri::command]
-fn probar_servidor(app: AppHandle) -> Sondeo {
-    let a = ajustes::cargar(&app);
-    if a.servidor.is_empty() {
-        return Sondeo { alcanzable: false, mount_en_linea: false, oyentes: None };
+async fn probar_servidor(app: AppHandle) -> Sondeo {
+    tauri::async_runtime::spawn_blocking(move || {
+        let a = match ajustes_efectivos(&app) {
+            Ok((a, _, _)) => a,
+            Err(_) => ajustes::cargar(&app),
+        };
+        if a.servidor.is_empty() {
+            return Sondeo { alcanzable: false, mount_en_linea: false, oyentes: None };
+        }
+        icecast::sondear(&a.servidor, a.puerto_oyentes, a.mount_oyentes.as_deref().unwrap_or(&a.mount))
+    })
+    .await
+    .unwrap_or(Sondeo { alcanzable: false, mount_en_linea: false, oyentes: None })
+}
+
+// ---------- Cuenta del panel ----------
+
+/// Las llamadas a la red no deben congelar la ventana: se hacen en un hilo aparte
+async fn en_segundo_plano<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn cuenta_estado(app: AppHandle) -> cuenta::CuentaVista {
+    cuenta::vista(&app, false)
+}
+
+#[tauri::command]
+async fn cuenta_iniciar(app: AppHandle, api_url: String, email: String, contrasena: String) -> Result<cuenta::CuentaVista, String> {
+    en_segundo_plano(move || {
+        let v = cuenta::iniciar_sesion(&app, &api_url, &email, &contrasena)?;
+        app.anotar("inicio", &format!("Sesión iniciada en el panel como {}", v.cuenta.email));
+        Ok(v)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn cuenta_cerrar(app: AppHandle) -> Result<(), String> {
+    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+        return Err("Termina la transmisión antes de cerrar la sesión.".into());
     }
-    icecast::sondear(&a.servidor, a.puerto_oyentes, &a.mount)
+    en_segundo_plano(move || {
+        cuenta::cerrar_sesion(&app);
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn emisoras_actualizar(app: AppHandle) -> Result<cuenta::CuentaVista, String> {
+    en_segundo_plano(move || cuenta::actualizar_emisoras(&app)).await
+}
+
+#[tauri::command]
+fn emisora_elegir(app: AppHandle, id: String) -> Result<cuenta::CuentaVista, String> {
+    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+        return Err("Termina la transmisión antes de cambiar de emisora.".into());
+    }
+    cuenta::elegir_emisora(&app, &id)
 }
 
 #[tauri::command]
@@ -408,6 +582,13 @@ pub fn run() {
                     let _ = w.hide();
                 }
             }
+            if cuenta::con_sesion() {
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    let _ = cuenta::actualizar_emisoras(&app);
+                    let _ = app.emit("cuenta", ());
+                });
+            }
             if retomar {
                 retomar_transmision(app.clone());
             } else {
@@ -427,6 +608,11 @@ pub fn run() {
             silencio,
             estado_actual,
             probar_servidor,
+            cuenta_estado,
+            cuenta_iniciar,
+            cuenta_cerrar,
+            emisoras_actualizar,
+            emisora_elegir,
             historial_leer,
             historial_borrar,
             abrir_grabaciones,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { api, escuchar, MEDIDORES_VACIOS, type AjustesVista, type Dispositivo, type Medidores, type Suceso } from './api';
+import { api, escuchar, MEDIDORES_VACIOS, type AjustesVista, type CuentaVista, type Dispositivo, type Medidores, type Suceso } from './api';
 import { AVISO_SILENCIO, ETIQUETA_ESTADO, MedidorEstereo, minutos, reloj, useEmision } from './comun';
 
 type Pestana = 'transmision' | 'historial' | 'configuracion';
@@ -24,6 +24,9 @@ function opcionesCanales(canales: number): Array<{ valor: string; texto: string 
 export default function App() {
   const [pestana, setPestana] = useState<Pestana>('transmision');
   const [ajustes, setAjustes] = useState<AjustesVista | null>(null);
+  const [cuenta, setCuenta] = useState<CuentaVista | null>(null);
+  // Sin cuenta, el operador puede elegir configurar la conexión a mano
+  const [manual, setManual] = useState(false);
   const emision = useEmision();
 
   const recargar = async () => {
@@ -33,10 +36,38 @@ export default function App() {
   };
 
   useEffect(() => {
-    recargar().then((a) => !a.servidor && setPestana('configuracion'));
+    recargar();
+    api.cuenta().then(setCuenta).catch(() => {});
+    // El núcleo avisa cuando actualizó la lista de emisoras en segundo plano
+    let quitar: (() => void) | undefined;
+    escuchar.cuenta(() => api.cuenta().then(setCuenta).catch(() => {})).then((u) => (quitar = u)).catch(() => {});
+    return () => quitar?.();
   }, []);
 
-  if (!ajustes) return <div className="app vacia"><p className="tenue">Cargando…</p></div>;
+  if (!ajustes || !cuenta) return <div className="app vacia"><p className="tenue">Cargando…</p></div>;
+
+  if (!cuenta.sesion && !ajustes.servidor && !manual) {
+    return (
+      <div className="app">
+        <main className="contenido inicio-sesion">
+          <p className="marca-nombre">Emisor · La Luz del Tiempo</p>
+          <p className="tenue inicio-sesion-texto">Inicia sesión con tu usuario del panel. El emisor recibe solo las emisoras en las que puedes transmitir.</p>
+          <InicioSesion apiUrlInicial={cuenta.apiUrl} onListo={setCuenta} />
+          <button
+            className="boton-texto"
+            onClick={() => {
+              setManual(true);
+              setPestana('configuracion');
+            }}
+          >
+            Configurar la conexión a mano, sin cuenta
+          </button>
+        </main>
+      </div>
+    );
+  }
+
+  const elegida = cuenta.sesion ? cuenta.emisoras.find((e) => e.id === cuenta.emisoraId) ?? null : null;
 
   const pestanas: Array<[Pestana, string]> = [
     ['transmision', 'Transmisión'],
@@ -48,8 +79,10 @@ export default function App() {
     <div className="app">
       <header className="barra-superior">
         <div className="marca">
-          <p className="marca-nombre">{ajustes.nombreEmision || 'Emisor'}</p>
-          <p className="marca-detalle">{ajustes.servidor ? `${ajustes.servidor}${ajustes.mount}` : 'Sin configurar'}</p>
+          <p className="marca-nombre">{cuenta.sesion ? elegida?.nombre ?? 'Sin emisora elegida' : ajustes.nombreEmision || 'Emisor'}</p>
+          <p className="marca-detalle">
+            {cuenta.sesion ? `${cuenta.nombre || cuenta.email} · ${elegida ? `${elegida.servidor}${elegida.mount}` : 'sin emisora'}` : ajustes.servidor ? `${ajustes.servidor}${ajustes.mount}` : 'Sin configurar'}
+          </p>
         </div>
         <nav className="pestanas" aria-label="Secciones">
           {pestanas.map(([id, texto]) => (
@@ -61,11 +94,13 @@ export default function App() {
       </header>
 
       <main className="contenido">
-        {pestana === 'transmision' && <Transmision ajustes={ajustes} emision={emision} />}
+        {pestana === 'transmision' && <Transmision ajustes={ajustes} emision={emision} cuenta={cuenta} onCuenta={setCuenta} />}
         {pestana === 'historial' && <Historial />}
         {pestana === 'configuracion' && (
           <Configuracion
             inicial={ajustes}
+            cuenta={cuenta}
+            onCuenta={setCuenta}
             alAire={emision.activo}
             onGuardado={async () => {
               await recargar();
@@ -80,17 +115,42 @@ export default function App() {
 
 // ---------------- Transmisión ----------------
 
-function Transmision({ ajustes, emision }: { ajustes: AjustesVista; emision: Emision }) {
+function Transmision({
+  ajustes,
+  emision,
+  cuenta,
+  onCuenta,
+}: {
+  ajustes: AjustesVista;
+  emision: Emision;
+  cuenta: CuentaVista;
+  onCuenta: (c: CuentaVista) => void;
+}) {
   const { estado, medidores: m, activo } = emision;
   const [ocupado, setOcupado] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [programaVivo, setProgramaVivo] = useState<string | null | undefined>(undefined);
   const saturando = useSaturacion(m.recortes);
+  const elegida = cuenta.sesion ? cuenta.emisoras.find((e) => e.id === cuenta.emisoraId) ?? null : null;
+  const programa = programaVivo !== undefined && activo ? programaVivo : elegida?.programa?.nombre ?? null;
 
   useEffect(() => {
     api.probarServidor().then((s) => emision.setOyentes(s.oyentes)).catch(() => {});
+    let quitar: (() => void) | undefined;
+    escuchar.programa(setProgramaVivo).then((u) => (quitar = u)).catch(() => {});
+    return () => quitar?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cuenta.emisoraId]);
+
+  const elegir = async (id: string) => {
+    setError(null);
+    try {
+      onCuenta(await api.elegirEmisora(id));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
 
   const iniciar = async () => {
     setPreparando(false);
@@ -145,6 +205,30 @@ function Transmision({ ajustes, emision }: { ajustes: AjustesVista; emision: Emi
 
   return (
     <div className="transmision">
+      {cuenta.sesion && (
+        <section className="emisora">
+          {cuenta.emisoras.length > 0 ? (
+            <label className="campo">
+              <span>Emisora</span>
+              <select value={cuenta.emisoraId ?? ''} onChange={(e) => elegir(e.target.value)} disabled={activo || preparando}>
+                {cuenta.emisoras.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <Aviso tipo="aviso" titulo="No tienes emisoras asignadas">
+              Pide al administrador que te agregue como locutor de una emisora en el panel (Configuración de radio, Locutores) y pulsa «Actualizar emisoras» en Configuración.
+            </Aviso>
+          )}
+          {programa && (
+            <p className="programa">
+              <span className="tenue">Programa ahora</span> {programa}
+            </p>
+          )}
+          {cuenta.sinConexion && <p className="nota">Sin conexión con el panel: se usa la última lista guardada. Puedes salir al aire igual.</p>}
+        </section>
+      )}
       <section className="estado" aria-live="polite">
         <div className="estado-cabeza">
           <span className={`chip chip-${tono}`}>{emision.silencio && activo ? 'Silenciado' : ETIQUETA_ESTADO[estado.estado]}</span>
@@ -154,7 +238,7 @@ function Transmision({ ajustes, emision }: { ajustes: AjustesVista; emision: Emi
       </section>
 
       {preparando && !activo ? (
-        <Preparacion ajustes={ajustes} onListo={iniciar} onCancelar={() => setPreparando(false)} />
+        <Preparacion ajustes={ajustes} emisora={cuenta.sesion ? elegida?.nombre ?? null : undefined} onListo={iniciar} onCancelar={() => setPreparando(false)} />
       ) : (
       <div className="acciones">
         {activo ? (
@@ -171,7 +255,7 @@ function Transmision({ ajustes, emision }: { ajustes: AjustesVista; emision: Emi
               setError(null);
               setPreparando(true);
             }}
-            disabled={ocupado || !ajustes.servidor}
+            disabled={ocupado || (cuenta.sesion ? !elegida : !ajustes.servidor)}
           >
             {ocupado ? 'Conectando…' : 'Salir al aire'}
           </button>
@@ -236,7 +320,18 @@ type Revision = 'pendiente' | 'bien' | 'mal';
  * Antes de salir al aire: comprueba la radio, la contraseña y que la fuente tenga sonido,
  * y después cuenta hacia atrás. Recién en el cero se conecta (y reemplaza al AutoDJ).
  */
-function Preparacion({ ajustes, onListo, onCancelar }: { ajustes: AjustesVista; onListo: () => void; onCancelar: () => void }) {
+function Preparacion({
+  ajustes,
+  emisora,
+  onListo,
+  onCancelar,
+}: {
+  ajustes: AjustesVista;
+  /** Con sesión del panel: nombre de la emisora elegida (null = ninguna); sin sesión: undefined */
+  emisora?: string | null;
+  onListo: () => void;
+  onCancelar: () => void;
+}) {
   const [radio, setRadio] = useState<Revision>('pendiente');
   const [sonido, setSonido] = useState<Revision>('pendiente');
   const [nivel, setNivel] = useState<Medidores>(MEDIDORES_VACIOS);
@@ -244,7 +339,8 @@ function Preparacion({ ajustes, onListo, onCancelar }: { ajustes: AjustesVista; 
   const [restante, setRestante] = useState<number | null>(null);
   const [intento, setIntento] = useState(0);
   const listo = useRef(false);
-  const clave: Revision = ajustes.contrasenaGuardada ? 'bien' : 'mal';
+  const conCuenta = emisora !== undefined;
+  const clave: Revision = (conCuenta ? Boolean(emisora) : ajustes.contrasenaGuardada) ? 'bien' : 'mal';
 
   // Escuchar la fuente y preguntar a la radio, a la vez
   useEffect(() => {
@@ -319,8 +415,8 @@ function Preparacion({ ajustes, onListo, onCancelar }: { ajustes: AjustesVista; 
           <span className={`resultado ${radio}`}>{texto(radio, 'Responde', 'No responde')}</span>
         </li>
         <li>
-          <span className="nombre">Contraseña del locutor</span>
-          <span className={`resultado ${clave}`}>{clave === 'bien' ? 'Guardada' : 'Falta'}</span>
+          <span className="nombre">{conCuenta ? 'Emisora' : 'Contraseña del locutor'}</span>
+          <span className={`resultado ${clave}`}>{conCuenta ? emisora ?? 'Sin elegir' : clave === 'bien' ? 'Guardada' : 'Falta'}</span>
         </li>
         <li>
           <span className="nombre">Sonido de la fuente</span>
@@ -334,7 +430,7 @@ function Preparacion({ ajustes, onListo, onCancelar }: { ajustes: AjustesVista; 
           Revisa que el servidor esté encendido y que la dirección en Configuración sea correcta.
         </Aviso>
       )}
-      {clave === 'mal' && <Aviso tipo="error">Falta la contraseña del locutor. Guárdala en Configuración.</Aviso>}
+      {clave === 'mal' && <Aviso tipo="error">{conCuenta ? 'Elige una emisora antes de salir al aire.' : 'Falta la contraseña del locutor. Guárdala en Configuración.'}</Aviso>}
       {sonido === 'mal' && !sinSonidoAceptado && radio !== 'mal' && (
         <Aviso tipo="aviso" titulo="No llega sonido de la fuente">
           {esSalida ? 'Reproduce algo en esa salida.' : 'Sube el nivel en la consola o revisa el cable.'} Si sales así, los oyentes escucharán silencio.
@@ -509,7 +605,19 @@ function Opcion({ marcada, onCambio, titulo, detalle, children }: { marcada: boo
   );
 }
 
-function Configuracion({ inicial, alAire, onGuardado }: { inicial: AjustesVista; alAire: boolean; onGuardado: () => void }) {
+function Configuracion({
+  inicial,
+  cuenta,
+  onCuenta,
+  alAire,
+  onGuardado,
+}: {
+  inicial: AjustesVista;
+  cuenta: CuentaVista;
+  onCuenta: (c: CuentaVista) => void;
+  alAire: boolean;
+  onGuardado: () => void;
+}) {
   const [servidor, setServidor] = useState(inicial.servidor);
   const [puerto, setPuerto] = useState(String(inicial.puerto));
   const [puertoOyentes, setPuertoOyentes] = useState(String(inicial.puertoOyentes));
@@ -634,6 +742,8 @@ function Configuracion({ inicial, alAire, onGuardado }: { inicial: AjustesVista;
   return (
     <form className="configuracion" onSubmit={(e) => { e.preventDefault(); guardar(); }}>
       {alAire && <Aviso tipo="info">Estás al aire. Los cambios se aplican la próxima vez que salgas al aire.</Aviso>}
+
+      <SeccionCuenta cuenta={cuenta} onCuenta={onCuenta} alAire={alAire} />
 
       <section className="bloque">
         <h2>Fuente de audio</h2>
@@ -785,8 +895,10 @@ function Configuracion({ inicial, alAire, onGuardado }: { inicial: AjustesVista;
         />
       </section>
 
+      {/* Con sesión del panel, la conexión viene de la emisora elegida */}
+      {!cuenta.sesion && (
       <section className="bloque">
-        <h2>Conexión con la radio</h2>
+        <h2>Conexión manual (sin cuenta)</h2>
         <label className="campo">
           <span>Servidor</span>
           <input value={servidor} onChange={(e) => setServidor(e.target.value)} placeholder="192.168.1.11" autoComplete="off" spellCheck={false} />
@@ -820,19 +932,141 @@ function Configuracion({ inicial, alAire, onGuardado }: { inicial: AjustesVista;
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} />
         </label>
       </section>
+      )}
 
       <div className="barra-guardar">
         {mensaje && <p className={mensaje.tipo === 'ok' ? 'texto-ok' : 'texto-error'}>{mensaje.texto}</p>}
         <div className="barra-guardar-botones">
-          <button type="button" className="boton" onClick={probar} disabled={probando || guardando || !servidor}>
-            {probando ? 'Probando…' : 'Probar conexión'}
-          </button>
+          {!cuenta.sesion && (
+            <button type="button" className="boton" onClick={probar} disabled={probando || guardando || !servidor}>
+              {probando ? 'Probando…' : 'Probar conexión'}
+            </button>
+          )}
           <button type="submit" className="boton principal" disabled={guardando}>
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
       </div>
     </form>
+  );
+}
+
+// ---------------- Cuenta del panel ----------------
+
+function InicioSesion({ apiUrlInicial, onListo }: { apiUrlInicial: string; onListo: (c: CuentaVista) => void }) {
+  const [apiUrl, setApiUrl] = useState(apiUrlInicial);
+  const [email, setEmail] = useState('');
+  const [contrasena, setContrasena] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnviando(true);
+    setError(null);
+    try {
+      onListo(await api.iniciarSesion(apiUrl, email, contrasena));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <form className="formulario-sesion" onSubmit={enviar}>
+      <label className="campo">
+        <span>Dirección del panel</span>
+        <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="http://192.168.1.11:4000" autoComplete="off" spellCheck={false} />
+      </label>
+      <label className="campo">
+        <span>Correo</span>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" spellCheck={false} />
+      </label>
+      <label className="campo">
+        <span>Contraseña</span>
+        <input type="password" value={contrasena} onChange={(e) => setContrasena(e.target.value)} autoComplete="current-password" />
+      </label>
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      <button type="submit" className="boton grande principal" disabled={enviando || !apiUrl.trim() || !email.trim() || !contrasena}>
+        {enviando ? 'Iniciando sesión…' : 'Iniciar sesión'}
+      </button>
+    </form>
+  );
+}
+
+function SeccionCuenta({ cuenta, onCuenta, alAire }: { cuenta: CuentaVista; onCuenta: (c: CuentaVista) => void; alAire: boolean }) {
+  const [ocupado, setOcupado] = useState<'actualizar' | 'cerrar' | null>(null);
+  const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+
+  const actualizar = async () => {
+    setOcupado('actualizar');
+    setMensaje(null);
+    try {
+      const c = await api.actualizarEmisoras();
+      onCuenta(c);
+      setMensaje(
+        c.sinConexion
+          ? { tipo: 'error', texto: 'No hay conexión con el panel. Se mantiene la lista guardada.' }
+          : { tipo: 'ok', texto: `Lista actualizada: ${c.emisoras.length} emisora${c.emisoras.length === 1 ? '' : 's'}.` },
+      );
+    } catch (e) {
+      setMensaje({ tipo: 'error', texto: String(e) });
+      api.cuenta().then(onCuenta).catch(() => {});
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const cerrar = async () => {
+    setOcupado('cerrar');
+    setMensaje(null);
+    try {
+      await api.cerrarSesion();
+      onCuenta(await api.cuenta());
+    } catch (e) {
+      setMensaje({ tipo: 'error', texto: String(e) });
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  return (
+    <section className="bloque">
+      <h2>Cuenta del panel</h2>
+      {cuenta.sesion ? (
+        <>
+          <dl className="datos datos-linea">
+            <div className="dato">
+              <dt>Usuario</dt>
+              <dd>{cuenta.nombre || cuenta.email}</dd>
+            </div>
+            <div className="dato">
+              <dt>Panel</dt>
+              <dd title={cuenta.apiUrl}>{cuenta.apiUrl.replace(/^https?:\/\//, '')}</dd>
+            </div>
+          </dl>
+          <p className="nota">
+            {cuenta.emisoras.length} emisora{cuenta.emisoras.length === 1 ? '' : 's'} disponible{cuenta.emisoras.length === 1 ? '' : 's'}
+            {cuenta.actualizada ? `, actualizada${cuenta.emisoras.length === 1 ? '' : 's'} el ${new Date(cuenta.actualizada).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}` : ''}.
+          </p>
+          <div className="campo-acciones">
+            <button type="button" className="boton" onClick={actualizar} disabled={ocupado !== null}>
+              {ocupado === 'actualizar' ? 'Actualizando…' : 'Actualizar emisoras'}
+            </button>
+            <button type="button" className="boton" onClick={cerrar} disabled={ocupado !== null || alAire}>
+              {ocupado === 'cerrar' ? 'Cerrando…' : 'Cerrar sesión'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="nota">Con tu usuario del panel, el emisor recibe las emisoras en las que puedes transmitir y el panel sabe quién está al aire.</p>
+          <InicioSesion apiUrlInicial={cuenta.apiUrl} onListo={onCuenta} />
+        </>
+      )}
+      {mensaje && <p className={mensaje.tipo === 'ok' ? 'texto-ok' : 'texto-error'}>{mensaje.texto}</p>}
+    </section>
   );
 }
 

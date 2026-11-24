@@ -91,6 +91,37 @@ export interface Resumen {
   grabacion: string | null;
 }
 
+export interface Programa {
+  nombre: string;
+  conductor: string | null;
+}
+
+/** Emisora en la que el usuario puede transmitir (la contraseña queda en el llavero, no llega aquí) */
+export interface Emisora {
+  id: string;
+  slug: string;
+  nombre: string;
+  principal: boolean;
+  servidor: string;
+  puerto: number;
+  mount: string;
+  puertoOyentes: number;
+  mountOyentes: string | null;
+  programa: Programa | null;
+}
+
+export interface CuentaVista {
+  sesion: boolean;
+  apiUrl: string;
+  nombre: string;
+  email: string;
+  emisoras: Emisora[];
+  emisoraId: string | null;
+  actualizada: string | null;
+  /** La API no respondió: se muestra la última lista guardada */
+  sinConexion: boolean;
+}
+
 export interface Suceso {
   fecha: string;
   tipo: string;
@@ -113,6 +144,11 @@ export const api = {
   borrarHistorial: () => invoke<void>('historial_borrar'),
   abrirGrabaciones: () => invoke<void>('abrir_grabaciones'),
   ventanaMini: (mostrar: boolean) => invoke<void>('ventana_mini', { mostrar }),
+  cuenta: () => invoke<CuentaVista>('cuenta_estado'),
+  iniciarSesion: (apiUrl: string, email: string, contrasena: string) => invoke<CuentaVista>('cuenta_iniciar', { apiUrl, email, contrasena }),
+  cerrarSesion: () => invoke<void>('cuenta_cerrar'),
+  actualizarEmisoras: () => invoke<CuentaVista>('emisoras_actualizar'),
+  elegirEmisora: (id: string) => invoke<CuentaVista>('emisora_elegir', { id }),
 };
 
 const oir =
@@ -128,4 +164,6 @@ export const escuchar = {
   silencio: oir<boolean>('silencio'),
   grabacion: oir<string | null>('grabacion'),
   historial: oir<null>('historial'),
+  programa: oir<string | null>('programa'),
+  cuenta: oir<null>('cuenta'),
 };

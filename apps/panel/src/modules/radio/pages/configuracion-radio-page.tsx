@@ -8,6 +8,8 @@ import { useSession } from '../../auth/hooks/use-session';
 import { useEmisoras, useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { useServicioRadio, useTransmision } from '../hooks/use-radio';
 import { TransmisionDialog } from '../components/transmision-dialog';
+import { EnVivoEmisor } from '../components/en-vivo-emisor';
+import { LocutoresDialog } from '../components/locutores-dialog';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 
 // Configuración de la radio: separada del sitio web. Lo sencillo para cualquier operador con acceso;
@@ -49,6 +51,8 @@ export const ConfiguracionRadioPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      <EnVivoEmisor />
+
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Transmisión por emisora</CardTitle>
@@ -75,6 +79,7 @@ interface EstadoVivo { status?: { online: boolean; listeners: number; title: str
 const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> = ({ emisora, avanzado }) => {
   const transmision = useTransmision(emisora.id);
   const [abierta, setAbierta] = useState(false);
+  const [locutores, setLocutores] = useState(false);
   const [escuchando, setEscuchando] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const sincronizar = useMutacionGestion((id: string) => luzApi.sincronizarRadio(id), 'Radio sincronizada', 'No se pudo sincronizar la radio');
@@ -145,10 +150,14 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean }> =
             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Sincronizar
           </Button>
         )}
+        {t?.mountPoint && (
+          <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => setLocutores(true)}>Locutores</Button>
+        )}
         <Button type="button" size="sm" className="text-xs" disabled={!t} onClick={() => setAbierta(true)}>
           <Settings2 className="h-3.5 w-3.5 mr-1" /> Transmisión
         </Button>
       </div>
+      {locutores && <LocutoresDialog emisora={emisora} onClose={() => setLocutores(false)} />}
       {abierta && t && <TransmisionDialog emisora={emisora} transmision={t} avanzado={avanzado} onClose={() => setAbierta(false)} />}
     </li>
   );

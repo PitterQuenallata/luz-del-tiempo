@@ -37,6 +37,24 @@ const ajustes = {
   carpetaGrabaciones: 'C:\\Users\\Operador\\Documents\\Emisor La Luz del Tiempo\\Grabaciones',
 };
 
+// Con ?login en la dirección se empieza sin cuenta ni conexión manual (pantalla de inicio de sesión)
+if (location.search.includes('login')) ajustes.servidor = '';
+
+const EMISORAS = [
+  { id: 'e1', slug: 'principal', nombre: 'Radio La Luz del Tiempo', principal: true, servidor: '192.168.1.11', puerto: 8005, mount: '/principal', puertoOyentes: 8000, mountOyentes: '/principal', programa: { nombre: 'Culto dominical', conductor: 'Pastor Juan' } },
+  { id: 'e2', slug: 'juvenil', nombre: 'Juvenil', principal: false, servidor: '192.168.1.11', puerto: 8005, mount: '/juvenil', puertoOyentes: 8000, mountOyentes: '/juvenil', programa: null },
+];
+const cuenta = {
+  sesion: false,
+  apiUrl: 'http://192.168.1.11:4000',
+  nombre: '',
+  email: '',
+  emisoras: [] as typeof EMISORAS,
+  emisoraId: null as string | null,
+  actualizada: null as string | null,
+  sinConexion: false,
+};
+
 const resumen = { estado: '', mensaje: '', desde: null as number | null, silencio: false, oyentes: 7 as number | null, grabacion: null as string | null };
 const sim = { nivel: 0.35, silencioDesde: null as number | null, recortes: 0, redLentaHasta: 0, kbps: 0 };
 let reloj: ReturnType<typeof setInterval> | undefined;
@@ -119,6 +137,26 @@ const comandos: Record<string, Llamada> = {
     ];
   },
   historial_borrar: () => undefined,
+  cuenta_estado: () => ({ ...cuenta }),
+  cuenta_iniciar: ({ apiUrl, email, contrasena }) => {
+    if (contrasena !== 'sopademani1') throw 'Correo o contraseña incorrectos.';
+    Object.assign(cuenta, {
+      sesion: true,
+      apiUrl,
+      nombre: 'María Quispe',
+      email,
+      emisoras: EMISORAS,
+      emisoraId: 'e1',
+      actualizada: new Date().toISOString(),
+    });
+    return { ...cuenta };
+  },
+  cuenta_cerrar: () => void Object.assign(cuenta, { sesion: false, nombre: '', email: '', emisoras: [], emisoraId: null }),
+  emisoras_actualizar: () => ({ ...cuenta, actualizada: new Date().toISOString() }),
+  emisora_elegir: ({ id }) => {
+    cuenta.emisoraId = id as string;
+    return { ...cuenta };
+  },
   abrir_grabaciones: () => undefined,
   ventana_mini: () => undefined,
   'plugin:event|listen': ({ event, handler }) => {

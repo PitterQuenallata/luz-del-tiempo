@@ -566,6 +566,50 @@ export const stationListenerSamples = pgTable(
   (t) => [primaryKey({ columns: [t.stationId, t.sampledAt] })],
 );
 
+// Locutores autorizados: qué usuarios pueden transmitir con el emisor en cada emisora.
+// Quien tiene "estaciones:todas" puede transmitir en todas sin estar en esta lista.
+export const stationBroadcasters = pgTable(
+  'station_broadcasters',
+  {
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.stationId, t.userId] })],
+);
+
+// Transmisiones hechas con el emisor: quién, desde qué PC, en qué emisora y cómo fue.
+// El emisor avisa al empezar, cada 30 s y al terminar. Sin aviso por 90 s se da por terminada.
+export const broadcastSessions = pgTable(
+  'broadcast_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    stationId: uuid('station_id')
+      .notNull()
+      .references(() => stations.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+    equipo: text('equipo'), // nombre de la PC
+    ip: text('ip'),
+    version: text('version'), // versión del emisor
+    sistema: text('sistema'), // p. ej. windows
+    programa: text('programa'),
+    estado: text('estado', { enum: ['conectando', 'al_aire', 'reconectando'] }).notNull().default('conectando'),
+    kbps: smallint('kbps'),
+    cortes: integer('cortes').notNull().default(0),
+    silencios: integer('silencios').notNull().default(0),
+    saturaciones: integer('saturaciones').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    motivoFin: text('motivo_fin'),
+  },
+  (t) => [index('broadcast_sessions_station_idx').on(t.stationId, t.startedAt), index('broadcast_sessions_activa_idx').on(t.endedAt)],
+);
+
 // Ajustes del sitio en pares clave/valor (donaciones: métodos y necesidades)
 export const siteSettings = pgTable('site_settings', {
   key: text('key').primaryKey(),

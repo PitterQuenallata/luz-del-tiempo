@@ -12,6 +12,17 @@ export const useTransmision = (emisoraId: string | null) =>
     enabled: Boolean(emisoraId),
   });
 
+// Quién transmite con el emisor de Windows (se refresca solo)
+export const useEnVivoEmisor = () =>
+  useQuery({ queryKey: ['gestion', 'radio', 'en-vivo'], queryFn: () => luzApi.getEnVivoEmisor(), refetchInterval: 15_000 });
+
+export const useLocutores = (emisoraId: string | null) =>
+  useQuery({
+    queryKey: ['gestion', 'radio', 'locutores', emisoraId ?? ''],
+    queryFn: () => luzApi.getLocutores(emisoraId as string),
+    enabled: Boolean(emisoraId),
+  });
+
 export const usePistas = (emisoraId: string | null) =>
   useQuery({
     queryKey: ['gestion', 'radio', 'pistas', emisoraId ?? ''],

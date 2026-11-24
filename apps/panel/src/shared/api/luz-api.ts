@@ -266,6 +266,14 @@ export interface ApiTransmision {
   maxListeners: number; storageQuotaMb: number; streamUrl: string | null;
   locutor: { servidor: string; puerto: number; mount: string | null };
 }
+export interface ApiUsuarioBreve { id: string; nombre: string; email: string }
+export interface ApiTransmisionEmisor {
+  id: string; emisoraId: string; emisora: string; usuario: string | null; email: string | null;
+  equipo: string | null; ip: string | null; version: string | null; programa: string | null;
+  estado: 'conectando' | 'al_aire' | 'reconectando'; kbps: number | null;
+  cortes: number; silencios: number; saturaciones: number;
+  inicio: string; ultimoAviso: string; fin: string | null; motivoFin: string | null;
+}
 export interface ApiEstadoRadio {
   radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number;
 }
@@ -505,6 +513,14 @@ export const luzApi = {
   },
   saveTransmision(emisoraId: string, input: EmisionInput) {
     return request<{ transmision: ApiTransmision; sincronizado: ApiSincronizacion }>(`/api/v1/radio/emisoras/${emisoraId}/transmision`, { method: 'PUT', body: json(input) });
+  },
+  // Emisor de Windows: quién transmite y quién puede hacerlo
+  getEnVivoEmisor() { return request<{ ahora: ApiTransmisionEmisor[]; recientes: ApiTransmisionEmisor[] }>('/api/v1/radio/en-vivo'); },
+  getLocutores(emisoraId: string) {
+    return request<{ asignados: ApiUsuarioBreve[]; candidatos: ApiUsuarioBreve[] }>(`/api/v1/radio/emisoras/${emisoraId}/locutores`);
+  },
+  saveLocutores(emisoraId: string, usuarios: string[]) {
+    return request<{ ok: boolean; total: number }>(`/api/v1/radio/emisoras/${emisoraId}/locutores`, { method: 'PUT', body: json({ usuarios }) });
   },
   sincronizarRadio(emisoraId: string) {
     return request(`/api/v1/radio/emisoras/${emisoraId}/sincronizar`, { method: 'POST' });
