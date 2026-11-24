@@ -46,7 +46,8 @@ const EMISORAS = [
 ];
 const cuenta = {
   sesion: false,
-  apiUrl: 'http://192.168.1.11:4000',
+  apiUrl: 'https://api.laluzdeltiempo.org',
+  panelPredeterminado: 'https://api.laluzdeltiempo.org',
   nombre: '',
   email: '',
   emisoras: [] as typeof EMISORAS,
@@ -54,6 +55,8 @@ const cuenta = {
   actualizada: null as string | null,
   sinConexion: false,
 };
+
+const titulos = { programa: null as string | null, conductor: null as string | null };
 
 const resumen = { estado: '', mensaje: '', desde: null as number | null, silencio: false, oyentes: 7 as number | null, grabacion: null as string | null };
 const sim = { nivel: 0.35, silencioDesde: null as number | null, recortes: 0, redLentaHasta: 0, kbps: 0 };
@@ -119,7 +122,7 @@ const comandos: Record<string, Llamada> = {
     resumen.silencio = Boolean(activo);
     emitir('silencio', resumen.silencio);
   },
-  estado_actual: () => ({ ...resumen }),
+  estado_actual: () => ({ ...resumen, programa: null, conductor: null, tituloPrograma: titulos.programa, tituloConductor: titulos.conductor, titulo: null }),
   probar_servidor: () => ({ alcanzable: true, mountEnLinea: resumen.estado === 'al_aire', oyentes: resumen.oyentes }),
   historial_leer: () => {
     const hoy = new Date().toISOString().slice(0, 10);
@@ -166,6 +169,16 @@ const comandos: Record<string, Llamada> = {
     return handler;
   },
   'plugin:event|unlisten': () => undefined,
+  'plugin:app|version': () => '0.2.0',
+  titulo_definir: ({ programa, conductor }) => {
+    titulos.programa = String(programa).trim() || null;
+    titulos.conductor = String(conductor).trim() || null;
+    return { ...resumen, tituloPrograma: titulos.programa, tituloConductor: titulos.conductor };
+  },
+  actualizacion_buscar: () => ({ disponible: true, actual: '0.2.0', version: '0.2.1', notas: 'Mejoras en la reconexión.' }),
+  actualizacion_instalar: () => {
+    throw 'Simulador: aquí el emisor se actualizaría y reiniciaría.';
+  },
 };
 
 const w = window as unknown as Record<string, unknown>;

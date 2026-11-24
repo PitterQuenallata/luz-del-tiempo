@@ -9,6 +9,8 @@ import { useEmisoras, useMutacionGestion } from '../../gestion/hooks/use-gestion
 import { useServicioRadio, useTransmision } from '../hooks/use-radio';
 import { TransmisionDialog } from '../components/transmision-dialog';
 import { EnVivoEmisor } from '../components/en-vivo-emisor';
+import { ReporteTransmisiones } from '../components/reporte-transmisiones';
+import { VersionesEmisor } from '../components/versiones-emisor';
 import { LocutoresDialog } from '../components/locutores-dialog';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 
@@ -67,6 +69,10 @@ export const ConfiguracionRadioPage: React.FC = () => {
           </ul>
         </CardContent>
       </Card>
+
+      <ReporteTransmisiones />
+
+      <VersionesEmisor puedePublicar={avanzado} />
 
       {avanzado && <AjustesServidor />}
     </div>

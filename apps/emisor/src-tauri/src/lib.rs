@@ -46,8 +46,14 @@ pub struct Resumen {
     pub silencios: u32,
     pub saturaciones: u32,
     pub kbps: u32,
-    /// Programa que corresponde ahora según la programación del panel
+    /// Programa y conductor que corresponden ahora según la programación del panel
     pub programa: Option<String>,
+    pub conductor: Option<String>,
+    /// Lo que escribió el operador para mostrar al aire (tiene prioridad sobre la programación)
+    pub titulo_programa: Option<String>,
+    pub titulo_conductor: Option<String>,
+    /// Título que se está mostrando a los oyentes
+    pub titulo: Option<String>,
     #[serde(skip)]
     en_corte: bool,
     #[serde(skip)]
@@ -57,6 +63,20 @@ pub struct Resumen {
 impl Resumen {
     pub fn transmitiendo(&self) -> bool {
         matches!(self.estado.as_str(), "al_aire" | "conectando" | "reconectando")
+    }
+}
+
+/// Lo que ven los oyentes como "canción actual" (web, app, reproductores).
+/// Prioridad: lo que escribió el operador; si no, la programación del panel; si no, el nombre de la emisora.
+pub fn titulo_deseado(r: &Resumen, nombre_emisora: &str) -> String {
+    let manual = r.titulo_programa.is_some() || r.titulo_conductor.is_some();
+    let programa = r.titulo_programa.clone().or_else(|| if manual { None } else { r.programa.clone() });
+    let conductor = r.titulo_conductor.clone().or_else(|| if manual { None } else { r.conductor.clone() });
+    match (programa, conductor) {
+        (Some(p), Some(c)) => format!("{p} · {c}"),
+        (Some(p), None) => p,
+        (None, Some(c)) => format!("En vivo con {c}"),
+        (None, None) => format!("En vivo · {nombre_emisora}"),
     }
 }
 
@@ -322,12 +342,16 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
         r.saturaciones = 0;
         r.kbps = 0;
         r.programa = emisora.as_ref().and_then(|e| e.programa.as_ref().map(|p| p.nombre.clone()));
+        r.conductor = emisora.as_ref().and_then(|e| e.programa.as_ref().and_then(|p| p.conductor.clone()));
+        r.titulo = None;
     }
     let conexion = (ajustes.servidor.clone(), ajustes.puerto, ajustes.mount.clone(), clave.clone());
+    let nombre = ajustes.nombre_emision.clone();
     match emision::iniciar(ajustes, clave, app.clone()) {
         Ok(e) => {
+            mostrar_titulo(app.clone(), conexion, nombre, e.stop.clone());
             if let Some(em) = emisora {
-                avisar_al_panel(app.clone(), em, conexion, e.stop.clone());
+                avisar_al_panel(app.clone(), em, e.stop.clone());
             }
             *actual = Some(e);
             Ok(())
@@ -339,17 +363,57 @@ fn iniciar_emision(app: &AppHandle) -> Result<(), String> {
     }
 }
 
-/// Mientras dura la transmisión: avisa al panel (al empezar, cada 30 s y al terminar) y pone el nombre
-/// del programa como título de la radio. Si el panel no responde, la transmisión sigue igual.
-fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, conexion: (String, u16, String, String), stop: Arc<AtomicBool>) {
-    let Some(avisos) = cuenta::Avisos::nuevo(&app) else { return };
+/// Mientras se está al aire, pone el título (programa · conductor) como "canción actual" de la radio:
+/// al conectar, al reconectar y cada vez que cambia. Funciona con cuenta del panel o con conexión manual.
+fn mostrar_titulo(app: AppHandle, conexion: (String, u16, String, String), nombre: String, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let (servidor, puerto, mount, clave) = conexion;
+        let mut enviado: Option<String> = None;
+        while !stop.load(Ordering::Relaxed) {
+            let estado = app.state::<Estado>();
+            let deseado = {
+                let Ok(mut r) = estado.resumen.lock() else { break };
+                if r.estado != "al_aire" {
+                    enviado = None;
+                    None
+                } else {
+                    let t = titulo_deseado(&r, &nombre);
+                    if r.titulo.as_deref() != Some(t.as_str()) {
+                        r.titulo = Some(t.clone());
+                        let _ = app.emit("titulo", t.clone());
+                    }
+                    Some(t)
+                }
+            };
+            if let Some(t) = deseado {
+                if enviado.as_deref() != Some(t.as_str()) {
+                    cuenta::enviar_titulo(&servidor, puerto, &mount, &clave, &t);
+                    enviado = Some(t);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    });
+}
+
+/// Mientras dura la transmisión: avisa al panel (al empezar, cada 30 s y al terminar) y trae el programa
+/// que corresponde según la programación. Si el panel no responde, la transmisión sigue igual.
+fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, stop: Arc<AtomicBool>) {
+    let Some(avisos) = cuenta::Avisos::nuevo(&app) else { return };
+    std::thread::spawn(move || {
         let mut id: Option<String> = None;
-        let mut programa: Option<String> = emisora.programa.as_ref().map(|p| p.nombre.clone());
-        let mut titulo_enviado: Option<String> = None;
         let mut ultimo_aviso: Option<std::time::Instant> = None;
         let resumen = || app.state::<Estado>().resumen.lock().map(|r| r.clone()).unwrap_or_default();
+        let actualizar_programa = |p: Option<cuenta::Programa>| {
+            if let Ok(mut r) = app.state::<Estado>().resumen.lock() {
+                let (nombre, conductor) = p.map(|p| (Some(p.nombre), p.conductor)).unwrap_or((None, None));
+                if r.programa != nombre || r.conductor != conductor {
+                    r.programa = nombre.clone();
+                    r.conductor = conductor;
+                    let _ = app.emit("programa", nombre);
+                }
+            }
+        };
         loop {
             if stop.load(Ordering::Relaxed) {
                 // Se espera el mensaje final (p. ej. "Se soltó el aire al AutoDJ…") para el cierre
@@ -366,45 +430,29 @@ fn avisar_al_panel(app: AppHandle, emisora: cuenta::Emisora, conexion: (String, 
             }
             if ultimo_aviso.is_none_or(|t| t.elapsed() >= Duration::from_secs(30)) {
                 ultimo_aviso = Some(std::time::Instant::now());
+                let r = resumen();
+                // Lo que se informa como programa es lo mismo que ven los oyentes
+                let programa_al_aire = r.titulo_programa.clone().or(r.programa.clone());
                 match &id {
                     None => {
-                        if let Some((nuevo, p)) = avisos.abrir(&emisora.id, programa.as_deref()) {
+                        if let Some((nuevo, p)) = avisos.abrir(&emisora.id, programa_al_aire.as_deref()) {
                             id = Some(nuevo);
-                            if let Some(p) = p {
-                                programa = Some(p.nombre);
-                            }
+                            actualizar_programa(p);
                         }
                     }
                     Some(actual) => {
-                        let r = resumen();
                         let cuerpo = serde_json::json!({
                             "estado": if r.estado == "al_aire" { "al_aire" } else if r.estado == "reconectando" { "reconectando" } else { "conectando" },
                             "kbps": r.kbps,
                             "cortes": r.cortes,
                             "silencios": r.silencios,
                             "saturaciones": r.saturaciones,
+                            "programa": programa_al_aire,
                         });
                         if let Some(p) = avisos.avisar(actual, &cuerpo) {
-                            programa = p.map(|p| p.nombre);
+                            actualizar_programa(p);
                         }
                     }
-                }
-                if let Ok(mut r) = app.state::<Estado>().resumen.lock() {
-                    if r.programa != programa {
-                        r.programa = programa.clone();
-                        let _ = app.emit("programa", programa.clone());
-                    }
-                }
-            }
-            // Título de la radio: al quedar al aire y cada vez que cambia el programa (o tras reconectar)
-            let al_aire = resumen().estado == "al_aire";
-            if !al_aire {
-                titulo_enviado = None;
-            } else {
-                let deseado = programa.clone().unwrap_or_else(|| format!("En vivo · {}", emisora.nombre));
-                if titulo_enviado.as_deref() != Some(&deseado) {
-                    cuenta::enviar_titulo(&servidor, puerto, &mount, &clave, &deseado);
-                    titulo_enviado = Some(deseado);
                 }
             }
             std::thread::sleep(Duration::from_millis(500));
@@ -499,6 +547,80 @@ async fn emisoras_actualizar(app: AppHandle) -> Result<cuenta::CuentaVista, Stri
     en_segundo_plano(move || cuenta::actualizar_emisoras(&app)).await
 }
 
+/// El operador define qué se muestra al aire. Vacío = usar la programación del panel.
+#[tauri::command]
+fn titulo_definir(app: AppHandle, programa: String, conductor: String) -> Resumen {
+    let limpio = |t: String| Some(t.trim().chars().take(120).collect::<String>()).filter(|t| !t.is_empty());
+    let estado = app.state::<Estado>();
+    let mut r = estado.resumen.lock().map(|r| r.clone()).unwrap_or_default();
+    if let Ok(mut actual) = estado.resumen.lock() {
+        actual.titulo_programa = limpio(programa);
+        actual.titulo_conductor = limpio(conductor);
+        r = actual.clone();
+    }
+    r
+}
+
+// ---------- Actualizaciones ----------
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Actualizacion {
+    pub disponible: bool,
+    pub actual: String,
+    pub version: Option<String>,
+    pub notas: Option<String>,
+}
+
+fn actualizador(app: &AppHandle) -> Result<tauri_plugin_updater::Updater, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    // El panel publica las versiones; {{...}} lo completa el actualizador
+    let url = format!(
+        "{}/api/v1/public/emisor/actualizacion/{{{{target}}}}/{{{{arch}}}}/{{{{current_version}}}}",
+        cuenta::url_panel(app)
+    );
+    let url = url.parse().map_err(|e| format!("Dirección del panel inválida: {e}"))?;
+    app.updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+async fn buscar_actualizacion(app: &AppHandle) -> Result<Actualizacion, String> {
+    let actual = app.package_info().version.to_string();
+    let u = actualizador(app)?
+        .check()
+        .await
+        .map_err(|e| format!("No se pudo consultar las actualizaciones: {e}"))?;
+    Ok(match u {
+        Some(u) => Actualizacion { disponible: true, actual, version: Some(u.version.clone()), notas: u.body.clone() },
+        None => Actualizacion { disponible: false, actual, version: None, notas: None },
+    })
+}
+
+#[tauri::command]
+async fn actualizacion_buscar(app: AppHandle) -> Result<Actualizacion, String> {
+    buscar_actualizacion(&app).await
+}
+
+/// Descarga, verifica la firma e instala la versión nueva; después reinicia el emisor.
+#[tauri::command]
+async fn actualizacion_instalar(app: AppHandle) -> Result<(), String> {
+    if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
+        return Err("Termina la transmisión antes de actualizar.".into());
+    }
+    let u = actualizador(&app)?
+        .check()
+        .await
+        .map_err(|e| format!("No se pudo consultar las actualizaciones: {e}"))?
+        .ok_or("Ya tienes la última versión.")?;
+    app.anotar("inicio", &format!("Actualizando el emisor a la versión {}", u.version));
+    u.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("No se pudo instalar la actualización: {e}"))?;
+    app.restart();
+}
+
 #[tauri::command]
 fn emisora_elegir(app: AppHandle, id: String) -> Result<cuenta::CuentaVista, String> {
     if app.state::<Estado>().resumen.lock().map(|r| r.transmitiendo()).unwrap_or(false) {
@@ -544,6 +666,11 @@ fn ventana_mini(app: AppHandle, mostrar: bool) {
     }
 }
 
+/// Espera sin bloquear el hilo de la ventana
+async fn tokio_dormir(d: Duration) {
+    let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(d)).await;
+}
+
 /// Argumento con el que Windows abre el emisor al iniciar sesión
 const ARG_AUTOINICIO: &str = "--autoinicio";
 
@@ -569,6 +696,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![ARG_AUTOINICIO]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Estado::default())
         .setup(|app| {
             let app = app.handle();
@@ -587,6 +715,18 @@ pub fn run() {
                 std::thread::spawn(move || {
                     let _ = cuenta::actualizar_emisoras(&app);
                     let _ = app.emit("cuenta", ());
+                });
+            }
+            // Al rato de abrir, se revisa si hay una versión nueva (sin molestar si no hay conexión)
+            {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio_dormir(Duration::from_secs(20)).await;
+                    if let Ok(a) = buscar_actualizacion(&app).await {
+                        if a.disponible {
+                            let _ = app.emit("actualizacion", a);
+                        }
+                    }
                 });
             }
             if retomar {
@@ -613,6 +753,9 @@ pub fn run() {
             cuenta_cerrar,
             emisoras_actualizar,
             emisora_elegir,
+            titulo_definir,
+            actualizacion_buscar,
+            actualizacion_instalar,
             historial_leer,
             historial_borrar,
             abrir_grabaciones,

@@ -89,6 +89,21 @@ export interface Resumen {
   silencio: boolean;
   oyentes: number | null;
   grabacion: string | null;
+  /** Programación del panel */
+  programa: string | null;
+  conductor: string | null;
+  /** Lo que escribió el operador para mostrar al aire */
+  tituloPrograma: string | null;
+  tituloConductor: string | null;
+  /** Título que están viendo los oyentes */
+  titulo: string | null;
+}
+
+export interface Actualizacion {
+  disponible: boolean;
+  actual: string;
+  version: string | null;
+  notas: string | null;
 }
 
 export interface Programa {
@@ -120,6 +135,8 @@ export interface CuentaVista {
   actualizada: string | null;
   /** La API no respondió: se muestra la última lista guardada */
   sinConexion: boolean;
+  /** Dirección de fábrica del panel */
+  panelPredeterminado: string;
 }
 
 export interface Suceso {
@@ -149,6 +166,9 @@ export const api = {
   cerrarSesion: () => invoke<void>('cuenta_cerrar'),
   actualizarEmisoras: () => invoke<CuentaVista>('emisoras_actualizar'),
   elegirEmisora: (id: string) => invoke<CuentaVista>('emisora_elegir', { id }),
+  definirTitulo: (programa: string, conductor: string) => invoke<Resumen>('titulo_definir', { programa, conductor }),
+  buscarActualizacion: () => invoke<Actualizacion>('actualizacion_buscar'),
+  instalarActualizacion: () => invoke<void>('actualizacion_instalar'),
 };
 
 const oir =
@@ -166,4 +186,6 @@ export const escuchar = {
   historial: oir<null>('historial'),
   programa: oir<string | null>('programa'),
   cuenta: oir<null>('cuenta'),
+  titulo: oir<string>('titulo'),
+  actualizacion: oir<Actualizacion>('actualizacion'),
 };

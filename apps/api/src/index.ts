@@ -17,6 +17,8 @@ import { radioRoutes } from './modules/radio/radio.routes.js';
 import { radioMusicaRoutes } from './modules/radio/radio-musica.routes.js';
 import { radioEmisorRoutes } from './modules/radio/radio-emisor.routes.js';
 import { emisorRoutes } from './modules/emisor/emisor.routes.js';
+import { emisorPublicoRoutes, emisorVersionesRoutes } from './modules/emisor/versiones.js';
+import { radioReportesRoutes } from './modules/radio/radio-reportes.routes.js';
 import { docsRoutes } from './docs/docs.routes.js';
 import { donacionesRoutes } from './modules/donaciones/donaciones.routes.js';
 
@@ -66,11 +68,14 @@ app.use('/api/v1/radio/*', async (c, next) => {
 app.route('/api/v1/radio', radioRoutes);
 app.route('/api/v1/radio', radioMusicaRoutes);
 app.route('/api/v1/radio', radioEmisorRoutes);
+app.route('/api/v1/radio', radioReportesRoutes);
+app.route('/api/v1/radio', emisorVersionesRoutes);
 // Emisor de Windows: sesión con token, emisoras del locutor y avisos de transmisión
 app.route('/api/v1/emisor', emisorRoutes);
 // Documentación (Swagger UI) de la API de radio
 app.route('/api/docs', docsRoutes);
 app.route('/api/v1/donaciones', donacionesRoutes);
+app.route('/api/v1/public/emisor', emisorPublicoRoutes);
 app.route('/api/v1/public', publicRoutes);
 app.route('/api/v1/public', agendaPublicoRoutes);
 

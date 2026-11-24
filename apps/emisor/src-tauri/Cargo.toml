@@ -1,6 +1,6 @@
 [package]
 name = "emisor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Emisor de La Luz del Tiempo: transmite el micrófono al servidor de radio."
 edition = "2021"
 rust-version = "1.82"
@@ -20,9 +20,10 @@ cpal = "0.15"
 mp3lame-encoder = "0.2"
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "json"] }
-keyring = { version = "3", features = ["apple-native", "windows-native"] }
+keyring = { version = "3", features = ["windows-native"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
 
 [profile.release]
 codegen-units = 1

@@ -23,6 +23,12 @@ export const useLocutores = (emisoraId: string | null) =>
     enabled: Boolean(emisoraId),
   });
 
+export const useReporteTransmisiones = (mes: string) =>
+  useQuery({ queryKey: ['gestion', 'radio', 'reporte', mes], queryFn: () => luzApi.getReporteTransmisiones(mes) });
+
+export const useVersionesEmisor = () =>
+  useQuery({ queryKey: ['gestion', 'radio', 'versiones-emisor'], queryFn: () => luzApi.getVersionesEmisor() });
+
 export const usePistas = (emisoraId: string | null) =>
   useQuery({
     queryKey: ['gestion', 'radio', 'pistas', emisoraId ?? ''],

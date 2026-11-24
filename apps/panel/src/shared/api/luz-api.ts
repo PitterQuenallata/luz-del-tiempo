@@ -274,6 +274,16 @@ export interface ApiTransmisionEmisor {
   cortes: number; silencios: number; saturaciones: number;
   inicio: string; ultimoAviso: string; fin: string | null; motivoFin: string | null;
 }
+export interface ApiTotalesTransmision { transmisiones: number; segundos: number; cortes: number; silencios: number; saturaciones: number }
+export interface ApiReporteTransmisiones {
+  mes: string;
+  general: ApiTotalesTransmision;
+  porEmisora: Array<ApiTotalesTransmision & { id: string; nombre: string }>;
+  porLocutor: Array<ApiTotalesTransmision & { id: string | null; nombre: string; email: string | null }>;
+  porPrograma: Array<ApiTotalesTransmision & { nombre: string }>;
+}
+export interface ApiVersionEmisor { version: string; notas: string; fecha: string; archivo: string; bytes: number }
+export interface ApiEquipoEmisor { equipo: string; version: string | null; ultimaVez: string }
 export interface ApiEstadoRadio {
   radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number;
 }
@@ -513,6 +523,20 @@ export const luzApi = {
   },
   saveTransmision(emisoraId: string, input: EmisionInput) {
     return request<{ transmision: ApiTransmision; sincronizado: ApiSincronizacion }>(`/api/v1/radio/emisoras/${emisoraId}/transmision`, { method: 'PUT', body: json(input) });
+  },
+  getReporteTransmisiones(mes: string) { return request<ApiReporteTransmisiones>(`/api/v1/radio/reportes/transmisiones?mes=${mes}`); },
+  getVersionesEmisor() { return request<{ publicada: ApiVersionEmisor | null; equipos: ApiEquipoEmisor[] }>('/api/v1/radio/emisor/versiones'); },
+  descargaEmisor() { return request<{ version: string | null; url?: string; bytes?: number }>('/api/v1/public/emisor/ultima'); },
+  async publicarEmisor(datos: { version: string; notas: string; instalador: File; firma: File }) {
+    const cuerpo = new FormData();
+    cuerpo.append('version', datos.version);
+    cuerpo.append('notas', datos.notas);
+    cuerpo.append('instalador', datos.instalador);
+    cuerpo.append('firma', datos.firma);
+    const res = await fetch(`${API_URL}/api/v1/radio/emisor/versiones`, { method: 'POST', body: cuerpo, credentials: 'include' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new ApiRequestError(data?.message ?? MENSAJES_ERROR[data?.error] ?? `Error ${res.status}`, res.status);
+    return data as { publicada: ApiVersionEmisor };
   },
   // Emisor de Windows: quién transmite y quién puede hacerlo
   getEnVivoEmisor() { return request<{ ahora: ApiTransmisionEmisor[]; recientes: ApiTransmisionEmisor[] }>('/api/v1/radio/en-vivo'); },

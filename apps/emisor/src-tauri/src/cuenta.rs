@@ -15,6 +15,13 @@ use tauri::AppHandle;
 use crate::ajustes;
 
 const SERVICIO_LLAVERO: &str = "org.laluzdeltiempo.emisor";
+
+/// Dirección del panel que trae el emisor de fábrica. Se fija al compilar con la variable EMISOR_PANEL_URL
+/// (p. ej. para pruebas en la red local); el operador solo la cambia si se lo indica el administrador.
+pub const PANEL_PREDETERMINADO: &str = match option_env!("EMISOR_PANEL_URL") {
+    Some(url) => url,
+    None => "https://api.laluzdeltiempo.org",
+};
 const CUENTA_TOKEN: &str = "sesion-panel";
 const ARCHIVO: &str = "cuenta.json";
 
@@ -65,6 +72,8 @@ pub struct CuentaVista {
     pub cuenta: Cuenta,
     /// La última consulta a la API falló: se muestra la copia guardada
     pub sin_conexion: bool,
+    /// Dirección de fábrica (para el inicio de sesión)
+    pub panel_predeterminado: &'static str,
 }
 
 fn llavero(cuenta: &str) -> Option<keyring::Entry> {
@@ -109,7 +118,17 @@ pub fn emisora_elegida(app: &AppHandle) -> Option<Emisora> {
 }
 
 pub fn vista(app: &AppHandle, sin_conexion: bool) -> CuentaVista {
-    CuentaVista { sesion: con_sesion(), cuenta: cargar(app), sin_conexion }
+    let mut cuenta = cargar(app);
+    if cuenta.api_url.is_empty() {
+        cuenta.api_url = PANEL_PREDETERMINADO.to_string();
+    }
+    CuentaVista { sesion: con_sesion(), cuenta, sin_conexion, panel_predeterminado: PANEL_PREDETERMINADO }
+}
+
+/// Dirección del panel en uso: la de la sesión o, si no hay, la de fábrica
+pub fn url_panel(app: &AppHandle) -> String {
+    let c = cargar(app);
+    if c.api_url.is_empty() { PANEL_PREDETERMINADO.to_string() } else { c.api_url }
 }
 
 fn cliente() -> Result<reqwest::blocking::Client, String> {
@@ -155,7 +174,7 @@ fn sin_red(api: &str, e: reqwest::Error) -> String {
 
 /// Inicia sesión con un usuario del panel y trae sus emisoras.
 pub fn iniciar_sesion(app: &AppHandle, api_url: &str, email: &str, contrasena: &str) -> Result<CuentaVista, String> {
-    let api = normalizar_url(api_url);
+    let api = normalizar_url(if api_url.trim().is_empty() { PANEL_PREDETERMINADO } else { api_url });
     let cli = cliente()?;
     let r = cli
         .post(format!("{api}/api/auth/sign-in/email"))
