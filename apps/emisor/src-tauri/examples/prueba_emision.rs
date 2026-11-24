@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use emisor_lib::ajustes::Ajustes;
-use emisor_lib::emision::{self, Notificador};
+use emisor_lib::emision::{self, Medidores, Notificador};
 use emisor_lib::icecast::Sondeo;
 
 #[derive(Clone)]
@@ -17,12 +17,15 @@ impl Notificador for Consola {
     fn estado(&self, estado: &str, mensaje: String) {
         println!("[{:>5.1}s] ESTADO {estado}: {mensaje}", self.inicio.elapsed().as_secs_f32());
     }
-    fn nivel(&self, nivel: f32) {
+    fn medidores(&self, m: Medidores) {
         // Solo cada ~0.5 s para no saturar la salida
         let n = self.contador.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if n % 5 == 0 {
-            println!("[{:>5.1}s] nivel {:.3}", self.inicio.elapsed().as_secs_f32(), nivel);
+            println!("[{:>5.1}s] {:?}", self.inicio.elapsed().as_secs_f32(), m);
         }
+    }
+    fn anotar(&self, tipo: &str, mensaje: &str) {
+        println!("[{:>5.1}s] HISTORIAL {tipo}: {mensaje}", self.inicio.elapsed().as_secs_f32());
     }
     fn oyentes(&self, s: Sondeo) {
         println!("[{:>5.1}s] OYENTES alcanzable={} en_linea={} oyentes={:?}", self.inicio.elapsed().as_secs_f32(), s.alcanzable, s.mount_en_linea, s.oyentes);
@@ -43,6 +46,7 @@ fn main() {
         bitrate: 128,
         dispositivo: None,
         nombre_emision: "Prueba del emisor".into(),
+        ..Default::default()
     };
     let clave = args[3].clone();
     let segundos: u64 = args[4].parse().expect("segundos");

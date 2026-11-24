@@ -3,7 +3,7 @@
 // si la contraseña es incorrecta, el servidor responde 401 al instante y la app debe enterarse sin esperar.
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
@@ -31,7 +31,8 @@ fn ascii_seguro(texto: &str) -> String {
 }
 
 /// Envía bloques MP3 de `rx` al punto de transmisión hasta que se detenga o se corte.
-pub fn enviar<N: Notificador>(a: &Ajustes, clave: &str, rx: &Receiver<Vec<u8>>, stop: &AtomicBool, n: &N) -> Fin {
+/// `en_aire` pasa a true cuando la radio aceptó la fuente.
+pub fn enviar<N: Notificador>(a: &Ajustes, clave: &str, rx: &Receiver<Vec<u8>>, stop: &AtomicBool, enviados: &AtomicU64, en_aire: &AtomicBool, n: &N) -> Fin {
     let destino = format!("{}:{}", a.servidor, a.puerto);
     // "localhost" puede resolver primero a IPv6 y el servidor escuchar solo en IPv4: se prueba cada dirección
     let direcciones: Vec<_> = match destino.to_socket_addrs() {
@@ -91,6 +92,7 @@ pub fn enviar<N: Notificador>(a: &Ajustes, clave: &str, rx: &Receiver<Vec<u8>>, 
             // 2xx: la radio aceptó la fuente. Se sigue enviando; si se corta, el envío falla y se reintenta.
             if !avisado {
                 avisado = true;
+                en_aire.store(true, Ordering::Relaxed);
                 n.estado("al_aire", "Estás al aire".into());
             }
         }
@@ -100,19 +102,22 @@ pub fn enviar<N: Notificador>(a: &Ajustes, clave: &str, rx: &Receiver<Vec<u8>>, 
                 if sock.write_all(&bloque).is_err() {
                     return Fin::Cortada("Se perdió la conexión con la radio. Reintentando…".into());
                 }
+                enviados.fetch_add(bloque.len() as u64, Ordering::Relaxed);
                 if !avisado && inicio.elapsed() >= TIEMPO_PARA_AL_AIRE {
                     avisado = true;
+                    en_aire.store(true, Ordering::Relaxed);
                     n.estado("al_aire", "Estás al aire".into());
                 }
             }
             Err(RecvTimeoutError::Timeout) => {
                 if !avisado && inicio.elapsed() >= TIEMPO_PARA_AL_AIRE {
                     avisado = true;
+                    en_aire.store(true, Ordering::Relaxed);
                     n.estado("al_aire", "Estás al aire".into());
                 }
             }
             Err(RecvTimeoutError::Disconnected) => {
-                return Fin::Cortada("El micrófono se detuvo. Reintentando…".into());
+                return Fin::Cortada("La fuente de audio se detuvo. Reintentando…".into());
             }
         }
     }

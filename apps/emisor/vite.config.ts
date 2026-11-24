@@ -6,5 +6,9 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   server: { port: 1420, strictPort: true },
-  build: { target: 'es2020' },
+  build: {
+    target: 'es2020',
+    // Dos páginas: la ventana principal y la mini (siempre encima)
+    rollupOptions: { input: { main: 'index.html', mini: 'mini.html' } },
+  },
 });
