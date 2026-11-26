@@ -145,6 +145,14 @@ radioRoutes.patch('/emisoras/:id', requirePermission(PERMISO), async (c) => {
   if (d.kind === 'external' && actual.kind !== 'external' && !(await hayEspacioParaTercero())) {
     return c.json({ error: 'sin_espacio', message: 'No hay espacio en el disco para una emisora de tercero (10 GB).' }, 422);
   }
+  // La principal es la del ministerio: no se quita y no cambia de tipo (sin ella la radio queda sin principal)
+  if (actual.isMain && d.isMain === false) return c.json({ error: 'validacion', campo: 'isMain', message: 'La emisora principal no se puede quitar.' }, 422);
+  if (actual.isMain && d.kind !== 'own') return c.json({ error: 'validacion', campo: 'kind', message: 'La emisora principal es del ministerio: no puede pasar a ser de un tercero.' }, 422);
+  // Solo puede haber una emisora del ministerio
+  if (d.kind === 'own' && actual.kind !== 'own') {
+    const del = await db.select({ id: radios.id }).from(radios).where(and(eq(radios.kind, 'own'), ne(radios.id, id)));
+    if (del.length) return c.json({ error: 'validacion', campo: 'kind', message: 'Ya existe la emisora del ministerio.' }, 422);
+  }
   if (d.slug !== actual.slug && !(await slugLibre(d.slug, null))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe un espacio con ese enlace.' }, 409);
   if (d.isMain) {
     const otra = await db.select({ id: radios.id }).from(radios).where(and(eq(radios.isMain, true), ne(radios.id, id)));

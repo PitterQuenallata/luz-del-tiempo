@@ -193,9 +193,9 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
             {(f) => (
               <div>
                 <EtiquetaCampo htmlFor="emisora-tipo">Tipo</EtiquetaCampo>
-                <SelectField id="emisora-tipo" value={f.state.value} onChange={(e) => f.handleChange(e.target.value as 'own' | 'external')}>
+                <SelectField id="emisora-tipo" value={f.state.value} disabled={emisora?.isMain} onChange={(e) => f.handleChange(e.target.value as 'own' | 'external')}>
                   {emisora?.kind === 'own' && <option value="own">Del ministerio</option>}
-                  <option value="external">De un tercero</option>
+                  {!emisora?.isMain && <option value="external">De un tercero</option>}
                 </SelectField>
               </div>
             )}
@@ -267,12 +267,12 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
                           id="emisora-principal"
                           titulo="Es la principal"
                           checked={f.state.value}
-                          disabled={otraPrincipal && !f.state.value}
+                          disabled={emisora?.isMain || (otraPrincipal && !f.state.value)}
                           onChange={(v) => f.handleChange(v)}
                         />
                       )}
                     </form.Field>
-                    {otraPrincipal && <span className="text-[11px] text-muted-foreground">Ya hay una principal.</span>}
+                    {emisora?.isMain ? <span className="text-[11px] text-muted-foreground">La principal no se puede quitar ni cambiar de tipo.</span> : otraPrincipal && <span className="text-[11px] text-muted-foreground">Ya hay una principal.</span>}
                   </>
                 ) : null
               }
