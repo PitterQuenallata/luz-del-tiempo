@@ -115,6 +115,16 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 - **Codificador descartado como causa**: la imagen de Liquidsoap trae `libfdk_aac` (como AzuraCast). Con los dos codificadores a 48 kbps, en el mismo intervalo, `libfdk_aac` escribió 167 KB y el nativo 170 KB. El peso extra está en el empaquetado MPEG-TS, no en el codificador.
 - **Decisión pendiente**: bajar `calidad_baja` (por ejemplo a 24 kbps) o revisar las opciones del muxer MPEG-TS / el formato del HLS. Ninguna está hecha.
 
+## 5c. HLS en fMP4 (activo solo en `musica`)
+
+- Interruptor: `infra/radio/data/config/hls_fmp4.txt` con una emisora por línea (hoy: `musica`). Las demás siguen en MPEG-TS. Para volver atrás, vaciar el archivo y apagar y encender la emisora.
+- Medido en la estación real (128/48 kbps):
+  - Alta: 171 kbps en red (antes 211, ~19 % menos).
+  - Baja: 90 kbps en red (antes 97, ~7 % menos). El relleno fijo por segmento domina en la baja.
+- Reproducción: Chromium con hls.js 1.6.10, sin errores. **Android (APK) y Safari sin probar**: hay que comprobarlos en un teléfono antes de extender a otras emisoras.
+- Segmentos de 6 u 8 s no cambian el peso (probado con TS y fMP4).
+- Pendiente: decidir si la baja necesita otro valor (p. ej. 24 kbps) o un formato más liviano.
+
 ## 6. Emisoras, estaciones y archivos
 
 Tres niveles:

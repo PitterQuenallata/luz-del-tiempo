@@ -188,12 +188,26 @@ def aac_de(kbps) =
   end
 end
 
+# Codificador AAC para HLS en fMP4 (más liviano que MPEG-TS: ~23 % menos bytes por segmento medido).
+def aac_mp4(kbps) =
+  if kbps <= 32 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="32k", profile="aac_low"))
+  elsif kbps <= 48 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="48k", profile="aac_low"))
+  elsif kbps <= 64 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="64k", profile="aac_low"))
+  elsif kbps <= 96 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="96k", profile="aac_low"))
+  elsif kbps <= 128 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="128k", profile="aac_low"))
+  elsif kbps <= 192 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="192k", profile="aac_low"))
+  else %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="256k", profile="aac_low"))
+  end
+end
+
 # Nombre de cada segmento HLS: sirve para que el reproductor pida el siguiente sin caché.
 def hls_nombre_segmento(seg) =
   "#{seg.stream_name}_#{int_of_float(time())}_#{seg.position}.#{seg.extname}"
 end
 
 hls_dir = environment.get(default="/hls", "HLS_DIR")
+# Emisoras que usan HLS en fMP4: una por línea en config/hls_fmp4.txt (si no existe, ninguna).
+hls_fmp4_slugs = list.filter(fun (x) -> x != "", list.map(fun (x) -> string.trim(x), string.split(separator="\n", leer_archivo("#{config_dir}/hls_fmp4.txt", ""))))
 
 # ¿Estamos dentro de la franja (día, inicio, fin) en hora local?
 # week_day: 0 = domingo … 6 = sábado (igual que en la API). inicio/fin en minutos.
@@ -414,9 +428,15 @@ def crear_estacion(st) =
   server.harbor(port=st.control_port)
   # Compuerta: la emisora solo suena si está encendida (estado.txt). Apagada, no hay fuente y el mount se cierra.
   compuerta = switch(track_sensitive=false, [((fun () -> emisora_encendida(st.slug)), radio)])
+  fmp4 = list.mem(st.slug, hls_fmp4_slugs)
   # HLS adaptable: dos calidades AAC (la de la estación y la baja para señal lenta).
   # El reproductor elige la que puede sostener; las listas maestras son live.m3u8 y las variantes alta.m3u8 y baja.m3u8.
-  if st.hls then
+  # Formato del HLS: fMP4 (.m4s) solo para las emisoras listadas en hls_fmp4.txt; el resto sigue en MPEG-TS.
+  if st.hls and fmp4 then
+    output.file.hls(fallible=true, playlist="live.m3u8", segment_duration=4., segments=5, segments_overhead=2,
+      segment_name=hls_nombre_segmento, "#{hls_dir}/#{st.slug}",
+      [("alta", aac_mp4(st.bitrate)), ("baja", aac_mp4(st.calidad_baja))], compuerta)
+  elsif st.hls then
     output.file.hls(fallible=true, playlist="live.m3u8", segment_duration=4., segments=5, segments_overhead=2,
       segment_name=hls_nombre_segmento, "#{hls_dir}/#{st.slug}",
       [("alta", aac_de(st.bitrate)), ("baja", aac_de(st.calidad_baja))], compuerta)

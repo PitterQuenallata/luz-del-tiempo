@@ -185,7 +185,7 @@ async function siguienteDeRotacion(e: { slug: string; playlists?: { id: string }
 
 // Ahora suena: lo escribe Liquidsoap al cambiar de pista (ahora/<slug>.txt: título, artista, lista, inicio en unix)
 // HLS público (lo leen la web y la app): listas maestras y variantes. Sin token; solo nombres válidos.
-const TIPOS_HLS: Record<string, string> = { '.m3u8': 'application/vnd.apple.mpegurl', '.ts': 'video/mp2t' };
+const TIPOS_HLS: Record<string, string> = { '.m3u8': 'application/vnd.apple.mpegurl', '.ts': 'video/mp2t', '.m4s': 'audio/mp4', '.mp4': 'audio/mp4' };
 app.get('/hls/:slug/:archivo', async (c) => {
   const slug = c.req.param('slug');
   const archivo = c.req.param('archivo');
