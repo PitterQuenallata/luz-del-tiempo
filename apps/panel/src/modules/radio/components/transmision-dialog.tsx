@@ -19,14 +19,17 @@ function generarClave(largo = 12) {
   return Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join('');
 }
 
-interface TransmisionDialogProps {
-  emisora: ApiEmisora;
-  transmision: ApiTransmision;
-  avanzado: boolean; // solo superadmin: límites y cuota
-  onClose: () => void;
-}
+export const copiarTexto = async (texto: string, etiqueta: string) => {
+  try {
+    await navigator.clipboard.writeText(texto);
+    pillToast.success(`${etiqueta} copiado`);
+  } catch {
+    pillToast.error('No se pudo copiar', 'Selecciona el texto y cópialo a mano.');
+  }
+};
 
-export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, transmision, avanzado, onClose }) => {
+// Estado y guardado del formulario de transmisión. Lo usan la pestaña de la estación y el diálogo de Configuración.
+export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTransmision) {
   const [mount, setMount] = useState(transmision.mountPoint ?? `/${emisora.slug}`);
   const [clave, setClave] = useState('');
   const [bitrate, setBitrate] = useState(transmision.bitrateKbps);
@@ -35,7 +38,7 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
   const [cuota, setCuota] = useState(transmision.storageQuotaMb);
   const [nombreSalida, setNombreSalida] = useState(transmision.streamName ?? '');
   const [error, setError] = useState<string | null>(null);
-  // Lo que el locutor necesita. La contraseña solo se muestra aquí, en el momento en que se guarda.
+  // La contraseña nueva se muestra una sola vez, después de guardar
   const [recien, setRecien] = useState<{ clave: string | null; mount: string } | null>(null);
 
   const guardar = useMutacionGestion(
@@ -44,8 +47,8 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
     'No se pudo guardar la transmisión',
   );
 
-  const enviar = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const enviar = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const parsed = emisionSchema.safeParse({
       mountPoint: mount.trim(),
       livePassword: clave || undefined,
@@ -57,7 +60,7 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
-      return;
+      return false;
     }
     setError(null);
     const r = await guardar.mutateAsync(parsed.data);
@@ -66,117 +69,129 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
     }
     setRecien({ clave: clave || null, mount: parsed.data.mountPoint });
     setClave('');
-  };
-
-  const copiar = async (texto: string, etiqueta: string) => {
-    try {
-      await navigator.clipboard.writeText(texto);
-      pillToast.success(`${etiqueta} copiado`);
-    } catch {
-      pillToast.error('No se pudo copiar', 'Selecciona el texto y cópialo a mano.');
-    }
+    return true;
   };
 
   const mountFinal = recien?.mount ?? transmision.locutor.mount ?? mount;
   const puedeEnviar = mount.trim().length > 1 && (Boolean(transmision.livePasswordConfigurada) || clave.length >= 8);
 
+  return {
+    campos: { mount, setMount, clave, setClave, bitrate, setBitrate, autodj, setAutodj, maxOyentes, setMaxOyentes, cuota, setCuota, nombreSalida, setNombreSalida },
+    enviar,
+    error,
+    recien,
+    mountFinal,
+    puedeEnviar,
+    guardando: guardar.isPending,
+  };
+}
+
+// Los campos del formulario, sin marco: se ponen dentro de una sección de la pestaña o de un diálogo.
+export const CamposTransmision: React.FC<{
+  emisora: ApiEmisora;
+  transmision: ApiTransmision;
+  avanzado: boolean;
+  f: ReturnType<typeof useFormularioTransmision>['campos'];
+}> = ({ emisora, transmision, avanzado, f }) => (
+  <div className="space-y-6">
+    <div className="grid gap-5 sm:grid-cols-2">
+      <div>
+        <EtiquetaCampo htmlFor="tr-mount">Punto de transmisión</EtiquetaCampo>
+        <Input id="tr-mount" value={f.mount} onChange={(e) => f.setMount(e.target.value)} className="font-mono text-xs" />
+        <p className="mt-1.5 text-[11px] text-muted-foreground">Empieza con /. Cada estación tiene el suyo.</p>
+      </div>
+      <div>
+        <EtiquetaCampo htmlFor="tr-salida">Nombre de salida</EtiquetaCampo>
+        <Input id="tr-salida" value={f.nombreSalida} onChange={(e) => f.setNombreSalida(e.target.value)} placeholder={nombreSalidaPorDefecto(emisora.name)} maxLength={80} className="text-xs" />
+        <p className="mt-1.5 text-[11px] text-muted-foreground">Es el nombre que ve el oyente en su reproductor. Vacío = «{nombreSalidaPorDefecto(emisora.name)}».</p>
+      </div>
+      <div>
+        <EtiquetaCampo htmlFor="tr-clave">Contraseña del locutor</EtiquetaCampo>
+        <div className="flex gap-2">
+          <Input id="tr-clave" value={f.clave} onChange={(e) => f.setClave(e.target.value)} placeholder={transmision.livePasswordConfigurada ? '•••••• (sin cambios)' : 'Mínimo 8 caracteres'} className="font-mono text-xs" autoComplete="new-password" />
+          <Button type="button" variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => f.setClave(generarClave())}>
+            <KeyRound className="mr-1 h-3.5 w-3.5" /> Generar
+          </Button>
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">Vacía = se conserva la actual. Se guarda cifrada y no se vuelve a mostrar.</p>
+      </div>
+      <div>
+        <EtiquetaCampo htmlFor="tr-bitrate">Calidad del audio</EtiquetaCampo>
+        <SelectField id="tr-bitrate" value={f.bitrate} onChange={(e) => f.setBitrate(Number(e.target.value))}>
+          {BITRATES.map((b) => <option key={b} value={b}>{b} kbps{b === 128 ? ' (recomendada)' : ''}</option>)}
+        </SelectField>
+      </div>
+    </div>
+
+    <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+      <div>
+        <p className="text-xs font-medium">Música automática (AutoDJ)</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {transmision.autodjEnabled
+            ? 'Ya está encendido: se eligió al crear la estación y no se puede apagar.'
+            : 'Suena cuando no hay programa ni locutor. Solo se puede encender si la estación se creó sin AutoDJ.'}
+        </p>
+      </div>
+      <Switch checked={f.autodj} onCheckedChange={f.setAutodj} id="tr-autodj" disabled={transmision.autodjEnabled} />
+    </div>
+
+    {avanzado && (
+      <div className="space-y-4 border-t border-border/60 pt-5">
+        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Ajustes avanzados (superadmin)</p>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <EtiquetaCampo htmlFor="tr-max">Oyentes máximos</EtiquetaCampo>
+            <Input id="tr-max" type="number" min={1} max={2000} value={f.maxOyentes} onChange={(e) => f.setMaxOyentes(Number(e.target.value))} className="text-xs" />
+          </div>
+          <div>
+            <EtiquetaCampo htmlFor="tr-cuota">Espacio para audios (MB)</EtiquetaCampo>
+            <Input id="tr-cuota" type="number" min={100} max={10240} value={f.cuota} onChange={(e) => f.setCuota(Number(e.target.value))} className="text-xs" />
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+// Diálogo (solo para Configuración de radio: ahí la lista de estaciones es un resumen y la edición va en ventana).
+interface TransmisionDialogProps {
+  emisora: ApiEmisora;
+  transmision: ApiTransmision;
+  avanzado: boolean;
+  onClose: () => void;
+}
+
+export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, transmision, avanzado, onClose }) => {
+  const form = useFormularioTransmision(emisora, transmision);
+  const guardarYCerrar = async (e: React.FormEvent) => {
+    if (await form.enviar(e)) onClose();
+  };
   return (
     <DialogoContenido
       titulo={`Transmisión: ${emisora.name}`}
       onClose={onClose}
-      onSubmit={enviar}
-      puedeEnviar={puedeEnviar}
-      enviando={guardar.isPending}
+      onSubmit={guardarYCerrar}
+      puedeEnviar={form.puedeEnviar}
+      enviando={form.guardando}
       textoBoton="Guardar transmisión"
       ancho="xl"
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <EtiquetaCampo htmlFor="tr-mount">Punto de transmisión (mount)</EtiquetaCampo>
-          <Input id="tr-mount" value={mount} onChange={(e) => setMount(e.target.value)} className="font-mono text-xs" />
-          <p className="text-[11px] text-muted-foreground mt-1">Empieza con /. Ej.: /salud. Cada emisora tiene el suyo.</p>
-        </div>
-        <div className="sm:col-span-2">
-          <EtiquetaCampo htmlFor="tr-salida">Nombre de salida (lo que ve el oyente)</EtiquetaCampo>
-          <Input id="tr-salida" value={nombreSalida} onChange={(e) => setNombreSalida(e.target.value)} placeholder={nombreSalidaPorDefecto(emisora.name)} maxLength={80} className="text-xs" />
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Vacío = «{nombreSalidaPorDefecto(emisora.name)}». Es el nombre que ven los oyentes en su reproductor.
-          </p>
-        </div>
-        <div>
-          <EtiquetaCampo htmlFor="tr-clave">Contraseña del locutor</EtiquetaCampo>
-          <div className="flex gap-2">
-            <Input id="tr-clave" value={clave} onChange={(e) => setClave(e.target.value)} placeholder={transmision.livePasswordConfigurada ? '•••••• (sin cambios)' : 'Mínimo 8 caracteres'} className="font-mono text-xs" autoComplete="new-password" />
-            <Button type="button" variant="outline" size="sm" className="text-xs shrink-0" onClick={() => setClave(generarClave())}>
-              <KeyRound className="h-3.5 w-3.5 mr-1" /> Generar
-            </Button>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1">Déjala vacía para conservar la actual. Se guarda cifrada y no se vuelve a mostrar.</p>
-        </div>
-        <div>
-          <EtiquetaCampo htmlFor="tr-bitrate">Calidad del audio</EtiquetaCampo>
-          <SelectField id="tr-bitrate" value={bitrate} onChange={(e) => setBitrate(Number(e.target.value))}>
-            {BITRATES.map((b) => <option key={b} value={b}>{b} kbps{b === 128 ? ' (recomendada)' : ''}</option>)}
-          </SelectField>
-        </div>
-        <div className="flex items-end">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <Switch checked={autodj} onCheckedChange={setAutodj} id="tr-autodj" disabled={transmision.autodjEnabled} />
-            <span>
-              <span className="block font-medium">Música automática (AutoDJ)</span>
-              <span className="block text-[11px] text-muted-foreground">
-                {transmision.autodjEnabled ? 'Se eligió al crear la estación: no se puede apagar.' : 'Cuando no hay locutor, suenan las listas. Solo se puede encender si se creó sin AutoDJ.'}
-              </span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {avanzado && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <p className="font-semibold text-amber-600 dark:text-amber-400 mb-3">Ajustes avanzados (superadmin)</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <EtiquetaCampo htmlFor="tr-max">Oyentes máximos</EtiquetaCampo>
-              <Input id="tr-max" type="number" min={1} max={2000} value={maxOyentes} onChange={(e) => setMaxOyentes(Number(e.target.value))} className="text-xs" />
-            </div>
-            <div>
-              <EtiquetaCampo htmlFor="tr-cuota">Espacio para audios (MB)</EtiquetaCampo>
-              <Input id="tr-cuota" type="number" min={100} max={10240} value={cuota} onChange={(e) => setCuota(Number(e.target.value))} className="text-xs" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ErrorCampo texto={error} />
-
-      {recien && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
-          <p className="font-semibold">Datos para transmitir (BUTT, OBS o la app de la radio)</p>
-          <dl className="grid gap-2 sm:grid-cols-2">
-            <Dato etiqueta="Servidor" valor={transmision.locutor.servidor} onCopiar={copiar} />
-            <Dato etiqueta="Puerto" valor={String(transmision.locutor.puerto)} onCopiar={copiar} />
-            <Dato etiqueta="Mount" valor={mountFinal} onCopiar={copiar} />
-            <Dato etiqueta="Contraseña" valor={recien.clave ?? 'No se muestra: ya está guardada'} onCopiar={recien.clave ? copiar : undefined} />
-          </dl>
-          <p className="text-[11px] text-muted-foreground">Oyentes escuchan en: <span className="font-mono">{transmision.streamUrl ?? '—'}</span></p>
-        </div>
-      )}
+      <CamposTransmision emisora={emisora} transmision={transmision} avanzado={avanzado} f={form.campos} />
+      <ErrorCampo texto={form.error} />
     </DialogoContenido>
   );
 };
 
-const Dato: React.FC<{ etiqueta: string; valor: string; onCopiar?: (texto: string, etiqueta: string) => void }> = ({ etiqueta, valor, onCopiar }) => (
-  <div className="rounded-lg border border-border bg-background px-3 py-2">
-    <dt className="text-[11px] text-muted-foreground">{etiqueta}</dt>
-    <dd className="flex items-center justify-between gap-2">
-      <span className="font-mono text-xs truncate">{valor}</span>
+export const DatoTransmision: React.FC<{ etiqueta: string; valor: string; onCopiar?: (texto: string, etiqueta: string) => void }> = ({ etiqueta, valor, onCopiar }) => (
+  <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3 last:border-0">
+    <dt className="text-xs text-muted-foreground">{etiqueta}</dt>
+    <dd className="flex min-w-0 items-center gap-2">
+      <span className={valor.length > 28 ? 'break-all text-right font-mono text-xs' : 'truncate font-mono text-xs'}>{valor}</span>
       {onCopiar && (
-        <button type="button" aria-label={`Copiar ${etiqueta}`} onClick={() => onCopiar(valor, etiqueta)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+        <button type="button" aria-label={`Copiar ${etiqueta}`} onClick={() => onCopiar(valor, etiqueta)} className="shrink-0 text-muted-foreground hover:text-foreground cursor-pointer">
           <Copy className="h-3.5 w-3.5" />
         </button>
       )}
     </dd>
   </div>
 );
-

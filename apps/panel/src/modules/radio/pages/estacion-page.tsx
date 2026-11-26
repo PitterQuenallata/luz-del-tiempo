@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../shared/components/ui/button';
 import { Badge } from '../../../shared/components/ui/badge';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
-import { ApiEmisora, ApiPista, ApiPlaylist, luzApi } from '../../../shared/api/luz-api';
+import { ApiEmisora, ApiTransmision, ApiPista, ApiPlaylist, luzApi } from '../../../shared/api/luz-api';
 import { EstacionControles, EstadoVivo, estadoEstacion } from '../components/estacion-controles';
 import { ReproductorLista } from '../components/reproductor-lista';
 import { OrdenarPistasDialog } from '../components/ordenar-pistas-dialog';
@@ -19,9 +19,9 @@ import { useEstaciones, useMutacionGestion, useProgramas } from '../../gestion/h
 import { useSession } from '../../auth/hooks/use-session';
 import { irA } from '../../gestion/lib/navegar';
 import { SelectField } from '../../usuarios/components/select-field';
-import { ModoEdicion } from '../../contenido/components/dialogo-contenido';
+import { ErrorCampo, ModoEdicion } from '../../contenido/components/dialogo-contenido';
 import { useAhoraSuena, useLocutores, usePistas, usePlaylists, useServicioRadio, useTransmision } from '../hooks/use-radio';
-import { TransmisionDialog } from '../components/transmision-dialog';
+import { CamposTransmision, DatoTransmision, copiarTexto, useFormularioTransmision } from '../components/transmision-dialog';
 import { LocutoresDialog } from '../components/locutores-dialog';
 import { EstadoRadio, ProgramacionTab } from './emisoras-page';
 
@@ -507,103 +507,97 @@ const FilaVinculada: React.FC<{
   );
 };
 
-const Transmision: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean }> = ({ estacion, avanzado, admin, editaTransmision }) => {
-  const transmision = useTransmision(estacion.id);
+// Una sección de la pestaña: título, explicación y contenido, separada por una línea (sin cards anidadas)
+const Seccion: React.FC<{ titulo: string; descripcion?: string; accion?: React.ReactNode; children: React.ReactNode }> = ({ titulo, descripcion, accion, children }) => (
+  <section className="space-y-5">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-sm font-semibold">{titulo}</h2>
+        {descripcion && <p className="mt-1 text-xs text-muted-foreground">{descripcion}</p>}
+      </div>
+      {accion}
+    </div>
+    {children}
+  </section>
+);
+
+const Transmision: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean }> = (props) => {
+  const transmision = useTransmision(props.estacion.id);
+  // El formulario se monta cuando ya llegaron los datos, para que empiece con los valores guardados
+  if (!transmision.data) return <Cargando />;
+  return <TransmisionContenido {...props} t={transmision.data.transmision} />;
+};
+
+const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean; t: ApiTransmision }> = ({ estacion, avanzado, admin, editaTransmision, t }) => {
   const locutores = useLocutores(estacion.id);
   const servicio = useServicioRadio();
   const [locutoresAbiertos, setLocutoresAbiertos] = useState(false);
-  const t = transmision.data?.transmision;
-
-  const copiar = async (texto: string, etiqueta: string) => {
-    try {
-      await navigator.clipboard.writeText(texto);
-      pillToast.success(`${etiqueta} copiado`);
-    } catch {
-      pillToast.error('No se pudo copiar', 'Cópialo a mano.');
-    }
-  };
-
-  const fila = (etiqueta: string, valor: string, copiable: boolean) => (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 py-3 last:border-0">
-      <span className="text-xs text-muted-foreground">{etiqueta}</span>
-      <div className="flex items-center gap-2">
-        <code className="rounded-lg bg-secondary/60 px-2.5 py-1 font-mono text-xs">{valor}</code>
-        {copiable && <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => copiar(valor, etiqueta)}><Copy className="mr-1 h-3.5 w-3.5" />Copiar</Button>}
-      </div>
-    </div>
-  );
+  const form = useFormularioTransmision(estacion, t);
 
   return (
-    <div className="space-y-6">
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold">Control de la estación</CardTitle>
-          <CardDescription className="text-xs">Encender o apagar, escuchar, copiar el enlace, sincronizar la radio y ver a los locutores.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!t ? <p className="text-xs text-muted-foreground">Cargando…</p> : (
-            <EstacionControles emisora={estacion} transmision={t} />
-          )}
-          {servicio.data && !servicio.data.encendida && (
-            <p className="mt-3 text-xs text-amber-500">La radio completa está apagada: ninguna estación suena hasta volver a encenderla.</p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-12">
+      <Seccion titulo="Control" descripcion="Encender o apagar la estación, escucharla y copiar el enlace para los oyentes.">
+        <EstacionControles emisora={estacion} transmision={t} />
+        {servicio.data && !servicio.data.encendida && (
+          <p className="text-xs text-amber-500">La radio completa está apagada: ninguna estación suena hasta volver a encenderla.</p>
+        )}
+      </Seccion>
 
-      {editaTransmision && t && (
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Configuración de transmisión</CardTitle>
-            <CardDescription className="text-xs">Punto de transmisión, contraseña del locutor, calidad y AutoDJ de esta estación.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ModoEdicion.Provider value="pagina">
-              <TransmisionDialog emisora={estacion} transmision={t} avanzado={avanzado} onClose={() => undefined} />
-            </ModoEdicion.Provider>
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-12">
+          {editaTransmision ? (
+            <Seccion titulo="Configuración de transmisión" descripcion="Lo que guardas aquí lo usan el locutor y la radio.">
+              <form onSubmit={form.enviar} className="space-y-6" noValidate>
+                <CamposTransmision emisora={estacion} transmision={t} avanzado={avanzado} f={form.campos} />
+                <ErrorCampo texto={form.error} />
+                <div className="flex justify-end border-t border-border/60 pt-5">
+                  <Button type="submit" size="sm" className="text-xs" disabled={!form.puedeEnviar || form.guardando}>
+                    {form.guardando ? 'Guardando…' : 'Guardar transmisión'}
+                  </Button>
+                </div>
+              </form>
+            </Seccion>
+          ) : (
+            <Seccion titulo="Configuración de transmisión" descripcion="La administración cambia estos datos. Tú puedes cambiar el nombre y el AutoDJ de la estación.">
+              <p className="text-xs text-muted-foreground">Punto de transmisión: <span className="font-mono text-foreground">{t.mountPoint ?? 'sin punto'}</span> · Calidad: {t.bitrateKbps} kbps · AutoDJ: {t.autodjEnabled ? 'encendido' : 'apagado'}</p>
+            </Seccion>
+          )}
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Datos para el locutor</CardTitle>
-            <CardDescription className="text-xs">Con esto se conecta el emisor de Windows o BUTT/OBS para transmitir en vivo.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!t && <p className="text-xs text-muted-foreground">Cargando…</p>}
-            {t && (
-              <>
-                {fila('Servidor', `${t.locutor.servidor}:${t.locutor.puerto}`, true)}
-                {fila('Punto de montaje', t.mountPoint ?? 'Sin punto de montaje', Boolean(t.mountPoint))}
-                {fila('Contraseña', t.livePasswordConfigurada ? '•••••••• (guardada)' : 'Sin contraseña', false)}
-                {fila('Calidad', `${t.bitrateKbps} kbps`, false)}
-                <p className="pt-3 text-[11px] text-muted-foreground">La contraseña no se vuelve a mostrar. Si el locutor la olvidó, cámbiala en la configuración de transmisión.</p>
-              </>
+        <aside className="space-y-12">
+          <Seccion titulo="Datos para el locutor" descripcion="Con esto se conecta BUTT, OBS o el emisor de Windows.">
+            {form.recien && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs">
+                <p className="font-medium">Contraseña nueva: cópiala ahora</p>
+                <p className="mt-1 text-muted-foreground">No se vuelve a mostrar.</p>
+                {form.recien.clave && <p className="mt-2 flex items-center justify-between gap-2 font-mono">{form.recien.clave}<button type="button" onClick={() => copiarTexto(form.recien!.clave!, 'Contraseña')} className="text-muted-foreground hover:text-foreground cursor-pointer"><Copy className="h-3.5 w-3.5" /></button></p>}
+              </div>
             )}
-          </CardContent>
-        </Card>
+            <dl>
+              <DatoTransmision etiqueta="Servidor" valor={`${t.locutor.servidor}:${t.locutor.puerto}`} onCopiar={copiarTexto} />
+              <DatoTransmision etiqueta="Punto de montaje" valor={form.mountFinal} onCopiar={copiarTexto} />
+              <DatoTransmision etiqueta="Contraseña" valor={t.livePasswordConfigurada ? 'Guardada' : 'Sin contraseña'} />
+              <DatoTransmision etiqueta="Calidad" valor={`${t.bitrateKbps} kbps`} />
+              {t.streamUrl && <DatoTransmision etiqueta="Enlace para oyentes" valor={t.streamUrl} onCopiar={copiarTexto} />}
+            </dl>
+          </Seccion>
 
-        <Card className="border-border">
-          <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-            <div>
-              <CardTitle className="text-sm font-semibold">Locutores con acceso</CardTitle>
-              <CardDescription className="text-xs">Quiénes pueden transmitir en esta estación.</CardDescription>
-            </div>
-            {admin && <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => setLocutoresAbiertos(true)}>Editar locutores</Button>}
-          </CardHeader>
-          <CardContent>
+          <Seccion
+            titulo="Locutores con acceso"
+            descripcion="Quiénes pueden transmitir en esta estación."
+            accion={admin ? <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => setLocutoresAbiertos(true)}>Editar</Button> : undefined}
+          >
             {locutores.data && locutores.data.asignados.length === 0 && <p className="text-xs text-muted-foreground">Todavía nadie tiene acceso.</p>}
             <ul className="divide-y divide-border/60">
               {(locutores.data?.asignados ?? []).map((u) => (
-                <li key={u.id} className="flex items-center justify-between py-2.5 text-sm">
-                  <span>{u.nombre}</span>
-                  <span className="text-xs text-muted-foreground">{u.email}</span>
+                <li key={u.id} className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                  <span className="font-medium">{u.nombre}</span>
+                  <span className="truncate text-muted-foreground">{u.email}</span>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </Seccion>
+        </aside>
       </div>
 
       {locutoresAbiertos && <LocutoresDialog emisora={estacion} onClose={() => setLocutoresAbiertos(false)} />}
