@@ -1,6 +1,6 @@
-import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, FolderOpen, LayoutGrid, LucideIcon, DatabaseBackup } from 'lucide-react';
+import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, FolderOpen, LayoutGrid, LucideIcon, DatabaseBackup, BarChart3 } from 'lucide-react';
 
-export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion' | 'configuracion';
+export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion';
 
 export interface NavigationCategory {
   key: NavigationCategoryKey;
@@ -12,7 +12,6 @@ export const navigationCategories: NavigationCategory[] = [
   { key: 'sitio', title: 'Sitio web' },
   { key: 'radio', title: 'Radio' },
   { key: 'administracion', title: 'Administración' },
-  { key: 'configuracion', title: 'Configuración' },
 ];
 
 export interface NavItem {
@@ -35,9 +34,10 @@ export const navItems: NavItem[] = [
   { id: 'videos', title: 'Videos', path: '/videos', icon: Video, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'en-vivo', title: 'En vivo', path: '/en-vivo', icon: RadioTower, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },
-  { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
-  { id: 'archivos', title: 'Archivos', path: '/archivos', icon: FolderOpen, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
-  { id: 'configuracion-radio', title: 'Radio', path: '/configuracion-radio', icon: Settings2, category: 'configuracion', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'emisoras', title: 'Emisoras y estaciones', path: '/emisoras', icon: Radio, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'archivos', title: 'Medios', path: '/archivos', icon: FolderOpen, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
+  { id: 'informes', title: 'Informes', path: '/informes', icon: BarChart3, category: 'radio', permiso: 'estaciones:todas' },
+  { id: 'configuracion-radio', title: 'Servidor de radio', path: '/configuracion-radio', icon: Settings2, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
   { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },
   { id: 'logs', title: 'Auditoría', path: '/logs', icon: ScrollText, category: 'administracion', permiso: 'logs:ver' },

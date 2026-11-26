@@ -42,11 +42,15 @@ services:
       - ./liquidsoap:/radio:ro
       # Registros de cada proceso (rotan solos): para la radio-api, la pestaña de registros
       - ./data/logs:/var/log/radio
+      # Socket de supervisord (reiniciar Icecast o AutoDJ por emisora desde el panel)
+      - radio_control:/control
       # Estado de cada proceso (sincronizar.sh): la radio-api lo lee para el panel
       - ./data/procesos:/procesos
       - ./data/config:/config:ro
       # Liquidsoap escribe aquí lo que suena ahora (la radio-api lo lee)
       - ./data/config/ahora:/config/ahora
+      # Historial de reproducción (una línea por pista): Liquidsoap escribe aquí y la radio-api lo lee
+      - ./data/config/historial:/config/historial
       # HLS: Liquidsoap escribe las listas y segmentos; la radio-api los sirve
       - ./data/hls:/hls
       - ./data/music:/music:ro
@@ -83,5 +87,9 @@ services:
       - ./data/hls:/hls:ro
       - ./data/procesos:/procesos:ro
       - ./data/logs:/logs:ro
+      - radio_control:/control
     ports:
       - "4100:4100"
+
+volumes:
+  radio_control:

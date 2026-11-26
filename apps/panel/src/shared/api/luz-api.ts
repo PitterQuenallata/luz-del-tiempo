@@ -612,12 +612,16 @@ export const luzApi = {
     return request(`/api/v1/radio/estaciones/${estacionId}/ahora`);
   },
   /** Sistema (superadmin): tareas de fondo y copias de seguridad */
+  ajustesSistema() { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number } }>('/api/v1/sistema/ajustes'); },
+  guardarAjustesSistema(input: Partial<{ respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number }>) { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number } }>('/api/v1/sistema/ajustes', { method: 'PUT', body: JSON.stringify(input) }); },
   tareasSistema() { return request<{ tareas: { clave: string; nombre: string; ultimaEjecucion: string | null; ultimoResultado: 'ok' | 'error' | null; detalle: string }[] }>('/api/v1/sistema/tareas'); },
   ejecutarTareaSistema(clave: string) { return request<{ tarea: unknown }>(`/api/v1/sistema/tareas/${clave}/ejecutar`, { method: 'POST' }); },
   respaldosSistema() { return request<{ respaldos: { nombre: string; bytes: number; creado: string }[] }>('/api/v1/sistema/respaldos'); },
   crearRespaldoSistema() { return request<{ nombre: string }>('/api/v1/sistema/respaldos', { method: 'POST' }); },
   borrarRespaldoSistema(nombre: string) { return request(`/api/v1/sistema/respaldos/${nombre}`, { method: 'DELETE' }); },
-  oyentesRadio(dias = 7) { return request<{ filas: { slug: string; nombre: string; dia: string; pico: number; promedio: number; muestras: number }[] }>(`/api/v1/radio/reportes/oyentes?dias=${dias}`); },
+  historialEstacion(estacionId: string, limite = 200) { return request<{ pistas: { inicio: string; titulo: string; artista: string; lista: string; archivo: string }[] }>(`/api/v1/radio/estaciones/${estacionId}/historial?limite=${limite}`); },
+  revisionPistas(radioId: string) { return request<{ duplicados: { id: string; title: string; artist: string | null; archivo: string }[][]; sinAsignar: { id: string; title: string; artist: string | null; archivo: string }[] }>(`/api/v1/radio/emisoras/${radioId}/revision-pistas`); },
+  oyentesRadio(dias = 7) { return request<{ filas: { slug: string; nombre: string; dia: string; pico: number; promedio: number; muestras: number }[]; porHora: { hora: number; promedio: number }[]; porDiaSemana: { dia: number; promedio: number }[] }>(`/api/v1/radio/reportes/oyentes?dias=${dias}`); },
   registrosRadio(proceso: string, lineas = 200) { return request<{ registros: { archivo: string; lineas: string[] }[] }>(`/api/v1/sistema/registros/${encodeURIComponent(proceso)}?lineas=${lineas}`); },
   async descargarRespaldoSistema(nombre: string): Promise<Blob> {
     const res = await fetch(`${API_URL}/api/v1/sistema/respaldos/${nombre}`, { credentials: 'include' });
@@ -627,6 +631,9 @@ export const luzApi = {
   /** Estado del proceso de Liquidsoap de la emisora (o null si la radio no responde). */
   async getProceso(estacionId: string): Promise<{ proceso: { estado: 'en_marcha' | 'reiniciando' | 'sin_proceso'; reinicios: number; desde: number | null; ultimoCodigo: number | null } | null }> {
     return request(`/api/v1/radio/estaciones/${estacionId}/proceso`);
+  },
+  reiniciarServicio(estacionId: string, servicio: 'icecast' | 'autodj') {
+    return request(`/api/v1/radio/estaciones/${estacionId}/servicio`, { method: 'POST', body: JSON.stringify({ servicio }) });
   },
   saltarLista(estacionId: string) {
     return request(`/api/v1/radio/estaciones/${estacionId}/saltar-lista`, { method: 'POST' });

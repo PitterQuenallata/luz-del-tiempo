@@ -363,6 +363,7 @@ def crear_estacion(st) =
   # La radio-api lo lee para el panel (ahora/<slug>.txt). Líneas: título, artista, lista, inicio (unix), archivo.
   # El título de la base de datos se completa en la API cuando el archivo no trae etiquetas.
   ahora_path = "#{config_dir}/ahora/#{st.slug}.txt"
+  historial_path = "#{config_dir}/historial/#{st.slug}.log"
   lista_actual = ref("")
   radio.on_track(synchronous=false, fun (m) -> begin
     titulo = list.assoc(default="", "title", m)
@@ -375,6 +376,12 @@ def crear_estacion(st) =
       file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n#{archivo}\n", ahora_path)
     catch err do
       log.important("No se pudo escribir ahora/#{st.slug}.txt: #{err}")
+    end
+    # Historial de reproducción: una línea por pista que empieza (la radio-api la importa a la base)
+    try
+      file.write(append=true, data="#{inicio}\t#{titulo}\t#{artista}\t#{lista}\t#{archivo}\n", historial_path)
+    catch err do
+      log.important("No se pudo anotar el historial de #{st.slug}: #{err}")
     end
   end)
 

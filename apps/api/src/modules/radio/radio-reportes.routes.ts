@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
-import { broadcastSessions, stationListenerSamples, stations, users } from '../../db/schema.js';
+import { broadcastSessions, playlistTracks, stationListenerSamples, stationTracks, stations, users } from '../../db/schema.js';
 
 // Reportes de las transmisiones hechas con el emisor: horas al aire por emisora y por locutor en un mes.
 export const radioReportesRoutes = new Hono();
@@ -78,5 +78,42 @@ radioReportesRoutes.get('/reportes/oyentes', requirePermission('estaciones:todas
     .where(gte(stationListenerSamples.sampledAt, desde))
     .groupBy(stations.slug, stations.name, dia)
     .orderBy(stations.slug, dia);
-  return c.json({ desde: desde.toISOString(), dias, filas });
+  // Promedio por hora del día y por día de la semana (hora de La Paz), en el mismo rango
+  const hora = sql<number>`extract(hour from ${stationListenerSamples.sampledAt} at time zone '${sql.raw(zona)}')::int`;
+  const diaSemana = sql<number>`extract(dow from ${stationListenerSamples.sampledAt} at time zone '${sql.raw(zona)}')::int`;
+  const porHora = await db
+    .select({ hora, promedio: sql<number>`round(avg(${stationListenerSamples.listeners}), 2)::float` })
+    .from(stationListenerSamples)
+    .where(gte(stationListenerSamples.sampledAt, desde))
+    .groupBy(hora)
+    .orderBy(hora);
+  const porDiaSemana = await db
+    .select({ dia: diaSemana, promedio: sql<number>`round(avg(${stationListenerSamples.listeners}), 2)::float` })
+    .from(stationListenerSamples)
+    .where(gte(stationListenerSamples.sampledAt, desde))
+    .groupBy(diaSemana)
+    .orderBy(diaSemana);
+  return c.json({ desde: desde.toISOString(), dias, filas, porHora, porDiaSemana });
+});
+
+// Revisión de los audios de una emisora: posibles duplicados (mismo título y artista) y audios que no están en ninguna lista.
+radioReportesRoutes.get('/emisoras/:id/revision-pistas', requirePermission('estaciones:todas'), async (c) => {
+  const radioId = c.req.param('id') as string;
+  const pistas = await db
+    .select({ id: stationTracks.id, title: stationTracks.title, artist: stationTracks.artist, storageKey: stationTracks.storageKey })
+    .from(stationTracks)
+    .where(eq(stationTracks.radioId, radioId));
+  // Duplicados: mismo título y artista (sin importar mayúsculas), más de un archivo
+  const grupos = new Map<string, typeof pistas>();
+  for (const p of pistas) {
+    const clave = `${p.title.trim().toLowerCase()}|${(p.artist ?? '').trim().toLowerCase()}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), p]);
+  }
+  const duplicados = [...grupos.values()].filter((g) => g.length > 1).map((g) => g.map((p) => ({ id: p.id, title: p.title, artist: p.artist, archivo: p.storageKey })));
+  // Sin asignar: ningún playlist la usa
+  const usadas = new Set(
+    (await db.select({ trackId: playlistTracks.trackId }).from(playlistTracks).innerJoin(stationTracks, eq(playlistTracks.trackId, stationTracks.id)).where(eq(stationTracks.radioId, radioId))).map((r) => r.trackId),
+  );
+  const sinAsignar = pistas.filter((p) => !usadas.has(p.id)).map((p) => ({ id: p.id, title: p.title, artist: p.artist, archivo: p.storageKey }));
+  return c.json({ duplicados, sinAsignar });
 });

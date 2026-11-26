@@ -1,14 +1,14 @@
 import { urlEscucha } from '../../lib/escucha.js';
 import { Context, Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or } from 'drizzle-orm';
 import { ambitoSchema, emisionSchema, interruptorSchema, pistaEditarSchema, pistasCarpetaSchema, playlistSchema, usoPlaylistSchema, type PlaylistInput } from '@luz/shared';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { cifrar } from '../../lib/cifrado.js';
 import { db } from '../../db/index.js';
-import { playlistSchedules, playlistTracks, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { historialReproduccion, playlistSchedules, playlistTracks, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
 import { archivoRadio, filtroArchivoEmisora, filtroArchivoEstacion } from './archivo.js';
 import { leerEtiquetas, releerEtiquetas } from './etiquetas.js';
 import { esAdmin, estacionParaRuta, puedeGestionarEmisora, requireEstacionesAcceso } from './acceso.js';
@@ -535,6 +535,37 @@ radioMusicaRoutes.get('/estaciones/:id/ahora', ACCESO, async (c) => {
 });
 
 // Saltar la canción que suena ahora (Liquidsoap la salta una vez)
+// Historial de reproducción de la estación: últimas pistas que sonaron (la más reciente primero)
+radioMusicaRoutes.get('/estaciones/:id/historial', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const limite = Math.min(Math.max(Number(c.req.query('limite') ?? 100), 1), 500);
+  const filas = await db
+    .select()
+    .from(historialReproduccion)
+    .where(eq(historialReproduccion.stationId, acceso.estacion.id))
+    .orderBy(desc(historialReproduccion.startedAt))
+    .limit(limite);
+  // Sin etiquetas en el audio, el título es el nombre del archivo
+  return c.json({ pistas: filas.map((f) => ({ inicio: f.startedAt.toISOString(), titulo: f.titulo || f.archivo.split('/').pop()?.replace(/\.[^.]+$/, '') || '', artista: f.artista, lista: f.lista, archivo: f.archivo })) });
+});
+
+// Reinicia el Icecast (oyentes) o el AutoDJ (Liquidsoap) de la estación. Solo esa estación se reinicia.
+radioMusicaRoutes.post('/estaciones/:id/servicio', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  const { servicio } = (await c.req.json().catch(() => ({}))) as { servicio?: string };
+  if (servicio !== 'icecast' && servicio !== 'autodj') return c.json({ error: 'servicio_invalido' }, 400);
+  try {
+    await radioApi(`/v1/stations/${e.slug}/servicio`, { method: 'POST', json: { servicio } });
+  } catch {
+    return c.json({ error: 'radio_no_disponible' }, 503);
+  }
+  await registrarAuditoria({ userId: acceso.user.id, accion: 'estacion.reiniciar_servicio', entidad: 'estacion', entidadId: e.id, detalle: `${e.name}: ${servicio === 'icecast' ? 'Icecast' : 'AutoDJ'}` });
+  return c.json({ ok: true });
+});
+
 radioMusicaRoutes.post('/estaciones/:id/saltar', ACCESO, async (c) => {
   const acceso = await estacionParaRuta(c, c.req.param('id') as string);
   if (acceso instanceof Response) return acceso;

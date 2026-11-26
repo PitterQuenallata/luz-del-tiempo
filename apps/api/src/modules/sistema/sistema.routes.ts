@@ -2,14 +2,32 @@
 import { readFile, unlink } from 'node:fs/promises';
 import { Hono } from 'hono';
 import { requirePermission } from '../../lib/authz.js';
-import { crearRespaldo, listarRespaldos, rutaRespaldo } from '../../tareas/respaldo.js';
+import { crearRespaldo, leerAjustesSistema, listarRespaldos, rutaRespaldo } from '../../tareas/respaldo.js';
+import { db } from '../../db/index.js';
+import { sistemaAjustes } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
 import { ejecutarTarea, estadoTareas } from '../../tareas/programador.js';
 import { radioApi } from '../radio/radio-sync.js';
 
 export const sistemaRoutes = new Hono();
 sistemaRoutes.use('*', requirePermission('sistema:respaldos'));
 
-sistemaRoutes.get('/tareas', (c) => c.json({ tareas: estadoTareas() }));
+sistemaRoutes.get('/tareas', async (c) => c.json({ tareas: await estadoTareas() }));
+
+sistemaRoutes.get('/ajustes', async (c) => c.json({ ajustes: await leerAjustesSistema() }));
+
+sistemaRoutes.put('/ajustes', async (c) => {
+  const cuerpo = (await c.req.json().catch(() => ({}))) as Partial<{ respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number }>;
+  const errores: string[] = [];
+  if (cuerpo.respaldoHora !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(cuerpo.respaldoHora)) errores.push('La hora debe ser HH:MM (ej. 03:00).');
+  if (cuerpo.respaldoDiasRetencion !== undefined && !(Number.isInteger(cuerpo.respaldoDiasRetencion) && cuerpo.respaldoDiasRetencion >= 1 && cuerpo.respaldoDiasRetencion <= 365)) errores.push('Las copias se guardan entre 1 y 365 días.');
+  if (cuerpo.muestrasDiasRetencion !== undefined && !(Number.isInteger(cuerpo.muestrasDiasRetencion) && cuerpo.muestrasDiasRetencion >= 7 && cuerpo.muestrasDiasRetencion <= 3650)) errores.push('Las muestras de oyentes se guardan entre 7 y 3650 días.');
+  if (cuerpo.respaldoActivo !== undefined && typeof cuerpo.respaldoActivo !== 'boolean') errores.push('Activa o desactiva la copia diaria.');
+  if (errores.length) return c.json({ error: 'validacion', message: errores.join(' ') }, 422);
+  await leerAjustesSistema();
+  await db.update(sistemaAjustes).set(cuerpo).where(eq(sistemaAjustes.id, 1));
+  return c.json({ ajustes: await leerAjustesSistema() });
+});
 
 sistemaRoutes.post('/tareas/:clave/ejecutar', async (c) => {
   const clave = c.req.param('clave');

@@ -211,6 +211,20 @@
       "when": 1796600000000,
       "tag": "0029_permiso_sistema",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1796700000000,
+      "tag": "0030_sistema_ajustes",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1796800000000,
+      "tag": "0031_historial_reproduccion",
+      "breakpoints": true
     }
   ]
 }

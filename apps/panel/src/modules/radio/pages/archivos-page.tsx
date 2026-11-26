@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
@@ -7,6 +8,7 @@ import { SelectField } from '../../usuarios/components/select-field';
 import { ApiEmisora, ApiPlaylist, ApiRadio, luzApi } from '../../../shared/api/luz-api';
 import { confirmar } from '../../../shared/lib/confirm';
 import { cn } from '../../../shared/lib/utils';
+import { Pestanas, PestanaItem } from '../../../shared/components/ui/pestanas';
 import { useEstaciones, useMutacionGestion, useRadios } from '../../gestion/hooks/use-gestion';
 import { irA } from '../../gestion/lib/navegar';
 import { usePlaylists } from '../hooks/use-radio';
@@ -15,7 +17,12 @@ import { BibliotecaArchivos } from './biblioteca-archivos';
 // Archivos de la EMISORA: sus audios y sus listas. Todas sus estaciones los usan.
 // Las listas se vinculan a cada estación desde su pestaña AutoDJ; aquí se crean y se editan.
 
-type Pestana = 'audios' | 'listas';
+type Pestana = 'audios' | 'listas' | 'revision';
+const PESTANAS: PestanaItem<Pestana>[] = [
+  { id: 'audios', label: 'Audios' },
+  { id: 'listas', label: 'Listas de reproducción' },
+  { id: 'revision', label: 'Revisión' },
+];
 const MENSAJES_MODO = { rotacion: 'Rotación', secuencial: 'Secuencial', programada: 'Programada' } as const;
 
 export const ArchivosPage: React.FC = () => {
@@ -39,8 +46,8 @@ export const ArchivosPage: React.FC = () => {
     <div className="space-y-6 pb-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs text-muted-foreground font-mono mb-1.5">Radio / Archivos</p>
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">Archivos de la emisora</h1>
+          <p className="text-xs text-muted-foreground font-mono mb-1.5">Radio / Medios</p>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">Medios de la emisora</h1>
           <p className="text-sm text-muted-foreground mt-1">Los audios y las listas son de la emisora: todas sus estaciones los pueden usar.</p>
         </div>
         {lista.length > 1 && (
@@ -53,20 +60,7 @@ export const ArchivosPage: React.FC = () => {
         )}
       </div>
 
-      <div role="tablist" className="inline-flex items-center gap-1 p-1 rounded-xl bg-secondary/50 border border-border">
-        {([['audios', 'Audios'], ['listas', 'Listas de reproducción']] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={pestana === id}
-            onClick={() => setPestana(id)}
-            className={cn('px-4 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors', pestana === id ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground')}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Pestanas valor={pestana} items={PESTANAS} alCambiar={setPestana} />
 
       {radios.isLoading && <p className="text-xs text-muted-foreground">Cargando emisoras…</p>}
       {radios.data && lista.length === 0 && <p className="text-xs text-muted-foreground">Primero crea una emisora en Emisoras.</p>}
@@ -77,6 +71,7 @@ export const ArchivosPage: React.FC = () => {
       )}
       {radio && estacion && pestana === 'audios' && <BibliotecaArchivos emisora={estacion} destino="emisora" />}
       {radio && estacion && pestana === 'listas' && <ListasDeEmisora radio={radio} estacion={estacion} />}
+      {radio && pestana === 'revision' && <RevisionEmisora radioId={radio.id} />}
     </div>
   );
 };
@@ -138,5 +133,33 @@ const ListasDeEmisora: React.FC<{ radio: ApiRadio; estacion: ApiEmisora }> = ({ 
         </ul>
       </CardContent>
     </Card>
+  );
+};
+
+// Audios que conviene revisar: posibles duplicados (mismo título y artista) y los que no están en ninguna lista
+const RevisionEmisora: React.FC<{ radioId: string }> = ({ radioId }) => {
+  const datos = useQuery({ queryKey: ['medios', 'revision', radioId], queryFn: () => luzApi.revisionPistas(radioId), enabled: Boolean(radioId) });
+  const d = datos.data;
+  const Lista: React.FC<{ titulo: string; vacio: string; filas: { id: string; title: string; artist: string | null; archivo: string }[] }> = ({ titulo, vacio, filas }) => (
+    <Card className="border-border">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-sm font-semibold">{titulo} ({filas.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {filas.length === 0 && <p className="text-sm text-muted-foreground">{vacio}</p>}
+        {filas.map((f) => (
+          <div key={f.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-border pt-2 text-xs">
+            <span>{f.title || '—'} <span className="text-muted-foreground">{f.artist ? `· ${f.artist}` : ''}</span></span>
+            <span className="font-mono text-[11px] text-muted-foreground">{f.archivo.split('/').pop()}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Lista titulo="Posibles duplicados" vacio="No hay audios repetidos." filas={(d?.duplicados ?? []).flat()} />
+      <Lista titulo="Sin asignar a ninguna lista" vacio="Todos los audios están en alguna lista." filas={d?.sinAsignar ?? []} />
+    </div>
   );
 };

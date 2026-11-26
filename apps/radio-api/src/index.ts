@@ -17,6 +17,7 @@ import {
   sinSecretos,
   slugSchema,
 } from './stations.js';
+import { programas, reiniciarPrograma } from './supervisor.js';
 import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro, rutaAudio } from './tracks.js';
 import { mkdir, readFile, statfs, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -319,6 +320,43 @@ if (estacionesIniciales.length)
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`radio-api en http://localhost:${info.port}`);
+});
+
+// Historial de reproducción de una emisora: las últimas pistas que empezaron (la API las guarda en su base)
+app.get('/v1/historial/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  if (!slugSchema.safeParse(slug).success) return c.json({ error: 'slug_invalido' }, 400);
+  const limite = Math.min(Math.max(Number(c.req.query('limite') ?? 500), 1), 2000);
+  try {
+    const texto = await readFile(path.join(config.configDir, 'historial', `${slug}.log`), 'utf8');
+    const filas = texto
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => {
+        const [inicio, titulo = '', artista = '', lista = '', ...resto] = l.split('\t');
+        return { inicio: Number(inicio), titulo, artista, lista, archivo: resto.join('\t') };
+      })
+      .filter((f) => Number.isInteger(f.inicio) && f.inicio > 0);
+    return c.json({ pistas: filas.slice(-limite) });
+  } catch {
+    return c.json({ pistas: [] });
+  }
+});
+
+// Servicios de una emisora: reiniciar su Icecast (oyentes) o su AutoDJ (Liquidsoap) sin tocar las demás
+app.post('/v1/stations/:slug/servicio', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  if (!e.enabled) return c.json({ error: 'emisora_apagada', message: 'La emisora está apagada: enciéndela para reiniciar sus servicios.' }, 409);
+  const { servicio } = (await c.req.json().catch(() => ({}))) as { servicio?: string };
+  if (servicio !== 'icecast' && servicio !== 'autodj') return c.json({ error: 'servicio_invalido' }, 400);
+  try {
+    await reiniciarPrograma(programas(slug)[servicio]);
+    return c.json({ ok: true, servicio });
+  } catch (err) {
+    return c.json({ error: 'supervisor_no_responde', message: (err as Error).message }, 503);
+  }
 });
 
 // Registros de la radio (supervisord): últimas líneas de un proceso. proceso = slug de la emisora, o "sistema".

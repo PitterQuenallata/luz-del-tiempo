@@ -20,6 +20,7 @@ import { useSession } from '../../auth/hooks/use-session';
 import { irA } from '../../gestion/lib/navegar';
 import { SelectField } from '../../usuarios/components/select-field';
 import { ErrorCampo, ModoEdicion } from '../../contenido/components/dialogo-contenido';
+import { useMutation } from '@tanstack/react-query';
 import { useAhoraSuena, useLocutores, usePistas, usePlaylists, useProceso, useServicioRadio, useTransmision } from '../hooks/use-radio';
 import { CamposTransmision, DatoTransmision, copiarTexto, useFormularioTransmision } from '../components/transmision-dialog';
 import { LocutoresDialog } from '../components/locutores-dialog';
@@ -142,6 +143,11 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
   const transmision = useTransmision(estacion.id, 5000);
   const ahora = useAhoraSuena(estacion.id);
   const proceso = useProceso(estacion.id).data?.proceso ?? null;
+  const reiniciarServicio = useMutation({
+    mutationFn: (servicio: 'icecast' | 'autodj') => luzApi.reiniciarServicio(estacion.id, servicio),
+    onSuccess: () => pillToast.success('Servicio reiniciado', 'Solo esta estación; las demás siguen al aire.'),
+    onError: () => pillToast.error('No se pudo reiniciar', 'La radio no responde o la emisora está apagada.'),
+  });
   const saltar = useMutacionGestion((id: string) => luzApi.saltarCancion(id), 'Siguiente canción', 'No se pudo cambiar la canción');
   const saltarLista = useMutacionGestion((id: string) => luzApi.saltarLista(id), 'Siguiente lista de reproducción', 'No se pudo cambiar la lista');
   const activas = (playlists.data ?? []).filter((p) => p.activa);
@@ -546,6 +552,11 @@ const Transmision: React.FC<{ estacion: ApiEmisora; admin: boolean; editaTransmi
 };
 
 const TransmisionContenido: React.FC<{ estacion: ApiEmisora; admin: boolean; editaTransmision: boolean; t: ApiTransmision }> = ({ estacion, admin, editaTransmision, t }) => {
+  const reiniciarServicio = useMutation({
+    mutationFn: (servicio: 'icecast' | 'autodj') => luzApi.reiniciarServicio(estacion.id, servicio),
+    onSuccess: () => pillToast.success('Servicio reiniciado', 'Solo esta estación; las demás siguen al aire.'),
+    onError: () => pillToast.error('No se pudo reiniciar', 'La radio no responde o la emisora está apagada.'),
+  });
   const locutores = useLocutores(estacion.id);
   const servicio = useServicioRadio();
   const [locutoresAbiertos, setLocutoresAbiertos] = useState(false);
@@ -563,6 +574,12 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; admin: boolean; edi
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
+        <Seccion titulo="Servicios de esta estación" descripcion="Reinicia solo esta estación: las demás no se cortan.">
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => reiniciarServicio.mutate('icecast')} disabled={reiniciarServicio.isPending}>Reiniciar Icecast (oyentes)</Button>
+              <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => reiniciarServicio.mutate('autodj')} disabled={reiniciarServicio.isPending}>Reiniciar AutoDJ</Button>
+            </div>
+          </Seccion>
           {editaTransmision ? (
             <Seccion titulo="Configuración de transmisión" descripcion="Lo que guardas aquí lo usan el locutor y la radio.">
               <form onSubmit={form.enviar} className="space-y-6" noValidate>

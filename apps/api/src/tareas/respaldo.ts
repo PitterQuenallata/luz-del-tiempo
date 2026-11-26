@@ -3,10 +3,12 @@
 // La base se exporta con pg_dump (PG_DUMP_BIN si no está en el PATH). Los audios NO van: son muy grandes.
 import { spawn } from 'node:child_process';
 import { cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { eq } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { sistemaAjustes } from '../db/schema.js';
 import path from 'node:path';
 
 export const CARPETA_RESPALDOS = process.env.RESPALDOS_DIR ?? path.resolve(process.cwd(), 'respaldos');
-export const RETENCION_DIAS = Number(process.env.RESPALDOS_DIAS ?? 14);
 const CONFIG_RADIO = process.env.RADIO_CONFIG_DIR ?? path.resolve(process.cwd(), '../../infra/radio/data/config');
 const PATRON = /^respaldo-[0-9T-]+\.tar\.gz$/;
 
@@ -41,7 +43,8 @@ export async function crearRespaldo(): Promise<string> {
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
-  await limpiarViejos();
+  // La retención la fija el panel (Sistema, ajustes): se lee de la base en cada copia
+  await limpiarViejos(await diasDeRetencion());
   return nombre;
 }
 
@@ -66,9 +69,31 @@ export function rutaRespaldo(nombre: string): string | null {
   return path.join(CARPETA_RESPALDOS, nombre);
 }
 
-async function limpiarViejos() {
-  const limite = Date.now() - RETENCION_DIAS * 86_400_000;
+/** Borra las copias más viejas que `dias`. Devuelve cuántas borró. */
+export async function limpiarViejos(dias: number): Promise<number> {
+  const limite = Date.now() - dias * 86_400_000;
+  let borradas = 0;
   for (const r of await listarRespaldos()) {
-    if (new Date(r.creado).getTime() < limite) await rm(path.join(CARPETA_RESPALDOS, r.nombre), { force: true });
+    if (new Date(r.creado).getTime() < limite) {
+      await rm(path.join(CARPETA_RESPALDOS, r.nombre), { force: true });
+      borradas++;
+    }
   }
+  return borradas;
+}
+
+export interface AjustesSistema { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number }
+
+/** Lee los ajustes del sistema; si no hay fila, la crea con los valores por defecto. */
+export async function leerAjustesSistema(): Promise<AjustesSistema> {
+  const [fila] = await db.select().from(sistemaAjustes).where(eq(sistemaAjustes.id, 1));
+  if (fila) return fila;
+  await db.insert(sistemaAjustes).values({ id: 1 }).onConflictDoNothing();
+  const [creada] = await db.select().from(sistemaAjustes).where(eq(sistemaAjustes.id, 1));
+  return creada!;
+}
+
+/** Días que se guardan las copias (ajuste del panel). */
+export async function diasDeRetencion(): Promise<number> {
+  return (await leerAjustesSistema()).respaldoDiasRetencion;
 }

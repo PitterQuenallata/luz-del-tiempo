@@ -1,22 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, DatabaseBackup, Download, Play, RefreshCw, ScrollText, Trash2 } from 'lucide-react';
+import { DatabaseBackup, Download, Play, RefreshCw, ScrollText, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { Badge } from '../../../shared/components/ui/badge';
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 import { luzApi } from '../../../shared/api/luz-api';
+import { Pestanas, pestanaDesdeHash, fijarPestanaEnHash, PestanaItem } from '../../../shared/components/ui/pestanas';
 import { useEstaciones } from '../../gestion/hooks/use-gestion';
 
 const fecha = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-BO', { timeZone: 'America/La_Paz' }) : 'Nunca');
 const megas = (bytes: number) => (bytes / 1024 / 1024).toFixed(bytes > 1024 * 1024 ? 1 : 2) + ' MB';
 
+type Pestana = 'copias' | 'registros';
+const PESTANAS: PestanaItem<Pestana>[] = [
+  { id: 'copias', label: 'Copias y tareas' },
+  { id: 'registros', label: 'Registros de la radio' },
+];
+
 export const SistemaPage: React.FC = () => {
+  const [pestana, setPestana] = useState<Pestana>(() => pestanaDesdeHash(PESTANAS));
+  const cambiar = (id: Pestana) => { setPestana(id); fijarPestanaEnHash(id); };
   const qc = useQueryClient();
   const [proceso, setProceso] = React.useState('sistema');
   const estaciones = useEstaciones();
-  const oyentes = useQuery({ queryKey: ['sistema', 'oyentes'], queryFn: () => luzApi.oyentesRadio(7), refetchInterval: 60000 });
   const registros = useQuery({ queryKey: ['sistema', 'registros', proceso], queryFn: () => luzApi.registrosRadio(proceso), refetchInterval: 10000 });
+  const ajustes = useQuery({ queryKey: ['sistema', 'ajustes'], queryFn: () => luzApi.ajustesSistema() });
+  const [form, setForm] = useState({ respaldoActivo: true, respaldoHora: '03:00', respaldoDiasRetencion: 14, muestrasDiasRetencion: 180 });
+  useEffect(() => { if (ajustes.data) setForm(ajustes.data.ajustes); }, [ajustes.data]);
+  const guardarAjustes = useMutation({
+    mutationFn: () => luzApi.guardarAjustesSistema(form),
+    onSuccess: () => { pillToast.success('Ajustes guardados'); qc.invalidateQueries({ queryKey: ['sistema'] }); },
+    onError: (e: unknown) => pillToast.error('No se pudieron guardar', e instanceof Error ? e.message : undefined),
+  });
   const tareas = useQuery({ queryKey: ['sistema', 'tareas'], queryFn: () => luzApi.tareasSistema(), refetchInterval: 30000 });
   const respaldos = useQuery({ queryKey: ['sistema', 'respaldos'], queryFn: () => luzApi.respaldosSistema() });
 
@@ -63,8 +79,42 @@ export const SistemaPage: React.FC = () => {
       <div>
         <p className="text-xs text-muted-foreground">Administración / Sistema</p>
         <h1 className="text-2xl font-semibold">Sistema</h1>
-        <p className="text-sm text-muted-foreground">Tareas de fondo, copias de seguridad y mantenimiento de la radio.</p>
+        <p className="text-sm text-muted-foreground">Copias de seguridad, tareas de fondo y registros de la radio.</p>
       </div>
+
+      <Pestanas valor={pestana} items={PESTANAS} alCambiar={cambiar} />
+
+      {pestana === 'copias' && (
+        <div className="space-y-6">
+      <Card className="border-border">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-sm font-semibold">Ajustes de copias y limpieza</CardTitle>
+          <CardDescription className="text-xs">Cuándo se hace la copia y cuánto tiempo se guarda. Se aplican sin reiniciar nada.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.respaldoActivo} onChange={(e) => setForm({ ...form, respaldoActivo: e.target.checked })} />
+            Copia de seguridad automática cada día
+          </label>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="space-y-1 text-xs">
+              <span className="text-muted-foreground">Hora de la copia (La Paz)</span>
+              <input type="time" value={form.respaldoHora} onChange={(e) => setForm({ ...form, respaldoHora: e.target.value })} className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm" />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span className="text-muted-foreground">Guardar copias (días)</span>
+              <input type="number" min={1} max={365} value={form.respaldoDiasRetencion} onChange={(e) => setForm({ ...form, respaldoDiasRetencion: Number(e.target.value) })} className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm" />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span className="text-muted-foreground">Guardar oyentes (días)</span>
+              <input type="number" min={7} max={3650} value={form.muestrasDiasRetencion} onChange={(e) => setForm({ ...form, muestrasDiasRetencion: Number(e.target.value) })} className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm" />
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" className="text-xs" onClick={() => guardarAjustes.mutate()} disabled={guardarAjustes.isPending}>Guardar ajustes</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-border">
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
@@ -119,32 +169,11 @@ export const SistemaPage: React.FC = () => {
           ))}
         </CardContent>
       </Card>
-      <Card className="border-border">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Oyentes de los últimos 7 días</CardTitle>
-          <CardDescription className="text-xs">Pico y promedio por día, tomados cada 5 minutos de cada emisora.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {(oyentes.data?.filas ?? []).length === 0 && <p className="text-sm text-muted-foreground">Todavía no hay muestras. Se toman cada 5 minutos.</p>}
-          {(oyentes.data?.filas ?? []).length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr><th className="py-1 pr-3 font-medium">Emisora</th><th className="py-1 pr-3 font-medium">Día</th><th className="py-1 pr-3 font-medium">Pico</th><th className="py-1 pr-3 font-medium">Promedio</th></tr>
-                </thead>
-                <tbody>
-                  {(oyentes.data?.filas ?? []).map((f) => (
-                    <tr key={`${f.slug}-${f.dia}`} className="border-t border-border">
-                      <td className="py-1 pr-3">{f.nombre}</td><td className="py-1 pr-3 font-mono">{f.dia}</td><td className="py-1 pr-3">{f.pico}</td><td className="py-1 pr-3">{f.promedio}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
+      {pestana === 'registros' && (
+        <div className="space-y-6">
       <Card className="border-border">
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
           <div>
@@ -166,6 +195,8 @@ export const SistemaPage: React.FC = () => {
           ))}
         </CardContent>
       </Card>
+        </div>
+      )}
     </div>
   );
 };

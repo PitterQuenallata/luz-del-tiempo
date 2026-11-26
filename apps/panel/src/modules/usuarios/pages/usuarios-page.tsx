@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UsuariosDirectoryTab } from '../components/usuarios-directory-tab';
 import { RolesPermisosTab } from '../components/roles-permisos-tab';
-import { cn } from '../../../shared/lib/utils';
+import { Pestanas } from '../../../shared/components/ui/pestanas';
 
 type Pestana = 'directorio' | 'roles';
 
@@ -28,21 +28,7 @@ export const UsuariosPage: React.FC = () => {
         <p className="text-sm text-muted-foreground mt-1">Cuentas del panel, sus roles y lo que puede hacer cada rol.</p>
       </div>
 
-      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-secondary/50 border border-border">
-        {pestanas.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => cambiar(p.id)}
-            className={cn(
-              'px-4 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors',
-              pestana === p.id ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <Pestanas valor={pestana} items={pestanas} alCambiar={cambiar} />
 
 
       {pestana === 'directorio' && <UsuariosDirectoryTab />}

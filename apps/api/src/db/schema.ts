@@ -689,3 +689,26 @@ export const siteSettings = pgTable('site_settings', {
   value: jsonb('value').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Ajustes del sistema (una sola fila): copias de seguridad y limpieza. Los lee el programador cada minuto.
+export const sistemaAjustes = pgTable('sistema_ajustes', {
+  id: smallint('id').primaryKey().default(1),
+  respaldoActivo: boolean('respaldo_activo').notNull().default(true),
+  respaldoHora: text('respaldo_hora').notNull().default('03:00'), // HH:MM, hora de La Paz
+  respaldoDiasRetencion: integer('respaldo_dias_retencion').notNull().default(14),
+  muestrasDiasRetencion: integer('muestras_dias_retencion').notNull().default(180),
+});
+
+// Historial de reproducción: cada pista que empezó en una estación (lo importa la API desde la radio-api)
+export const historialReproduccion = pgTable(
+  'historial_reproduccion',
+  {
+    stationId: uuid('station_id').notNull().references(() => stations.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    titulo: text('titulo').notNull().default(''),
+    artista: text('artista').notNull().default(''),
+    lista: text('lista').notNull().default(''),
+    archivo: text('archivo').notNull().default(''),
+  },
+  (t) => [primaryKey({ columns: [t.stationId, t.startedAt] })],
+);
