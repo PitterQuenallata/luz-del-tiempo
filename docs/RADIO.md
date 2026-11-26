@@ -94,7 +94,7 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 - **Medios → Revisión**: posibles duplicados y audios sin asignar a ninguna lista.
 - **Emitiendo** (estación): pista que suena, siguiente lista y últimas canciones.
 
-**Pendiente:**
+**Pendiente** (lista completa en `docs/PENDIENTES-PRODUCCION.md`):
 - Copia externa: hecha con un destino local (probada). Falta probarla por SSH contra el destino real y decidir dónde guardarla.
   - Se configura en Sistema → «Copia externa». Vacío = apagada.
   - Requisitos en el servidor: `rsync` y `openssh-client`, y una clave SSH sin contraseña para el usuario que corre la API.
