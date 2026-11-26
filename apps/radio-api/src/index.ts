@@ -150,6 +150,23 @@ app.post(
 );
 
 // Lee un audio guardado: la API 1 usa esto para leer sus etiquetas (título, artista, álbum…)
+// Siguiente lista de la rotación: Liquidsoap pone cada lista completa en su turno, de arriba abajo.
+// Solo cuentan las listas con audios y que no sean programadas (esas suenan en su hora, fuera de la rotación).
+async function siguienteDeRotacion(e: { slug: string; playlists?: { id: string; name: string; pistas: number }[] }, listaActual: string): Promise<string | null> {
+  const programadas = new Set<string>();
+  try {
+    for (const linea of (await readFile(path.join(config.configDir, 'programas.txt'), 'utf8')).split('\n')) {
+      const [clave, modo] = linea.split(';');
+      if (clave?.startsWith(`${e.slug}/`) && modo === 'programada') programadas.add(clave.slice(e.slug.length + 1));
+    }
+  } catch { /* sin programas.txt: todas en rotación */ }
+  const rotacion = (e.playlists ?? []).filter((p) => p.pistas > 0 && !programadas.has(p.id));
+  const nombres = rotacion.map((p) => p.name);
+  const i = nombres.indexOf(listaActual);
+  if (i < 0 || nombres.length < 2) return null;
+  return nombres[(i + 1) % nombres.length] ?? null;
+}
+
 // Ahora suena: lo escribe Liquidsoap al cambiar de pista (ahora/<slug>.txt: título, artista, lista, inicio en unix)
 // HLS público (lo leen la web y la app): listas maestras y variantes. Sin token; solo nombres válidos.
 const TIPOS_HLS: Record<string, string> = { '.m3u8': 'application/vnd.apple.mpegurl', '.ts': 'video/mp2t' };
@@ -185,7 +202,8 @@ app.get('/v1/stations/:slug/ahora', async (c) => {
     // Sin título ni artista (audios sin etiquetas) todavía se sabe qué lista suena
     if (!titulo && !artista && !lista) return c.json({ ahora: null });
     const segundos = Number(inicio);
-    return c.json({ ahora: { titulo, artista, lista, inicio: Number.isFinite(segundos) && segundos > 0 ? segundos : null, archivo: archivo.split('/').pop() ?? '' } });
+    const siguienteLista = await siguienteDeRotacion(e, lista);
+    return c.json({ ahora: { titulo, artista, lista, inicio: Number.isFinite(segundos) && segundos > 0 ? segundos : null, archivo: archivo.split('/').pop() ?? '', siguienteLista } });
   } catch {
     return c.json({ ahora: null });
   }
@@ -197,6 +215,17 @@ app.post('/v1/stations/:slug/saltar', async (c) => {
   const e = (await leerEstaciones()).find((s) => s.slug === slug);
   if (!e) return c.json({ error: 'no_existe' }, 404);
   const carpeta = path.join(config.configDir, 'saltar');
+  await mkdir(carpeta, { recursive: true });
+  await writeFile(path.join(carpeta, `${slug}.txt`), `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  return c.json({ ok: true });
+});
+
+// Siguiente lista: se escribe un pedido y Liquidsoap salta hasta que cambie la lista que suena.
+app.post('/v1/stations/:slug/saltar-lista', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  const carpeta = path.join(config.configDir, 'saltar-lista');
   await mkdir(carpeta, { recursive: true });
   await writeFile(path.join(carpeta, `${slug}.txt`), `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   return c.json({ ok: true });

@@ -502,7 +502,7 @@ radioMusicaRoutes.get('/estaciones/:id/ahora', ACCESO, async (c) => {
   const acceso = await estacionParaRuta(c, c.req.param('id') as string);
   if (acceso instanceof Response) return acceso;
   try {
-    const r = await radioApi<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null; archivo?: string } | null }>(`/v1/stations/${acceso.estacion.slug}/ahora`);
+    const r = await radioApi<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null; archivo?: string; siguienteLista?: string | null } | null }>(`/v1/stations/${acceso.estacion.slug}/ahora`);
     const ahora = r.ahora;
     if (!ahora) return c.json({ ahora: null });
     // Los audios suelen no traer etiquetas: el título y artista son los de la base de datos (pista de la estación o de la emisora)
@@ -532,6 +532,21 @@ radioMusicaRoutes.post('/estaciones/:id/saltar', ACCESO, async (c) => {
     return c.json({ error: 'radio_no_disponible' }, 503);
   }
   await registrarAuditoria({ userId: acceso.user.id, accion: 'estacion.saltar', entidad: 'estacion', entidadId: e.id, detalle: e.name });
+  return c.json({ ok: true });
+});
+
+// Siguiente lista de reproducción: suena la siguiente de la rotación (Liquidsoap salta hasta cambiar)
+radioMusicaRoutes.post('/estaciones/:id/saltar-lista', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  const e = acceso.estacion;
+  if (!e.mountPoint || !(await radioEncendida()) || !e.encendida) return c.json({ error: 'no_esta_al_aire' }, 409);
+  try {
+    await radioApi(`/v1/stations/${e.slug}/saltar-lista`, { method: 'POST' });
+  } catch {
+    return c.json({ error: 'radio_no_disponible' }, 503);
+  }
+  await registrarAuditoria({ userId: acceso.user.id, accion: 'estacion.saltar_lista', entidad: 'estacion', entidadId: e.id, detalle: e.name });
   return c.json({ ok: true });
 });
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, Blend, CalendarClock, Copy, GripVertical, Headphones, ListOrdered, Plus, Radio, Shuffle, SkipForward, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Blend, CalendarClock, Copy, GripVertical, Headphones, ListMusic, ListOrdered, Plus, Radio, Shuffle, SkipForward, X } from 'lucide-react';
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -141,7 +141,8 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
   const pistas = usePistas(estacion.id);
   const transmision = useTransmision(estacion.id, 5000);
   const ahora = useAhoraSuena(estacion.id);
-  const saltar = useMutacionGestion((id: string) => luzApi.saltarCancion(id), 'Saltando la canción', 'No se pudo saltar la canción');
+  const saltar = useMutacionGestion((id: string) => luzApi.saltarCancion(id), 'Siguiente canción', 'No se pudo cambiar la canción');
+  const saltarLista = useMutacionGestion((id: string) => luzApi.saltarLista(id), 'Siguiente lista de reproducción', 'No se pudo cambiar la lista');
   const activas = (playlists.data ?? []).filter((p) => p.activa);
   const audiosActivos = activas.reduce((n, p) => n + p.trackIds.length, 0);
   const t = transmision.data?.transmision;
@@ -180,11 +181,18 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
                   {sonando.lista ? `Lista: ${sonando.lista}` : 'Locutor en vivo o programa'}
                   {sonando.inicio ? ` · empezó ${tiempoDesde(sonando.inicio)}` : ''}
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  Siguiente lista: {sonando.siguienteLista ?? 'no hay otra lista en la rotación'}
+                </p>
+                <p className="text-xs text-muted-foreground">La siguiente canción se elige al terminar la actual.</p>
               </div>
             )}
-            <div>
-              <Button type="button" variant="outline" size="sm" className="text-xs" disabled={!enAire || saltar.isPending} onClick={() => saltar.mutate(estacion.id)}>
-                <SkipForward className="mr-1 h-3.5 w-3.5" /> Saltar canción
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="text-xs" disabled={!enAire || saltar.isPending || saltarLista.isPending} onClick={() => saltar.mutate(estacion.id)}>
+                <SkipForward className="mr-1 h-3.5 w-3.5" /> Siguiente canción
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="text-xs" disabled={!enAire || !sonando?.lista || saltar.isPending || saltarLista.isPending} onClick={() => saltarLista.mutate(estacion.id)}>
+                <ListMusic className="mr-1 h-3.5 w-3.5" /> Siguiente lista de reproducción
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">Se actualiza sola cada 5 segundos.</p>

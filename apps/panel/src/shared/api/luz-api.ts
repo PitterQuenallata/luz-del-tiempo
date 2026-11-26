@@ -608,8 +608,11 @@ export const luzApi = {
   moverPistas(emisoraId: string, input: PistasCarpetaInput) { return request<{ movidas: number }>(`/api/v1/radio/estaciones/${emisoraId}/pistas/carpeta`, { method: 'POST', body: json(input) }); },
   borrarPista(id: string) { return request(`/api/v1/radio/pistas/${id}`, { method: 'DELETE' }); },
   /** Lo que suena ahora en la estación (o null si no hay dato). */
-  async getAhoraSuena(estacionId: string): Promise<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null } | null }> {
+  async getAhoraSuena(estacionId: string): Promise<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null; siguienteLista?: string | null } | null }> {
     return request(`/api/v1/radio/estaciones/${estacionId}/ahora`);
+  },
+  saltarLista(estacionId: string) {
+    return request(`/api/v1/radio/estaciones/${estacionId}/saltar-lista`, { method: 'POST' });
   },
   saltarCancion(estacionId: string) {
     return request(`/api/v1/radio/estaciones/${estacionId}/saltar`, { method: 'POST' });

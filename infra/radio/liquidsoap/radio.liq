@@ -268,10 +268,12 @@ def crear_estacion(st) =
   # La radio-api lo lee para el panel (ahora/<slug>.txt). Líneas: título, artista, lista, inicio (unix), archivo.
   # El título de la base de datos se completa en la API cuando el archivo no trae etiquetas.
   ahora_path = "#{config_dir}/ahora/#{st.slug}.txt"
+  lista_actual = ref("")
   radio.on_track(synchronous=false, fun (m) -> begin
     titulo = list.assoc(default="", "title", m)
     artista = list.assoc(default="", "artist", m)
     lista = list.assoc(default="", "luz_lista", m)
+    lista_actual := lista
     archivo = list.assoc(default="", "filename", m)
     inicio = int_of_float(time())
     file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n#{archivo}\n", ahora_path)
@@ -285,6 +287,28 @@ def crear_estacion(st) =
     if pedido != "" and pedido != ultimo_salto() then
       ultimo_salto := pedido
       source.skip(radio)
+    end
+    2.
+  end)
+  # Siguiente lista: un pedido nuevo salta audios hasta que cambie la lista que suena (con tope de seguridad).
+  saltar_lista_path = "#{config_dir}/saltar-lista/#{st.slug}.txt"
+  ultimo_salto_lista = ref(file.exists(saltar_lista_path) ? file.contents(saltar_lista_path) : "")
+  lista_a_saltar = ref("")
+  saltos_lista = ref(0)
+  vigilante_saltar_lista = thread.run.recurrent(delay=2., fun () -> begin
+    pedido = file.exists(saltar_lista_path) ? file.contents(saltar_lista_path) : ""
+    if pedido != "" and pedido != ultimo_salto_lista() then
+      ultimo_salto_lista := pedido
+      lista_a_saltar := lista_actual()
+      saltos_lista := 0
+    end
+    if lista_a_saltar() != "" then
+      if lista_actual() == lista_a_saltar() and saltos_lista() < 60 then
+        saltos_lista := saltos_lista() + 1
+        source.skip(radio)
+      else
+        lista_a_saltar := ""
+      end
     end
     2.
   end)
