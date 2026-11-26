@@ -293,12 +293,24 @@ radioRoutes.patch('/estaciones/:id', requireEstacionesAcceso(), async (c) => {
   // El responsable de un tercero también puede cambiar la foto de su estación.
   // El AutoDJ se elige al crear la estación: si está encendido, no se apaga
   if (actual.autodjEnabled && d.autodjEnabled === false) return c.json({ error: 'validacion', campo: 'autodjEnabled', message: 'El AutoDJ se eligió al crear la estación y no se puede apagar.' }, 422);
+  // Estación principal: solo se cambia marcando otra (no se quita). Pasa a la posición 0 y la que estaba en 0 toma su lugar.
+  if (d.isMain === false && actual.isMain) return c.json({ error: 'validacion', campo: 'isMain', message: 'Para cambiar la estación principal, marca otra como principal.' }, 422);
+  let posicionNueva: { sortOrder?: number; isMain?: boolean } = {};
+  if (d.isMain === true && !actual.isMain) {
+    const [emisoraDe] = await db.select().from(radios).where(eq(radios.id, actual.radioId));
+    if (emisoraDe?.kind !== 'own') return c.json({ error: 'validacion', campo: 'isMain', message: 'Solo las estaciones de la emisora del ministerio pueden ser la principal.' }, 422);
+    const [enCero] = await db.select().from(stations).where(and(eq(stations.radioId, actual.radioId), eq(stations.sortOrder, 0), ne(stations.id, id)));
+    if (enCero) await db.update(stations).set({ sortOrder: actual.sortOrder, isMain: false, updatedAt: new Date() }).where(eq(stations.id, enCero.id));
+    await db.update(stations).set({ isMain: false, updatedAt: new Date() }).where(and(eq(stations.radioId, actual.radioId), eq(stations.isMain, true), ne(stations.id, id)));
+    posicionNueva = { sortOrder: 0, isMain: true };
+  }
   // Visible en la web solo si la estación ya está lista (transmisión, contraseña y, con AutoDJ, una lista)
   if (d.visibleInMinistry === true) {
     const faltan = faltasParaWeb({ ...actual, ...(d.autodjEnabled !== undefined ? { autodjEnabled: d.autodjEnabled } : {}) }, await listasDeEstacion(id));
     if (faltan.length) return c.json({ error: 'no_lista_para_web', message: `Para verla en la web faltan: ${faltan.join(', ')}.` }, 422);
   }
-  const permitidos = todas ? d : { name: d.name, autodjEnabled: d.autodjEnabled, imageUrl: d.imageUrl };
+  const { isMain: _marca, ...resto } = d;
+  const permitidos = todas ? { ...resto, ...posicionNueva } : { name: d.name, autodjEnabled: d.autodjEnabled, imageUrl: d.imageUrl };
   if (d.slug && d.slug !== actual.slug && !(await slugLibre(d.slug, id))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una estación o emisora con ese enlace.' }, 409);
   const [fila] = await db
     .update(stations)

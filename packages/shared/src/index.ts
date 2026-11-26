@@ -492,6 +492,8 @@ export const estacionSchema = z.object({
   autodjEnabled: z.boolean(),
   // Tiene programas (aparecen en la web). Desmarcado = solo música, sin pestaña de Programación.
   tieneProgramacion: z.boolean().optional(),
+  // Estación principal de la web (posición 0). Solo se marca; al marcar otra, la anterior ocupa su lugar.
+  isMain: z.boolean().optional(),
   visibleInMinistry: z.boolean(),
   sortOrder: z.number().int().min(0),
   // Foto de la estación (16:9), la que muestra la web en la lista de estaciones.

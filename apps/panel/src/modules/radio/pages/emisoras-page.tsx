@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, Pencil, Plus, Radio, Trash2 } from 'lucide-react';
+import { ListMusic, Pencil, Plus, Radio, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { SelectField } from '../../usuarios/components/select-field';
@@ -148,7 +148,7 @@ export const EmisorasPage: React.FC = () => {
                             <td className="px-4 py-2.5">
                               <div className="flex justify-end gap-1">
                                 <Button type="button" size="sm" className="text-xs" onClick={() => irA(`/estacion/${e.id}`)}>Abrir</Button>
-                                <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => irA(`/archivos?emisora=${e.radioId}`)}><Archive className="h-3.5 w-3.5 mr-1" /> Audios y listas</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => irA(`/estacion/${e.id}?tab=autodj`)}><ListMusic className="h-3.5 w-3.5 mr-1" /> Listas</Button>
                                 {admin && (
                                   <>
                                     <Button type="button" variant="ghost" size="sm" aria-label="Editar estación" onClick={() => setEditando(e)}><Pencil className="h-3.5 w-3.5" /></Button>

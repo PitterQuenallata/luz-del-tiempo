@@ -5,6 +5,7 @@ import { SelectField } from '../../usuarios/components/select-field';
 import { ApiEmisora, ApiRadio, luzApi } from '../../../shared/api/luz-api';
 import { useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/components/dialogo-contenido';
+import { confirmar } from '../../../shared/lib/confirm';
 import { slugDe } from '../../contenido/components/area-dialog';
 import { ImagenCampo } from '../../contenido/components/imagen-campo';
 
@@ -33,6 +34,9 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
   const [programacion, setProgramacion] = useState(estacion?.tieneProgramacion ?? true);
   // Solo se puede ver en la web cuando la estación ya está lista. Una nueva nunca lo está al crearse.
   const listaParaWeb = estacion?.paraWeb.lista ?? false;
+  // Principal de la web: solo la emisora del ministerio, y se cambia con confirmación (la anterior ocupa su posición)
+  const emisoraDelMinisterio = emisoras.find((r) => r.id === radioId)?.kind === 'own';
+  const [marcarPrincipal, setMarcarPrincipal] = useState(false);
   const [visible, setVisible] = useState((estacion?.visibleInMinistry ?? false) && listaParaWeb);
   const [imagen, setImagen] = useState<string | null>(estacion?.imageUrl ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +56,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       return;
     }
     setError(null);
-    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, tieneProgramacion: programacion, visibleInMinistry: visible, imageUrl: imagen } : parsed.data);
+    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, tieneProgramacion: programacion, visibleInMinistry: visible, imageUrl: imagen, ...(marcarPrincipal ? { isMain: true } : {}) } : parsed.data);
     onClose();
   };
 
@@ -128,6 +132,36 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
           </SelectField>
           <p className="mt-1.5 text-[11px] text-muted-foreground">{DESCRIPCION_ESTADO[estado]}</p>
         </div>
+        {emisoraDelMinisterio && (
+          <div className="space-y-1.5">
+            <label className={`flex items-center gap-2 text-xs ${estacion?.isMain ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                checked={Boolean(estacion?.isMain) || marcarPrincipal}
+                disabled={Boolean(estacion?.isMain) || !estacion}
+                onChange={async (e) => {
+                  if (!e.target.checked) return;
+                  const ok = await confirmar({
+                    title: '¿Cambiar la estación principal?',
+                    text: 'Esta estación pasará a la posición 0 y será la primera que vea el oyente en la web. La que estaba en la posición 0 ocupará el lugar de esta.',
+                    type: 'warning',
+                    confirmText: 'Sí, cambiar',
+                  });
+                  if (ok) setMarcarPrincipal(true);
+                }}
+                className="accent-primary"
+              />
+              Es la principal de la web
+            </label>
+            <p className="text-[11px] text-muted-foreground">
+              {estacion?.isMain
+                ? 'Esta estación ocupa la posición 0. Para cambiarla, marca otra estación como principal.'
+                : estacion
+                  ? 'Al marcarla, pasa a la posición 0 y la anterior toma su lugar.'
+                  : 'Podrás marcarla como principal después de crearla.'}
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <label className={`flex items-center gap-2 text-xs ${listaParaWeb ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
             <input
