@@ -51,6 +51,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       titulo={estacion ? `Estación · ${estacion.name}` : 'Nueva estación'}
       onClose={onClose}
       onSubmit={enviar}
+      ancho="xl"
       puedeEnviar={nombre.trim().length >= 2 && enlace.trim().length >= 2 && Boolean(radioId)}
       enviando={guardar.isPending}
       textoBoton={estacion ? 'Guardar' : 'Crear estación'}
