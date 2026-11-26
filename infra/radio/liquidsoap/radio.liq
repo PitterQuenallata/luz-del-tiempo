@@ -265,14 +265,16 @@ def crear_estacion(st) =
   end)
 
   # Ahora suena: al cambiar de pista se escribe título, artista, lista y hora de inicio.
-  # La radio-api lo lee para el panel (ahora/<slug>.txt). Líneas: título, artista, lista, inicio (unix).
+  # La radio-api lo lee para el panel (ahora/<slug>.txt). Líneas: título, artista, lista, inicio (unix), archivo.
+  # El título de la base de datos se completa en la API cuando el archivo no trae etiquetas.
   ahora_path = "#{config_dir}/ahora/#{st.slug}.txt"
   radio.on_track(synchronous=false, fun (m) -> begin
     titulo = list.assoc(default="", "title", m)
     artista = list.assoc(default="", "artist", m)
     lista = list.assoc(default="", "luz_lista", m)
+    archivo = list.assoc(default="", "filename", m)
     inicio = int_of_float(time())
-    file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n", ahora_path)
+    file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n#{archivo}\n", ahora_path)
   end)
 
   # Saltar canción: la radio-api escribe un pedido (saltar/<slug>.txt) y aquí se salta una vez por pedido nuevo.

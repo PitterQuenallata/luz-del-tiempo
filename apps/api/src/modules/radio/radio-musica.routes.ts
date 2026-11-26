@@ -502,8 +502,19 @@ radioMusicaRoutes.get('/estaciones/:id/ahora', ACCESO, async (c) => {
   const acceso = await estacionParaRuta(c, c.req.param('id') as string);
   if (acceso instanceof Response) return acceso;
   try {
-    const r = await radioApi<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null } | null }>(`/v1/stations/${acceso.estacion.slug}/ahora`);
-    return c.json({ ahora: r.ahora });
+    const r = await radioApi<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null; archivo?: string } | null }>(`/v1/stations/${acceso.estacion.slug}/ahora`);
+    const ahora = r.ahora;
+    if (!ahora) return c.json({ ahora: null });
+    // Los audios suelen no traer etiquetas: el título y artista son los de la base de datos (pista de la estación o de la emisora)
+    if (ahora.archivo && !ahora.titulo) {
+      const [pista] = await db
+        .select({ title: stationTracks.title, artist: stationTracks.artist })
+        .from(stationTracks)
+        .where(and(eq(stationTracks.storageKey, ahora.archivo), or(eq(stationTracks.stationId, acceso.estacion.id), eq(stationTracks.radioId, acceso.estacion.radioId))))
+        .limit(1);
+      if (pista) return c.json({ ahora: { ...ahora, titulo: pista.title, artista: pista.artist ?? '' } });
+    }
+    return c.json({ ahora });
   } catch {
     return c.json({ ahora: null });
   }
