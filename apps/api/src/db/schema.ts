@@ -430,6 +430,8 @@ export const radios = pgTable('radios', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
+  // Espacio para audios de esta emisora (MB). Lo fija la superadministración.
+  storageQuotaMb: integer('storage_quota_mb').notNull().default(10240),
   description: text('description'),
   genre: text('genre'),
   imageUrl: text('image_url'),

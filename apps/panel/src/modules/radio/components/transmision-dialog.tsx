@@ -36,8 +36,6 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   const [bitrate, setBitrate] = useState(transmision.bitrateKbps);
   const [calidadBaja, setCalidadBaja] = useState(transmision.calidadBajaKbps ?? 48);
   const [autodj, setAutodj] = useState(transmision.autodjEnabled);
-  const [maxOyentes, setMaxOyentes] = useState(transmision.maxListeners);
-  const [cuota, setCuota] = useState(transmision.storageQuotaMb);
   const [nombreSalida, setNombreSalida] = useState(transmision.streamName ?? '');
   const [error, setError] = useState<string | null>(null);
   // La contraseña nueva se muestra una sola vez, después de guardar
@@ -57,8 +55,6 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
       bitrateKbps: Number(bitrate),
       calidadBaja: Number(calidadBaja),
       autodjEnabled: autodj,
-      maxListeners: Number(maxOyentes),
-      storageQuotaMb: Number(cuota),
       streamName: nombreSalida.trim(),
     });
     if (!parsed.success) {
@@ -79,7 +75,7 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   const puedeEnviar = mount.trim().length > 1 && (Boolean(transmision.livePasswordConfigurada) || clave.length >= 8);
 
   return {
-    campos: { mount, setMount, clave, setClave, bitrate, setBitrate, calidadBaja, setCalidadBaja, autodj, setAutodj, maxOyentes, setMaxOyentes, cuota, setCuota, nombreSalida, setNombreSalida },
+    campos: { mount, setMount, clave, setClave, bitrate, setBitrate, calidadBaja, setCalidadBaja, autodj, setAutodj, nombreSalida, setNombreSalida },
     enviar,
     error,
     recien,
@@ -115,9 +111,10 @@ const CalidadResumen: React.FC<{ kbps: number; oyentes: number }> = ({ kbps, oye
 export const CamposTransmision: React.FC<{
   emisora: ApiEmisora;
   transmision: ApiTransmision;
-  avanzado: boolean;
   f: ReturnType<typeof useFormularioTransmision>['campos'];
-}> = ({ emisora, transmision, avanzado, f }) => (
+}> = ({ emisora, transmision, f }) => {
+  const limiteOyentes = transmision.limiteServidorOyentes ?? 500;
+  return (
   <div className="space-y-6">
     <div className="grid gap-5 sm:grid-cols-2">
       <div>
@@ -145,7 +142,7 @@ export const CamposTransmision: React.FC<{
         <SelectField id="tr-bitrate" value={f.bitrate} onChange={(e) => f.setBitrate(Number(e.target.value))}>
           {BITRATES.map((b) => <option key={b} value={b}>{b} kbps{b === 128 ? ' (recomendada)' : ''}</option>)}
         </SelectField>
-        <CalidadResumen kbps={f.bitrate} oyentes={f.maxOyentes} />
+        <CalidadResumen kbps={f.bitrate} oyentes={limiteOyentes} />
       </div>
       <div>
         <EtiquetaCampo htmlFor="tr-baja">Calidad para señal lenta</EtiquetaCampo>
@@ -170,33 +167,18 @@ export const CamposTransmision: React.FC<{
       <Switch checked={f.autodj} onCheckedChange={f.setAutodj} id="tr-autodj" disabled={transmision.autodjEnabled} />
     </div>
 
-    {avanzado && (
-      <div className="space-y-4 border-t border-border/60 pt-5">
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Ajustes avanzados (superadmin)</p>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <EtiquetaCampo htmlFor="tr-max">Oyentes máximos</EtiquetaCampo>
-            <Input id="tr-max" type="number" min={1} max={2000} value={f.maxOyentes} onChange={(e) => f.setMaxOyentes(Number(e.target.value))} className="text-xs" />
-          </div>
-          <div>
-            <EtiquetaCampo htmlFor="tr-cuota">Espacio para audios (MB)</EtiquetaCampo>
-            <Input id="tr-cuota" type="number" min={100} max={10240} value={f.cuota} onChange={(e) => f.setCuota(Number(e.target.value))} className="text-xs" />
-          </div>
-        </div>
-      </div>
-    )}
   </div>
-);
+  );
+};
 
 // Diálogo (solo para Configuración de radio: ahí la lista de estaciones es un resumen y la edición va en ventana).
 interface TransmisionDialogProps {
   emisora: ApiEmisora;
   transmision: ApiTransmision;
-  avanzado: boolean;
   onClose: () => void;
 }
 
-export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, transmision, avanzado, onClose }) => {
+export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, transmision, onClose }) => {
   const form = useFormularioTransmision(emisora, transmision);
   const guardarYCerrar = async (e: React.FormEvent) => {
     if (await form.enviar(e)) onClose();
@@ -211,7 +193,7 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
       textoBoton="Guardar transmisión"
       ancho="xl"
     >
-      <CamposTransmision emisora={emisora} transmision={transmision} avanzado={avanzado} f={form.campos} />
+      <CamposTransmision emisora={emisora} transmision={transmision} f={form.campos} />
       <ErrorCampo texto={form.error} />
     </DialogoContenido>
   );

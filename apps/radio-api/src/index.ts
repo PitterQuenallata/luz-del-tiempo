@@ -16,7 +16,7 @@ import {
   slugSchema,
 } from './stations.js';
 import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro, rutaAudio } from './tracks.js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, statfs, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { guardarPlaylists, leerPistasDePlaylist, pistasFaltantes, playlistsSchema } from './playlists.js';
 
@@ -168,6 +168,12 @@ app.get('/hls/:slug/:archivo', async (c) => {
   } catch {
     return c.json({ error: 'no_existe' }, 404);
   }
+});
+
+// Disco donde están los audios: total y libre (para calcular el espacio que se puede dar a cada emisora)
+app.get('/v1/disco', async (c) => {
+  const s = await statfs(config.musicDir);
+  return c.json({ totalBytes: Number(s.blocks) * Number(s.bsize), libreBytes: Number(s.bavail) * Number(s.bsize) });
 });
 
 app.get('/v1/stations/:slug/ahora', async (c) => {

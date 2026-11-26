@@ -273,7 +273,7 @@ export interface ApiPrograma {
 // ---------- Radio: transmisión, pistas y playlists ----------
 export interface ApiTransmision {
   mountPoint: string | null; livePasswordConfigurada: boolean; bitrateKbps: number; calidadBajaKbps: number; hlsUrl: string | null; autodjEnabled: boolean;
-  maxListeners: number; storageQuotaMb: number; streamUrl: string | null; encendida: boolean;
+  limiteServidorOyentes: number; streamUrl: string | null; encendida: boolean;
   streamName: string; streamNameEfectivo: string;
   locutor: { servidor: string; puerto: number; mount: string | null };
 }
@@ -295,8 +295,12 @@ export interface ApiReporteTransmisiones {
 }
 export interface ApiVersionEmisor { version: string; notas: string; fecha: string; archivo: string; bytes: number }
 export interface ApiEquipoEmisor { equipo: string; version: string | null; ultimaVez: string }
+export interface ApiEspacio {
+  disco: { disponible: boolean; totalMb: number; libreMb: number; reservaMb: number; disponibleMb: number; asignadoMb: number };
+  emisoras: { id: string; name: string; kind: 'own' | 'external'; cuotaMb: number; usadoBytes: number; maximoMb: number }[];
+}
 export interface ApiEstadoRadio {
-  radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number; encendida: boolean;
+  radioApi: 'ok' | 'sin_conexion'; icecastOnline: boolean; emisorasEnRadio: number; encendida: boolean; limiteOyentes?: number;
 }
 export interface ApiSincronizacion { estado: 'ok' | 'sin_transmision' | 'falta_contrasena' | 'radio_no_disponible' | 'error'; message?: string; status?: number }
 export interface ApiPista {
@@ -538,6 +542,12 @@ export const luzApi = {
   deleteFranja(id: string) { return request(`/api/v1/radio/franjas/${id}`, { method: 'DELETE' }); },
   // Transmisión (locutor), pistas y playlists
   getServicioRadio() { return request<ApiEstadoRadio>('/api/v1/radio/servicio'); },
+  getEspacioEmisoras() {
+    return request<ApiEspacio>('/api/v1/radio/emisoras/espacio');
+  },
+  setCuotaEmisora(emisoraId: string, storageQuotaMb: number) {
+    return request(`/api/v1/radio/emisoras/${emisoraId}/cuota`, { method: 'PATCH', body: json({ storageQuotaMb }) });
+  },
   async getTransmision(emisoraId: string): Promise<{ transmision: ApiTransmision; radio?: unknown; sincronizado?: ApiSincronizacion }> {
     return request(`/api/v1/radio/estaciones/${emisoraId}/transmision`);
   },

@@ -1,12 +1,12 @@
 import { Context, Hono } from 'hono';
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { estacionSchema, franjaSchema, programaSchema, radioSchema } from '@luz/shared';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
 import { registrarAuditoria } from '../../lib/audit.js';
-import { enAirePorSlugRadio as enAirePorSlug, quitarTransmision, radioEncendida, sincronizarTransmision } from './radio-sync.js';
+import { actualizarCuotaArchivo, enAirePorSlugRadio as enAirePorSlug, quitarTransmision, radioApi, radioEncendida, sincronizarTransmision } from './radio-sync.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
-import { areas, programSlots, programs, radios, stationPlaylists, stations } from '../../db/schema.js';
+import { areas, programSlots, programs, radios, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
 import { esAdmin, estacionParaRuta, puedeGestionarEmisora, requireEstacionesAcceso } from './acceso.js';
 
 // Emisoras (contenedores) y sus estaciones. Solo admin y superadmin crean emisoras y estaciones.
@@ -61,9 +61,77 @@ radioRoutes.post('/emisoras', requirePermission(PERMISO), async (c) => {
   }
   const error = await areaExiste(d.areaId);
   if (error) return c.json(error, 422);
-  const [fila] = await db.insert(radios).values({ ...d, ownerUserId: d.kind === 'external' ? d.ownerUserId ?? null : null }).returning();
+  // Una emisora de tercero necesita 10 GB fijos: si el disco no alcanza, no se crea
+  if (d.kind === 'external' && !(await hayEspacioParaTercero())) {
+    return c.json({ error: 'sin_espacio', message: 'No hay espacio en el disco para otra emisora de tercero (cada una ocupa 10 GB). Libera espacio o amplía el disco.' }, 422);
+  }
+  // Espacio: la emisora de tercero siempre tiene 10 GB; la principal la decide la superadministración (por defecto 10 GB)
+  const cuotaInicial = d.kind === 'external' ? 10240 : (d.storageQuotaMb ?? 10240);
+  const [fila] = await db.insert(radios).values({ ...d, storageQuotaMb: cuotaInicial, ownerUserId: d.kind === 'external' ? d.ownerUserId ?? null : null }).returning();
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'emisora.crear', entidad: 'emisora', entidadId: fila.id, detalle: fila.name });
   return c.json({ emisora: fila }, 201);
+});
+
+// Espacio para audios: el disco manda. Se reserva el 20% del disco para otras cosas; lo demás se reparte
+// entre las emisoras, y cada una no puede tener más de lo que queda libre de verdad.
+const RESERVA_DISCO = 0.2;
+const MB = 1024 * 1024;
+
+const CUOTA_TERCERO_MB = 10240;
+
+/** ¿Cabe una emisora de tercero (10 GB) en lo disponible sin tocar la reserva del 20%? */
+async function hayEspacioParaTercero(): Promise<boolean> {
+  const e = await calcularEspacio();
+  return e.disco.disponible && e.disco.asignadoMb + CUOTA_TERCERO_MB <= e.disco.disponibleMb;
+}
+
+async function calcularEspacio() {
+  const disco = await radioApi<{ totalBytes: number; libreBytes: number }>('/v1/disco').catch(() => null);
+  const lista = await db.select().from(radios).orderBy(asc(radios.name));
+  const usos = await db
+    .select({ radioId: stationTracks.radioId, usado: sql<number>`coalesce(sum(${stationTracks.sizeBytes}), 0)::bigint` })
+    .from(stationTracks)
+    .groupBy(stationTracks.radioId);
+  const usoPorEmisora = new Map(usos.map((u) => [u.radioId, Number(u.usado)]));
+  const totalMb = disco ? disco.totalBytes / MB : 0;
+  const libreMb = disco ? disco.libreBytes / MB : 0;
+  const disponibleMb = Math.floor(totalMb * (1 - RESERVA_DISCO));
+  const asignadoMb = lista.reduce((t, r) => t + r.storageQuotaMb, 0);
+  return {
+    disco: { disponible: disco !== null, totalMb: Math.round(totalMb), libreMb: Math.round(libreMb), reservaMb: Math.round(totalMb * RESERVA_DISCO), disponibleMb, asignadoMb },
+    emisoras: lista.map((r) => {
+      const usadoBytes = usoPorEmisora.get(r.id) ?? 0;
+      // Lo que puede tener: lo que queda del disco disponible sin contar a las demás, y lo libre más lo que ya usa
+      const sinEstas = asignadoMb - r.storageQuotaMb;
+      const maximoMb = Math.max(0, Math.min(disponibleMb - sinEstas, Math.floor(usadoBytes / MB) + Math.floor(libreMb)));
+      return { id: r.id, name: r.name, kind: r.kind, cuotaMb: r.storageQuotaMb, usadoBytes, maximoMb };
+    }),
+  };
+}
+
+// Espacio por emisora (solo superadministración). Va en /configuracion-radio.
+radioRoutes.get('/emisoras/espacio', requirePermission(PERMISO), async (c) => {
+  return c.json(await calcularEspacio());
+});
+
+radioRoutes.patch('/emisoras/:id/cuota', requirePermission(PERMISO), async (c) => {
+  const caller = await loadCurrentUser(c.req.raw.headers);
+  const id = c.req.param('id') as string;
+  const cuerpo = (await c.req.json().catch(() => ({}))) as { storageQuotaMb?: unknown };
+  const mb = Number(cuerpo.storageQuotaMb);
+  if (!Number.isInteger(mb) || mb < 100) return c.json({ error: 'validacion', campo: 'storageQuotaMb', message: 'El espacio mínimo es 100 MB.' }, 422);
+  const espacio = await calcularEspacio();
+  const emisora = espacio.emisoras.find((e) => e.id === id);
+  if (!emisora) return c.json({ error: 'no_encontrado' }, 404);
+  // La emisora de un tercero tiene 10 GB fijos
+  if (emisora.kind === 'external') return c.json({ error: 'validacion', campo: 'storageQuotaMb', message: 'El espacio de una emisora de tercero es fijo: 10 GB.' }, 422);
+  if (!espacio.disco.disponible) return c.json({ error: 'disco_no_disponible', message: 'No se pudo leer el disco de los audios.' }, 503);
+  if (mb > emisora.maximoMb) return c.json({ error: 'validacion', campo: 'storageQuotaMb', message: `Como máximo ${Math.floor(emisora.maximoMb / 1024)} GB: es lo que queda del disco sin tocar la reserva del 20%.` }, 422);
+  if (mb < Math.ceil(emisora.usadoBytes / MB)) return c.json({ error: 'validacion', campo: 'storageQuotaMb', message: 'No puede ser menor a lo que ya usa esta emisora.' }, 422);
+  const [fila] = await db.update(radios).set({ storageQuotaMb: mb, updatedAt: new Date() }).where(eq(radios.id, id)).returning();
+  await actualizarCuotaArchivo(fila).catch(() => undefined);
+  await registrarAuditoria({ userId: caller!.id, accion: 'emisora.cuota', entidad: 'emisora', entidadId: id, detalle: `${fila.name}: ${mb} MB` });
+  return c.json({ emisora: fila });
 });
 
 radioRoutes.patch('/emisoras/:id', requirePermission(PERMISO), async (c) => {
@@ -74,6 +142,9 @@ radioRoutes.patch('/emisoras/:id', requirePermission(PERMISO), async (c) => {
   const d = parsed.data;
   const [actual] = await db.select().from(radios).where(eq(radios.id, id));
   if (!actual) return c.json({ error: 'no_encontrado' }, 404);
+  if (d.kind === 'external' && actual.kind !== 'external' && !(await hayEspacioParaTercero())) {
+    return c.json({ error: 'sin_espacio', message: 'No hay espacio en el disco para una emisora de tercero (10 GB).' }, 422);
+  }
   if (d.slug !== actual.slug && !(await slugLibre(d.slug, null))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe un espacio con ese enlace.' }, 409);
   if (d.isMain) {
     const otra = await db.select({ id: radios.id }).from(radios).where(and(eq(radios.isMain, true), ne(radios.id, id)));

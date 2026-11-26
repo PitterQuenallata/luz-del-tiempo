@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { playlistSchedules, playlistTracks, radioAjustes, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
-import { CUOTA_ARCHIVO_MB, archivoRadio } from './archivo.js';
+import { archivoRadio } from './archivo.js';
 import { nombreSalidaPorDefecto } from '@luz/shared';
 import { descifrar } from '../../lib/cifrado.js';
 
@@ -129,6 +129,24 @@ export async function sincronizarTodasLasEstaciones(): Promise<EstadoSync[]> {
 const archivosListos = new Set<string>();
 
 /** Crea en la radio-api la carpeta del archivo de una emisora (una vez). Es una estación interna, apagada: solo guarda audios. */
+/** Pone al día la cuota del archivo de la emisora en la radio-api (cuando la superadministración la cambia). */
+export async function actualizarCuotaArchivo(emisora: Emisora): Promise<void> {
+  const slug = await asegurarArchivo(emisora);
+  await radioApi(`/v1/stations/${slug}`, {
+    method: 'PUT',
+    json: {
+      name: `Archivo de ${emisora.name}`,
+      mount: `/arch-${emisora.id.replace(/-/g, '').slice(0, 12)}`,
+      bitrate: 128,
+      livePassword: randomBytes(18).toString('hex'),
+      autodj: false,
+      enabled: false,
+      maxListeners: 1,
+      storageQuotaMb: emisora.storageQuotaMb,
+    },
+  });
+}
+
 export async function asegurarArchivo(emisora: Emisora): Promise<string> {
   const slug = archivoRadio(emisora);
   if (archivosListos.has(slug)) return slug;
@@ -146,7 +164,7 @@ export async function asegurarArchivo(emisora: Emisora): Promise<string> {
         autodj: false,
         enabled: false,
         maxListeners: 1,
-        storageQuotaMb: CUOTA_ARCHIVO_MB,
+        storageQuotaMb: emisora.storageQuotaMb,
       },
     });
   }

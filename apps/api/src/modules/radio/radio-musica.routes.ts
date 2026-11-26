@@ -8,7 +8,7 @@ import { errorValidacion } from '../../lib/validar.js';
 import { cifrar } from '../../lib/cifrado.js';
 import { db } from '../../db/index.js';
 import { playlistSchedules, playlistTracks, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
-import { CUOTA_ARCHIVO_MB, archivoRadio, filtroArchivoEmisora, filtroArchivoEstacion } from './archivo.js';
+import { archivoRadio, filtroArchivoEmisora, filtroArchivoEstacion } from './archivo.js';
 import { leerEtiquetas, releerEtiquetas } from './etiquetas.js';
 import { esAdmin, estacionParaRuta, puedeGestionarEmisora, requireEstacionesAcceso } from './acceso.js';
 import {
@@ -53,8 +53,8 @@ function vistaTransmision(e: Estacion) {
     bitrateKbps: e.bitrateKbps,
     calidadBajaKbps: e.calidadBajaKbps,
     autodjEnabled: e.autodjEnabled,
-    maxListeners: e.maxListeners,
-    storageQuotaMb: e.storageQuotaMb,
+    // Límite real: el del servidor (Icecast), compartido por todas las estaciones
+    limiteServidorOyentes: Number(process.env.ICECAST_MAX_CLIENTS ?? 500),
     streamName: e.streamName ?? '',
     streamNameEfectivo: nombreSalida(e),
     streamUrl: e.mountPoint ? `${process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000'}${e.mountPoint}` : null,
@@ -79,7 +79,7 @@ async function sincronizarTodo(e: Estacion) {
 radioMusicaRoutes.get('/servicio', ACCESO, async (c) => {
   try {
     const r = await radioApi<{ icecastOnline: boolean; stations: unknown[] }>('/v1/stations');
-    return c.json({ radioApi: 'ok', icecastOnline: r.icecastOnline, emisorasEnRadio: r.stations.length, encendida: await radioEncendida() });
+    return c.json({ radioApi: 'ok', icecastOnline: r.icecastOnline, emisorasEnRadio: r.stations.length, encendida: await radioEncendida(), limiteOyentes: Number(process.env.ICECAST_MAX_CLIENTS ?? 500) });
   } catch (err) {
     return c.json({ radioApi: 'sin_conexion', icecastOnline: false, emisorasEnRadio: 0, encendida: await radioEncendida(), detalle: err instanceof Error ? err.message : null });
   }
@@ -124,8 +124,8 @@ radioMusicaRoutes.put('/estaciones/:id/transmision', ACCESO, async (c) => {
     bitrateKbps: parsed.data.bitrateKbps,
     ...(parsed.data.calidadBaja !== undefined ? { calidadBajaKbps: parsed.data.calidadBaja } : {}),
     autodjEnabled: parsed.data.autodjEnabled,
-    maxListeners: parsed.data.maxListeners,
-    storageQuotaMb: parsed.data.storageQuotaMb,
+    ...(parsed.data.maxListeners !== undefined ? { maxListeners: parsed.data.maxListeners } : {}),
+    ...(parsed.data.storageQuotaMb !== undefined ? { storageQuotaMb: parsed.data.storageQuotaMb } : {}),
     ...(parsed.data.streamName !== undefined ? { streamName: parsed.data.streamName || null } : {}),
     ...(parsed.data.livePassword ? { livePasswordEnc: cifrar(parsed.data.livePassword) } : {}),
     updatedAt: new Date(),
@@ -202,13 +202,14 @@ radioMusicaRoutes.get('/estaciones/:id/pistas', ACCESO, async (c) => {
   const e = acceso.estacion;
   const propias = await db.select().from(stationTracks).where(filtroArchivoEstacion(e.id)).orderBy(asc(stationTracks.title));
   const deEmisora = await db.select().from(stationTracks).where(filtroArchivoEmisora(e.radioId)).orderBy(asc(stationTracks.title));
+  const [emisora] = await db.select().from(radios).where(eq(radios.id, e.radioId));
   return c.json({
     pistas: propias,
     archivoEmisora: deEmisora,
     espacioUsadoBytes: propias.reduce((t, p) => t + p.sizeBytes, 0),
     espacioCuotaBytes: e.storageQuotaMb * 1024 * 1024,
     espacioEmisoraUsadoBytes: deEmisora.reduce((t, p) => t + p.sizeBytes, 0),
-    espacioEmisoraCuotaBytes: CUOTA_ARCHIVO_MB * 1024 * 1024,
+    espacioEmisoraCuotaBytes: (emisora?.storageQuotaMb ?? 10240) * 1024 * 1024,
   });
 });
 

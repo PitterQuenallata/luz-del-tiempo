@@ -62,7 +62,8 @@ const RUTA_ID_RADIO = /^\/api\/v1\/radio\/(?:emisoras|programas|franjas|pistas|p
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 app.use('/api/v1/radio/*', async (c, next) => {
   const m = RUTA_ID_RADIO.exec(new URL(c.req.url).pathname);
-  if (m && !UUID.test(m[1])) return c.json({ error: 'no_encontrado' }, 404);
+  // /emisoras/espacio es una ruta fija (espacio por emisora), no un id
+  if (m && m[1] !== 'espacio' && !UUID.test(m[1])) return c.json({ error: 'no_encontrado' }, 404);
   await next();
 });
 app.route('/api/v1/radio', radioRoutes);

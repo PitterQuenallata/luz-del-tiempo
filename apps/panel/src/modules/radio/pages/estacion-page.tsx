@@ -50,7 +50,6 @@ export const EstacionPage: React.FC = () => {
   const admin = permisos.includes('estaciones:todas');
   // El responsable de una emisora de tercero también ve el formulario de transmisión (la API filtra lo que puede cambiar)
   const editaTransmision = admin || permisos.includes('estacion:propia');
-  const avanzado = permisos.includes('servidores:configurar');
   const [pestana, setPestana] = useState<Pestana>(() => {
     const tab = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('tab') as Pestana | null;
     return PESTANAS.some((p) => p.id === tab) ? (tab as Pestana) : 'resumen';
@@ -114,7 +113,7 @@ export const EstacionPage: React.FC = () => {
           <ProgramacionTab emisoras={[estacion]} />
         </div>
       )}
-      {pestana === 'transmision' && <Transmision estacion={estacion} avanzado={avanzado} admin={admin} editaTransmision={editaTransmision} />}
+      {pestana === 'transmision' && <Transmision estacion={estacion} admin={admin} editaTransmision={editaTransmision} />}
     </div>
   );
 };
@@ -521,14 +520,14 @@ const Seccion: React.FC<{ titulo: string; descripcion?: string; accion?: React.R
   </Card>
 );
 
-const Transmision: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean }> = (props) => {
+const Transmision: React.FC<{ estacion: ApiEmisora; admin: boolean; editaTransmision: boolean }> = (props) => {
   const transmision = useTransmision(props.estacion.id);
   // El formulario se monta cuando ya llegaron los datos, para que empiece con los valores guardados
   if (!transmision.data) return <Cargando />;
   return <TransmisionContenido {...props} t={transmision.data.transmision} />;
 };
 
-const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean; t: ApiTransmision }> = ({ estacion, avanzado, admin, editaTransmision, t }) => {
+const TransmisionContenido: React.FC<{ estacion: ApiEmisora; admin: boolean; editaTransmision: boolean; t: ApiTransmision }> = ({ estacion, admin, editaTransmision, t }) => {
   const locutores = useLocutores(estacion.id);
   const servicio = useServicioRadio();
   const [locutoresAbiertos, setLocutoresAbiertos] = useState(false);
@@ -538,6 +537,7 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
     <div className="space-y-6">
       <Seccion titulo="Control" descripcion="Encender o apagar la estación, escucharla y copiar el enlace para los oyentes.">
         <EstacionControles emisora={estacion} transmision={t} />
+        <p className="text-xs text-muted-foreground">Límite del servidor: <span className="font-medium text-foreground">{t.limiteServidorOyentes}</span> oyentes a la vez, entre todas las estaciones.</p>
         {servicio.data && !servicio.data.encendida && (
           <p className="text-xs text-amber-500">La radio completa está apagada: ninguna estación suena hasta volver a encenderla.</p>
         )}
@@ -548,7 +548,7 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
           {editaTransmision ? (
             <Seccion titulo="Configuración de transmisión" descripcion="Lo que guardas aquí lo usan el locutor y la radio.">
               <form onSubmit={form.enviar} className="space-y-6" noValidate>
-                <CamposTransmision emisora={estacion} transmision={t} avanzado={avanzado} f={form.campos} />
+                <CamposTransmision emisora={estacion} transmision={t} f={form.campos} />
                 <ErrorCampo texto={form.error} />
                 <div className="flex justify-end border-t border-border/60 pt-5">
                   <Button type="submit" size="sm" className="text-xs" disabled={!form.puedeEnviar || form.guardando}>

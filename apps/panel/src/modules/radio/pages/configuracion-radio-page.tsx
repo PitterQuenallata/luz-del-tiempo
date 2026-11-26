@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Radio, RefreshCw, Settings2, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
+import { Input } from '../../../shared/components/ui/input';
 import { Badge } from '../../../shared/components/ui/badge';
-import { ApiEmisora, ApiTransmision, luzApi } from '../../../shared/api/luz-api';
+import { ApiEmisora, ApiEspacio, ApiTransmision, luzApi } from '../../../shared/api/luz-api';
 import { useSession } from '../../auth/hooks/use-session';
 import { useEstaciones, useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { useServicioRadio, useTransmision } from '../hooks/use-radio';
@@ -48,6 +50,7 @@ export const ConfiguracionRadioPage: React.FC = () => {
               <Badge variant={servicio.data.radioApi === 'ok' ? 'success' : 'destructive'}>Control de la radio: {servicio.data.radioApi === 'ok' ? 'conectado' : 'sin conexión'}</Badge>
               <Badge variant={servicio.data.icecastOnline ? 'success' : 'destructive'}>Transmisión (Icecast): {servicio.data.icecastOnline ? 'en línea' : 'apagada'}</Badge>
               <Badge variant="outline">Emisoras en la radio: {servicio.data.emisorasEnRadio}</Badge>
+              {servicio.data.limiteOyentes !== undefined && <Badge variant="outline">Oyentes máximos del servidor: {servicio.data.limiteOyentes}</Badge>}
             </>
           )}
           {servicio.isError && <span className="text-red-400">No se pudo consultar el servicio.</span>}
@@ -67,13 +70,15 @@ export const ConfiguracionRadioPage: React.FC = () => {
           {emisoras.isLoading && <p className="p-4 text-xs text-muted-foreground">Cargando emisoras…</p>}
           <ul className="divide-y divide-border/60">
             {(emisoras.data ?? []).map((e) => (
-              <EmisoraTransmision key={e.id} emisora={e} avanzado={avanzado} radioEncendida={servicio.data?.encendida ?? true} />
+              <EmisoraTransmision key={e.id} emisora={e} radioEncendida={servicio.data?.encendida ?? true} />
             ))}
           </ul>
         </CardContent>
       </Card>
 
       <ReporteTransmisiones />
+
+      {avanzado && <EspacioEmisoras />}
 
       <VersionesEmisor puedePublicar={avanzado} />
 
@@ -83,7 +88,7 @@ export const ConfiguracionRadioPage: React.FC = () => {
 };
 
 // Estado en vivo de la radio para esta emisora (lo devuelve la API de transmisión)
-const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean; radioEncendida: boolean }> = ({ emisora, avanzado, radioEncendida }) => {
+const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; radioEncendida: boolean }> = ({ emisora, radioEncendida }) => {
   const transmision = useTransmision(emisora.id);
   const [abierta, setAbierta] = useState(false);
   const t: ApiTransmision | undefined = transmision.data?.transmision;
@@ -109,7 +114,7 @@ const EmisoraTransmision: React.FC<{ emisora: ApiEmisora; avanzado: boolean; rad
         </Button>
       </div>
       {t && <EstacionControles emisora={emisora} transmision={t} />}
-      {abierta && t && <TransmisionDialog emisora={emisora} transmision={t} avanzado={avanzado} onClose={() => setAbierta(false)} />}
+      {abierta && t && <TransmisionDialog emisora={emisora} transmision={t} onClose={() => setAbierta(false)} />}
     </li>
   );
 };
@@ -145,7 +150,7 @@ const AjustesServidor: React.FC = () => (
     <CardHeader>
       <CardTitle className="text-sm font-semibold flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Servidor (solo superadmin)</CardTitle>
       <CardDescription className="text-xs">
-        Límites de oyentes y espacio para audios por emisora se editan en su transmisión (sección avanzada). Aquí, lo que es del servidor.
+        El límite de oyentes es del servidor completo (ICECAST_MAX_CLIENTS en la configuración de Docker). El espacio para audios se fija por emisora arriba.
       </CardDescription>
     </CardHeader>
     <CardContent className="text-xs text-muted-foreground space-y-1.5">
@@ -155,3 +160,81 @@ const AjustesServidor: React.FC = () => (
     </CardContent>
   </Card>
 );
+
+
+// Espacio para audios (solo superadministración). El disco manda: se reserva el 20% para otras cosas.
+const MB_POR_GB = 1024;
+const gb = (mb: number) => (mb / MB_POR_GB).toFixed(1).replace(/\.0$/, '');
+
+const EspacioEmisoras: React.FC = () => {
+  const espacio = useQuery({ queryKey: ['gestion', 'radio', 'espacio-emisoras'], queryFn: () => luzApi.getEspacioEmisoras() });
+  const guardar = useMutacionGestion(
+    (input: { id: string; mb: number }) => luzApi.setCuotaEmisora(input.id, input.mb),
+    'Espacio actualizado',
+    'No se pudo cambiar el espacio',
+  );
+  const d = espacio.data?.disco;
+  return (
+    <Card className="border-border">
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold">Espacio para audios</CardTitle>
+        <CardDescription className="text-xs">
+          Decides tú cuánto espacio tiene la emisora principal, según el disco. La de un tercero tiene 10 GB fijos.
+          Siempre se reserva el 20% del disco para otras cosas. 1 GB guarda unas 17 horas de audio a 128 kbps.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {espacio.isLoading && <p className="text-xs text-muted-foreground">Cargando…</p>}
+        {d && !d.disponible && <p className="text-xs text-red-400">No se pudo leer el disco de los audios (¿está encendida la radio?).</p>}
+        {d?.disponible && (
+          <div className="grid gap-3 rounded-xl border border-border p-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div><p className="text-muted-foreground">Disco total</p><p className="text-sm font-semibold">{gb(d.totalMb)} GB</p></div>
+            <div><p className="text-muted-foreground">Reserva (20%)</p><p className="text-sm font-semibold">{gb(d.reservaMb)} GB</p></div>
+            <div><p className="text-muted-foreground">Disponible para audios</p><p className="text-sm font-semibold">{gb(d.disponibleMb)} GB</p></div>
+            <div><p className="text-muted-foreground">Asignado a emisoras</p><p className="text-sm font-semibold">{gb(d.asignadoMb)} GB</p></div>
+            <p className="text-muted-foreground sm:col-span-2 lg:col-span-4">Libre hoy en el disco: {gb(d.libreMb)} GB.</p>
+          </div>
+        )}
+        {(espacio.data?.emisoras ?? []).map((e) => (
+          <FilaEspacio key={e.id} emisora={e} guardando={guardar.isPending} onGuardar={(mb) => guardar.mutate({ id: e.id, mb })} />
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
+
+const FilaEspacio: React.FC<{ emisora: ApiEspacio['emisoras'][number]; guardando: boolean; onGuardar: (mb: number) => void }> = ({ emisora, guardando, onGuardar }) => {
+  const [valor, setValor] = useState(String(emisora.cuotaMb / MB_POR_GB));
+  const usadoMb = emisora.usadoBytes / (1024 * 1024);
+  const porcentaje = Math.min(100, Math.round((usadoMb / emisora.cuotaMb) * 100));
+  const maximoGb = Math.floor((emisora.maximoMb / MB_POR_GB) * 2) / 2; // en medios GB
+  const nuevaGb = Number(valor);
+  const fijo = emisora.kind === 'external';
+  const valida = Number.isFinite(nuevaGb) && nuevaGb * MB_POR_GB >= 100 && nuevaGb <= maximoGb;
+  return (
+    <div className="space-y-2 rounded-xl border border-border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">{emisora.name}</p>
+          <p className="text-[11px] text-muted-foreground">{fijo ? 'Emisora de tercero · 10 GB fijos' : 'Emisora del ministerio · la decides tú'}</p>
+        </div>
+        <p className="text-xs text-muted-foreground">Usado {gb(usadoMb)} GB de {gb(emisora.cuotaMb)} GB</p>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full bg-primary" style={{ width: `${porcentaje}%` }} />
+      </div>
+      {!fijo && (
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label htmlFor={`cuota-${emisora.id}`} className="mb-1 block text-[11px] text-muted-foreground">Espacio (GB) · máximo {gb(maximoGb * MB_POR_GB)} GB</label>
+            <Input id={`cuota-${emisora.id}`} type="number" min={0.1} max={maximoGb} step={0.5} value={valor} onChange={(e) => setValor(e.target.value)} className="w-28 text-xs" />
+          </div>
+          <Button type="button" size="sm" className="text-xs" disabled={!valida || guardando || nuevaGb * MB_POR_GB === emisora.cuotaMb} onClick={() => onGuardar(Math.round(nuevaGb * MB_POR_GB))}>
+            Guardar espacio
+          </Button>
+          {!valida && <p className="text-[11px] text-red-400">Entre 0.1 GB y {gb(maximoGb * MB_POR_GB)} GB.</p>}
+        </div>
+      )}
+    </div>
+  );
+};

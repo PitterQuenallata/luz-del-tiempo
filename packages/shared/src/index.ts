@@ -457,6 +457,8 @@ export const enVivoSchema = z
 export const radioSchema = z
   .object({
     slug: slugSchema,
+    // Espacio para audios en MB. Solo la emisora principal lo decide; la de un tercero siempre tiene 10 GB.
+    storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').optional(),
     name: z.string().trim().min(2, 'El nombre debe tener al menos 2 letras.').max(80, 'Máximo 80 caracteres.'),
     description: opcionalTexto(500, 'Máximo 500 caracteres.'),
     genre: opcionalTexto(60, 'Máximo 60 caracteres.'),
@@ -528,8 +530,9 @@ export const emisionSchema = z.object({
   // Calidad baja del HLS (señal lenta o datos móviles): 32 a 128 kbps
   calidadBaja: z.number().int().min(32, 'Mínimo 32 kbps.').max(128, 'Máximo 128 kbps.').optional(),
   autodjEnabled: z.boolean(),
-  maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.'),
-  storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').max(10240, 'Máximo 10 GB.'),
+  // Ya no se editan desde la estación: el límite de oyentes es el del servidor y el espacio de audios es de la emisora.
+  maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.').optional(),
+  storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').optional(),
   // Nombre de salida (lo que ve el oyente). Vacío = «Radio La Luz del Tiempo - <nombre de la emisora>»
   streamName: z.string().trim().max(80, 'Máximo 80 caracteres.').optional(),
 });
