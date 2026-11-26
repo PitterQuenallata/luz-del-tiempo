@@ -20,7 +20,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
   const [radioId, setRadioId] = useState(estacion?.radioId ?? radioIdInicial ?? emisoras[0]?.id ?? '');
   const [nombre, setNombre] = useState(estacion?.name ?? '');
   const [enlace, setEnlace] = useState(estacion?.slug ?? '');
-  const [estado, setEstado] = useState<EstacionInput['status']>(estacion?.status ?? 'draft');
+  const [estado, setEstado] = useState<EstacionInput['status']>(estacion?.status ?? 'active');
   const [autodj, setAutodj] = useState(estacion?.autodjEnabled ?? true);
   const [programacion, setProgramacion] = useState(estacion?.tieneProgramacion ?? true);
   const [visible, setVisible] = useState(estacion?.visibleInMinistry ?? true);
@@ -56,7 +56,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       enviando={guardar.isPending}
       textoBoton={estacion ? 'Guardar' : 'Crear estación'}
     >
-      <div className="grid gap-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-start">
+      <div className="grid gap-6 sm:grid-cols-2 sm:items-start">
         <div className="space-y-2">
           <ImagenCampo
                     etiqueta="Foto de la estación"
@@ -74,15 +74,13 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
                       {emisoras.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </SelectField>
                   </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <EtiquetaCampo htmlFor="est-nombre">Nombre</EtiquetaCampo>
-              <Input id="est-nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); if (!estacion) setEnlace(slugDe(e.target.value)); }} placeholder="Luz Música" className="text-xs" />
-            </div>
-            <div>
-              <EtiquetaCampo htmlFor="est-enlace">Enlace (slug)</EtiquetaCampo>
-              <Input id="est-enlace" value={enlace} onChange={(e) => setEnlace(e.target.value)} className="text-xs font-mono" />
-            </div>
+          <div>
+            <EtiquetaCampo htmlFor="est-nombre">Nombre</EtiquetaCampo>
+            <Input id="est-nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); if (!estacion) setEnlace(slugDe(e.target.value)); }} placeholder="Luz Música" className="text-xs" />
+          </div>
+          <div>
+            <EtiquetaCampo htmlFor="est-enlace">Enlace (slug)</EtiquetaCampo>
+            <Input id="est-enlace" value={enlace} onChange={(e) => setEnlace(e.target.value)} className="text-xs font-mono" />
           </div>
         </div>
       </div>
@@ -113,7 +111,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
         <div>
           <EtiquetaCampo htmlFor="est-estado">Estado</EtiquetaCampo>
           <SelectField id="est-estado" value={estado} onChange={(e) => setEstado(e.target.value as EstacionInput['status'])}>
-            <option value="draft">Borrador (no suena ni se ve)</option>
+            {estacion?.status === 'draft' && <option value="draft">Borrador (no suena ni se ve)</option>}
             <option value="active">Activa</option>
             <option value="suspended">Suspendida</option>
             <option value="disabled">Deshabilitada</option>
