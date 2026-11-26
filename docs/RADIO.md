@@ -1,12 +1,12 @@
 # Radio — Icecast + Liquidsoap + radio-api
 
-> Actualizado: 23/11/2026. Primera versión. Probada solo la `radio-api` (sin Docker); Icecast y Liquidsoap aún no se levantaron.
+> Actualizado: 26/11/2026 (Icecast por emisora, Fase 6). Antes: 23/11/2026. Probada solo la `radio-api` (sin Docker); Icecast y Liquidsoap aún no se levantaron.
 
 ## 1. Cómo está armada
 
 ```
-Locutor (BUTT/OBS) ──► :8005 Liquidsoap (harbor) ─┐
-                                                  ├─► Icecast :8000 ──► Oyentes (web, app)
+Locutor (BUTT/OBS) ──► :base+5 Liquidsoap (harbor) ─┐
+                                                    ├─► Icecast de la emisora :base ──► Oyentes (web, app)
 AutoDJ (carpeta de audios por estación) ─────────┘        ▲
                                                            │ estado y oyentes
 API 1 (apps/api) ──token──► radio-api :4100 ───────────────┘
@@ -16,11 +16,12 @@ API 1 (apps/api) ──token──► radio-api :4100 ────────�
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **Icecast** | `infra/radio/icecast/` (imagen propia sobre Alpine) | Servidor del stream. Un mount por estación: `/principal`, `/salud`… |
-| **Liquidsoap** | `infra/radio/liquidsoap/radio.liq` (imagen `savonet/liquidsoap:v2.4.6`) | AutoDJ 24/7 por estación y entrada en vivo. Si entra un locutor, tiene prioridad; si no hay audios, transmite silencio. |
+| **Icecast** | `infra/radio/liquidsoap/` (Icecast 2 dentro de la imagen Debian de Liquidsoap) | Un Icecast por emisora, como AzuraCast. Cada estación escucha en su puerto de oyentes (base de su bloque): `http://<servidor>:8000/principal`, `:8010/musica`… |
+| **Liquidsoap** | `infra/radio/liquidsoap/radio.liq` (imagen propia `infra/radio/liquidsoap/Dockerfile`, basada en `savonet/liquidsoap:v2.4.6`) | AutoDJ 24/7 por estación y entrada en vivo. Si entra un locutor, tiene prioridad; si no hay audios, transmite silencio. |
 | **radio-api** | `apps/radio-api` (Hono + Node) | API 2. Solo le habla la API 1, con `Authorization: Bearer <RADIO_API_TOKEN>`. |
 
-- **No se usa AzuraCast**: duplicaría el panel (usuarios, roles, estaciones) y es pesado para el VPS. La lógica de dueños, operadores y límites vive en la API 1 y la base de datos (`docs/DATABASE.md`).
+- **Como AzuraCast en el motor, no en el panel**: cada estación tiene su Icecast y su Liquidsoap, y su bloque de 10 puertos (oyentes, control y locutores) desde 8000. No usamos AzuraCast en sí: duplicaría el panel (usuarios, roles, estaciones). La lógica de dueños, operadores y límites vive en la API 1 y la base de datos (`docs/DATABASE.md`).
+- **Capacidad**: hasta 20 estaciones (8000–8199). Cada estación encendida usa ~200 MB de RAM (Liquidsoap) más su Icecast.
 - **Emisoras y estaciones**: cada emisora contiene sus estaciones (sección 6). Una emisora de un tercero tiene una sola estación y un responsable.
 - **Encender, apagar, AutoDJ y activar o pausar cada playlist** (sin reiniciar nada): van en `data/config/estado.txt`, una línea por clave: `slug 1|0` (emisora), `slug.autodj 1|0` (AutoDJ), `slug/playlist 1|0` (playlist en esa emisora). Liquidsoap lo lee cada 2 s. **No corta a las demás** (probado).
 - **Cambios de estructura** (reinician Liquidsoap, un corte de unos segundos para todas): crear o borrar una emisora, la primera vez que una emisora sale al aire, cambiar punto de transmisión, contraseña, calidad o nombre de salida, crear, borrar o cambiar el modo, peso o horarios de una playlist de la biblioteca. `stations.json` solo cambia en esos casos.
@@ -43,8 +44,9 @@ Los datos quedan en `infra/radio/data/` (ignorado por git):
 
 | Puerto | Servicio | Para quién |
 |---|---|---|
-| 8000 | Icecast | Oyentes: `http://<host>:8000/<mount>`. Admin en `/admin/` |
-| 8005 | Liquidsoap harbor | Locutores en vivo. Mount = slug de la estación, contraseña = `livePassword` |
+| 8000 + 10·n | Icecast de la estación n | Oyentes: `http://<host>:<puerto>/<mount>` (la principal es 8000). Admin en `/admin/` de cada una |
+| 8000–8199 | Bloque | 20 estaciones, 10 puertos cada una: oyentes (base), control (base+4), locutores (base+5) |
+| base+5 | Liquidsoap harbor | Locutores en vivo (la principal: 8005). Mount = slug de la estación, contraseña = `livePassword` |
 | 4100 | radio-api | Solo la API 1 |
 
 **Sin Docker** (solo la radio-api, para desarrollar): `cp apps/radio-api/.env.example apps/radio-api/.env` y `pnpm --filter @luz/radio-api dev:local` (no lo uses si Docker ya tiene la radio-api encendida: ambas usan el puerto 4100).

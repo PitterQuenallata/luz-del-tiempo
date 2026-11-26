@@ -22,3 +22,7 @@ Thumbs.db
 
 # Datos de la radio (configuración generada y audios del AutoDJ)
 infra/radio/data/
+
+# Copias de seguridad y registros de la radio (datos locales, no van a git)
+apps/api/respaldos/
+infra/radio/data/logs/
