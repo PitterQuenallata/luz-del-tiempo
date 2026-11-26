@@ -50,6 +50,11 @@ radioRoutes.post('/emisoras', requirePermission(PERMISO), async (c) => {
   if (!parsed.success) return errorValidacion(c, parsed.error);
   const d = parsed.data;
   if (!(await slugLibre(d.slug, null))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe un espacio con ese enlace.' }, 409);
+  // Solo existe una emisora del ministerio; lo demás son emisoras de terceros.
+  if (d.kind === 'own') {
+    const del = await db.select({ id: radios.id }).from(radios).where(eq(radios.kind, 'own'));
+    if (del.length) return c.json({ error: 'validacion', campo: 'kind', message: 'Ya existe la emisora del ministerio. Solo se pueden crear emisoras de terceros.' }, 422);
+  }
   if (d.isMain) {
     const otra = await db.select({ id: radios.id }).from(radios).where(eq(radios.isMain, true));
     if (otra.length) return c.json({ error: 'validacion', campo: 'isMain', message: 'Ya hay una emisora principal.' }, 422);
@@ -150,6 +155,7 @@ radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
       radioId: emisora.id,
       kind: emisora.kind,
       slug: d.slug,
+      imageUrl: d.imageUrl ?? null,
       name: d.name,
       status: d.status,
       autodjEnabled: d.autodjEnabled,
@@ -158,10 +164,7 @@ radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
       mountPoint,
     })
     .returning();
-  // Crear AutoDJ: la estación nace con su propia lista de música (vacía, para llenar). Sin AutoDJ, no tiene ninguna.
-  if (d.autodjEnabled) {
-    await db.insert(stationPlaylists).values({ stationId: fila.id, name: 'Música automática', mode: 'rotacion', weight: 50, shuffle: true, isActive: true });
-  }
+  // Las listas son de la emisora: la estación nueva no trae ninguna; se vinculan desde su pestaña AutoDJ.
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'estacion.crear', entidad: 'estacion', entidadId: fila.id, detalle: `${emisora.name} · ${fila.name}` });
   return c.json({ estacion: fila }, 201);
 });
@@ -183,7 +186,8 @@ radioRoutes.patch('/estaciones/:id', requireEstacionesAcceso(), async (c) => {
     (d.visibleInMinistry !== undefined && d.visibleInMinistry !== actual.visibleInMinistry) ||
     (d.sortOrder !== undefined && d.sortOrder !== actual.sortOrder);
   if (!todas && cambiaReservado) return c.json({ error: 'sin_permiso', message: 'Solo la administración cambia el estado, el enlace o la visibilidad de una estación.' }, 403);
-  const permitidos = todas ? d : { name: d.name, autodjEnabled: d.autodjEnabled };
+  // El responsable de un tercero también puede cambiar la foto de su estación.
+  const permitidos = todas ? d : { name: d.name, autodjEnabled: d.autodjEnabled, imageUrl: d.imageUrl };
   if (d.slug && d.slug !== actual.slug && !(await slugLibre(d.slug, id))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una estación o emisora con ese enlace.' }, 409);
   const [fila] = await db
     .update(stations)

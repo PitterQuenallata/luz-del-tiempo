@@ -2,12 +2,13 @@
 #
 # Orden de prioridad de cada estación (de mayor a menor):
 #   1. Locutor en vivo (harbor). Si conecta, manda.
-#   2. Playlists "programada" cuando su horario está activo.
-#   3. Mezcla de playlists "rotacion" y "secuencial", con el peso de cada una.
+#   2. Listas programadas cuando su horario está activo (programas.txt).
+#   3. Listas en la rotación, por turnos, en su orden, con el peso de cada una.
 #   4. Silencio (si no hay nada que sonar).
 #
-# Las estaciones y sus playlists salen de /config/stations.json (lo escribe la radio-api).
-# Cuando ese archivo cambia, Liquidsoap se reinicia (corte de ~2 s).
+# Lo que cambia la estructura del motor (estaciones, mounts, pesos, orden aleatorio) sale de
+# /config/stations.json y reinicia Liquidsoap. Lo que cambia con frecuencia (encender, modo de cada
+# lista, horarios, opciones) sale de estado.txt y programas.txt y se lee cada 2 s, SIN reiniciar.
 # La lista de pistas de cada playlist está en /config/playlists/<estacion>/<id>.m3u
 # y Liquidsoap la recarga cada 5 s: subir o reordenar audios no corta la transmisión.
 
@@ -35,17 +36,16 @@ config = json.parse(
     playlists = [{
       id = "",
       name = "",
-      mode = "",
+      pistas = 0,
       weight = 50,
       shuffle = true,
-      active = false,
-      schedules = [{day = 0, inicio = 0, fin = 0}]
+      active = false
     }]
   }]},
   file.exists(config_path) ? file.contents(config_path) : '{"stations": []}'
 )
 
-# Encendida o apagada cada emisora: lo escribe la radio-api en estado.json.
+# Encendida o apagada cada emisora: lo escribe la radio-api en estado.txt.
 # Se lee cada 2 s y NO reinicia Liquidsoap: solo abre o cierra el mount de esa emisora,
 # así que encender o apagar una no corta a las demás.
 estado_path = "#{config_dir}/estado.txt"
@@ -61,12 +61,40 @@ thread.run.recurrent(delay=2., fun () -> begin
   2.
 end)
 
-# Claves de estado.txt: "slug" (emisora encendida), "slug.autodj" (AutoDJ activo)
+# Claves de estado.txt: "slug" (emisora encendida), "slug.autodj" (AutoDJ activo), "slug/lista" (lista activa)
 def estado_on(clave) =
   list.exists(fun (e) -> fst(e) == clave and snd(e), estado_actual())
 end
 
 def emisora_encendida(slug) = estado_on(slug) end
+
+# Programas (horarios y opciones de cada lista), leídos cada 2 s.
+# Línea: "slug/id;modo;interrumpe;una_sola;dia-inicio-fin,dia-inicio-fin" (o "-" sin horarios).
+# modo: "programada" (solo suena en sus horarios) o "rotacion" (suena en la mezcla).
+programas_path = "#{config_dir}/programas.txt"
+def leer_horarios(texto) =
+  partes = list.filter(fun (x) -> x != "" and x != "-", string.split(separator=",", texto))
+  list.map(fun (x) -> begin
+    v = string.split(separator="-", x)
+    {day = int_of_string(list.nth(v, 0)), inicio = int_of_string(list.nth(v, 1)), fin = int_of_string(list.nth(v, 2))}
+  end, partes)
+end
+def leer_programas() =
+  texto = file.exists(programas_path) ? file.contents(programas_path) : ""
+  lineas = list.filter(fun (l) -> l != "", string.split(separator="\n", texto))
+  list.map(fun (l) -> begin
+    c = string.split(separator=";", l)
+    (list.nth(c, 0), {modo = list.nth(c, 1), inter = list.nth(c, 2) == "1", una = list.nth(c, 3) == "1", hs = leer_horarios(list.nth(c, 4))})
+  end, lineas)
+end
+programa_vacio = {modo = "rotacion", inter = true, una = false, hs = []}
+programas_actuales = ref(leer_programas())
+thread.run.recurrent(delay=2., fun () -> begin
+  programas_actuales := leer_programas()
+  2.
+end)
+def info_de(clave) = list.assoc(default=programa_vacio, clave, programas_actuales())
+end
 
 # Emisión a Icecast con el bitrate elegido (Liquidsoap exige una constante).
 # fallible: si la fuente no tiene audio (emisora apagada), el mount se cierra en vez de transmitir silencio.
@@ -96,12 +124,33 @@ def emitir(st, src) =
   end
 end
 
-# ¿Estamos dentro de alguna franja (día, inicio, fin) en hora local?
+# ¿Estamos dentro de la franja (día, inicio, fin) en hora local?
 # week_day: 0 = domingo … 6 = sábado (igual que en la API). inicio/fin en minutos.
-def en_horario(hs) =
+def dentro_de(h) =
   t = time.local()
   ahora = t.hour * 60 + t.min
-  list.exists(fun (h) -> h.day == t.week_day and ahora >= h.inicio and ahora < h.fin, hs)
+  h.day == t.week_day and ahora >= h.inicio and ahora < h.fin
+end
+
+# Clave de la franja en la que estamos (vacía si no estamos en ninguna).
+def franja_actual(hs) =
+  activas = list.filter(dentro_de, hs)
+  if list.length(activas) == 0 then "" else
+    h = list.nth(activas, 0)
+    "#{h.day}-#{h.inicio}-#{h.fin}"
+  end
+end
+
+# La lista está programada y en su horario ahora.
+def programada_ahora(clave) =
+  i = info_de(clave)
+  i.modo == "programada" and list.length(list.filter(dentro_de, i.hs)) > 0
+end
+
+# La lista programada entra a la hora y se le pide interrumpir lo que suena.
+def interrumpe_ahora(clave) =
+  i = info_de(clave)
+  programada_ahora(clave) and i.inter
 end
 
 # Fuente de una playlist: su .m3u, en orden o aleatoria.
@@ -115,34 +164,50 @@ def fuente_playlist(st, p) =
     reload=5,
     "#{config_dir}/playlists/#{st.slug}/#{p.id}.m3u"
   )
+  # Cada pista lleva el nombre de su lista (para «ahora suena» en el panel)
+  pl = metadata.map(update=true, fun (_) -> [("luz_lista", p.name)], pl)
   switch(track_sensitive=false, [((fun () -> estado_on("#{st.slug}/#{p.id}")), pl)])
 end
 
-# Mezcla de playlists de rotación/secuencial, según el peso de cada una.
+# Una lista en la rotación: solo cuando NO está programada.
+def fuente_rotacion(st, p) =
+  clave = "#{st.slug}/#{p.id}"
+  switch(track_sensitive=true, [((fun () -> info_de(clave).modo != "programada"), fuente_playlist(st, p))])
+end
+
+# Rotación: las listas van en su turno, de arriba abajo. En su turno suena la lista COMPLETA,
+# en su orden, y después pasa la siguiente. El peso de la rotación es la cantidad de audios de cada lista
+# (la radio-api lo manda en stations.json; si cambia, Liquidsoap se reinicia una vez).
 def rotacion(st) =
-  ps = list.filter(fun (p) -> (p.mode == "rotacion" or p.mode == "secuencial"), st.playlists)
+  ps = list.filter(fun (p) -> p.pistas > 0, st.playlists)
   if list.length(ps) == 0 then
     []
   else
-    [random(
+    [rotate(
       id="#{st.slug}_rotacion",
-      weights=list.map(fun (p) -> p.weight, ps),
-      list.map(fun (p) -> fuente_playlist(st, p), ps)
+      weights=list.map(fun (p) -> p.pistas, ps),
+      list.map(fun (p) -> fuente_rotacion(st, p), ps)
     )]
   end
 end
 
-# Playlists programadas: solo suenan en sus horarios.
-def programadas(st) =
-  ps = list.filter(fun (p) -> p.mode == "programada", st.playlists)
-  if list.length(ps) == 0 then
-    []
-  else
-    [switch(
-      track_sensitive=false,
-      list.map(fun (p) -> ((fun () -> en_horario(p.schedules)), fuente_playlist(st, p)), ps)
-    )]
-  end
+# Lista programada: solo suena en sus horarios. Con «solo una pista», suena una por horario:
+# espera a que termine la que suena y no vuelve a entrar en esa franja.
+def fuente_programada(st, p) =
+  clave = "#{st.slug}/#{p.id}"
+  pl = fuente_playlist(st, p)
+  sonada = ref(false)
+  ultima_franja = ref("")
+  pl.on_track(synchronous=false, fun (_) -> sonada := true)
+  switch(track_sensitive=true, [((fun () -> begin
+    i = info_de(clave)
+    franja = i.modo == "programada" ? franja_actual(i.hs) : ""
+    if franja != ultima_franja() then
+      ultima_franja := franja
+      sonada := false
+    end
+    franja != "" and not (i.una and sonada())
+  end), pl)])
 end
 
 def crear_estacion(st) =
@@ -158,12 +223,48 @@ def crear_estacion(st) =
 
   # Sin AutoDJ, la estación solo suena con el locutor o silencio.
   # AutoDJ: se puede encender o apagar sin reiniciar (estado.txt, clave "slug.autodj").
-  automatico = list.append(programadas(st), rotacion(st))
-  musica = list.length(automatico) == 0 ? blank() : fallback(id="#{st.slug}_musica", track_sensitive=false, automatico)
+  programadas = list.map(fun (p) -> fuente_programada(st, p), st.playlists)
+  automatico = list.append(programadas, rotacion(st))
+  musica = list.length(automatico) == 0 ? blank() : fallback(id="#{st.slug}_musica", track_sensitive=true, automatico)
   musica_gated = switch(track_sensitive=false, [((fun () -> estado_on("#{st.slug}.autodj")), musica)])
   fuentes = [vivo, musica_gated, blank()]
 
   radio = fallback(id="#{st.slug}", track_sensitive=false, fuentes)
+
+  # Interrumpir: al entrar a la hora de una lista con «interrumpe», se salta la pista que suena
+  # para que la lista entre de inmediato (el fallback cambia en el siguiente corte).
+  interrumpiendo = ref(false)
+  vigilante_horario = thread.run.recurrent(delay=1., fun () -> begin
+    ahora_interrumpe = list.exists(fun (p) -> interrumpe_ahora("#{st.slug}/#{p.id}"), st.playlists)
+    if ahora_interrumpe and not interrumpiendo() then
+      source.skip(radio)
+    end
+    interrumpiendo := ahora_interrumpe
+    1.
+  end)
+
+  # Ahora suena: al cambiar de pista se escribe título, artista, lista y hora de inicio.
+  # La radio-api lo lee para el panel (ahora/<slug>.txt). Líneas: título, artista, lista, inicio (unix).
+  ahora_path = "#{config_dir}/ahora/#{st.slug}.txt"
+  radio.on_track(synchronous=false, fun (m) -> begin
+    titulo = list.assoc(default="", "title", m)
+    artista = list.assoc(default="", "artist", m)
+    lista = list.assoc(default="", "luz_lista", m)
+    inicio = int_of_float(time())
+    file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n", ahora_path)
+  end)
+
+  # Saltar canción: la radio-api escribe un pedido (saltar/<slug>.txt) y aquí se salta una vez por pedido nuevo.
+  saltar_path = "#{config_dir}/saltar/#{st.slug}.txt"
+  ultimo_salto = ref(file.exists(saltar_path) ? file.contents(saltar_path) : "")
+  vigilante_saltar = thread.run.recurrent(delay=2., fun () -> begin
+    pedido = file.exists(saltar_path) ? file.contents(saltar_path) : ""
+    if pedido != "" and pedido != ultimo_salto() then
+      ultimo_salto := pedido
+      source.skip(radio)
+    end
+    2.
+  end)
   # Compuerta: la emisora solo suena si está encendida (estado.txt). Apagada, no hay fuente y el mount se cierra.
   compuerta = switch(track_sensitive=false, [((fun () -> emisora_encendida(st.slug)), radio)])
   emitir(st, compuerta)

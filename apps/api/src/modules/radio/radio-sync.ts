@@ -48,6 +48,16 @@ export async function radioApi<T = unknown>(ruta: string, init: { method?: strin
   return datos as T;
 }
 
+/** Descarga cruda desde la radio-api (audios). Devuelve null si el archivo no existe. */
+export async function radioApiRaw(ruta: string): Promise<{ body: ReadableStream<Uint8Array> | null; type: string } | null> {
+  const token = process.env.RADIO_API_TOKEN;
+  if (!token) throw new RadioApiError(503, { error: 'radio_api_sin_token' });
+  const res = await fetch(`${base()}${ruta}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new RadioApiError(res.status, null);
+  return { body: res.body, type: res.headers.get('Content-Type') ?? 'audio/mpeg' };
+}
+
 function safeJson(t: string) {
   try {
     return JSON.parse(t);
@@ -153,13 +163,19 @@ export async function sincronizarPlaylists(e: Estacion): Promise<EstadoSync> {
   const emisora = await emisoraDe(e);
   const propias = await db.select().from(stationPlaylists).where(eq(stationPlaylists.stationId, e.id)).orderBy(asc(stationPlaylists.createdAt));
   const deEmisora = await db.select().from(stationPlaylists).where(eq(stationPlaylists.radioId, e.radioId)).orderBy(asc(stationPlaylists.createdAt));
-  const activadas = new Set(
-    (await db.select({ id: stationPlaylistLinks.playlistId }).from(stationPlaylistLinks).where(eq(stationPlaylistLinks.stationId, e.id))).map((x) => x.id),
+  // Orden de las listas de la emisora en esta estación (position). Las de la estación van primero.
+  const posicion = new Map(
+    (await db.select({ id: stationPlaylistLinks.playlistId, position: stationPlaylistLinks.position }).from(stationPlaylistLinks).where(eq(stationPlaylistLinks.stationId, e.id))).map((x) => [x.id, x.position]),
   );
-  // Las playlists se mandan todas; `active` dice cuáles suenan (eso va a estado.txt, sin reiniciar).
+  // Las playlists se mandan todas, en el orden en que suenan; `active` dice cuáles suenan (eso va a estado.txt, sin reiniciar).
+  const ordenadas = deEmisora
+    .filter((p) => posicion.has(p.id))
+    .sort((a, b) => (posicion.get(a.id) ?? 0) - (posicion.get(b.id) ?? 0));
+  const sinVincular = deEmisora.filter((p) => !posicion.has(p.id));
   const lista = [
     ...propias.map((p) => ({ p, activa: true })),
-    ...deEmisora.map((p) => ({ p, activa: activadas.has(p.id) })),
+    ...ordenadas.map((p) => ({ p, activa: true })),
+    ...sinVincular.map((p) => ({ p, activa: false })),
   ];
   const ids = lista.map((x) => x.p.id);
   const pistas = ids.length
@@ -180,7 +196,11 @@ export async function sincronizarPlaylists(e: Estacion): Promise<EstadoSync> {
       name: p.name,
       mode: p.mode,
       weight: p.weight,
-      shuffle: p.shuffle,
+      // Solo «aleatorio» sortea en Liquidsoap; «mezclado» ya viene barajado y «secuencial» va tal cual
+      shuffle: p.ordenPistas === 'aleatorio',
+      orden: p.ordenPistas,
+      interrumpe: p.interrumpe,
+      unaSola: p.unaSola,
       active: p.isActive && activa,
       tracks: pistas.filter((t) => t.playlistId === p.id).map(ruta),
       schedules: horarios

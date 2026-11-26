@@ -40,6 +40,8 @@ services:
     volumes:
       - ./liquidsoap/radio.liq:/radio/radio.liq:ro
       - ./data/config:/config:ro
+      # Liquidsoap escribe aquí lo que suena ahora (la radio-api lo lee)
+      - ./data/config/ahora:/config/ahora
       - ./data/music:/music:ro
     ports:
       - "8005:8005"

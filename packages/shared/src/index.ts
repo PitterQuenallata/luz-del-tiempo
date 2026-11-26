@@ -490,6 +490,8 @@ export const estacionSchema = z.object({
   autodjEnabled: z.boolean(),
   visibleInMinistry: z.boolean(),
   sortOrder: z.number().int().min(0),
+  // Foto de la estación (16:9), la que muestra la web en la lista de estaciones.
+  imageUrl: z.string().nullable().optional(),
 });
 
 export const programaSchema = z.object({

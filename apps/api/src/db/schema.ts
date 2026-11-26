@@ -558,6 +558,11 @@ export const stationPlaylists = pgTable(
     name: text('name').notNull(),
     description: text('description'),
     mode: text('mode', { enum: ['rotacion', 'secuencial', 'programada'] }).notNull().default('rotacion'),
+    // Orden de los audios dentro de la lista: mezclado (se mezclan una vez), aleatorio (al azar en cada turno) o secuencial (como está en la lista)
+    ordenPistas: text('order_pistas', { enum: ['mezclado', 'aleatorio', 'secuencial'] }).notNull().default('aleatorio'),
+    // Solo para listas programadas: si interrumpe lo que suena a la hora, y si solo suena una pista por horario
+    interrumpe: boolean('interrumpe').notNull().default(true),
+    unaSola: boolean('una_sola').notNull().default(false),
     weight: smallint('weight').notNull().default(50), // 1–100, solo en modo rotación
     shuffle: boolean('shuffle').notNull().default(true), // en rotación/programada: orden aleatorio
     isActive: boolean('is_active').notNull().default(true),
@@ -577,6 +582,8 @@ export const stationPlaylistLinks = pgTable(
     playlistId: uuid('playlist_id')
       .notNull()
       .references(() => stationPlaylists.id, { onDelete: 'cascade' }),
+    // Orden de la lista dentro de la estación: así suenan (de arriba abajo).
+    position: smallint('position').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.stationId, t.playlistId] })],
 );

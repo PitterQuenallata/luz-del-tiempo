@@ -26,6 +26,11 @@ export const playlistEntradaSchema = z.object({
   mode: z.enum(MODOS),
   weight: z.number().int().min(1).max(100).default(50),
   shuffle: z.boolean().default(true),
+  // Cómo suenan los audios: mezclado (una vez al escribir la lista), aleatorio (Liquidsoap sortea en cada turno) o secuencial
+  orden: z.enum(['mezclado', 'aleatorio', 'secuencial']).default('aleatorio'),
+  // Solo programadas: interrumpe lo que suena a la hora; una_sola = suena una pista por horario
+  interrumpe: z.boolean().default(true),
+  unaSola: z.boolean().default(false),
   active: z.boolean().default(true),
   tracks: z.array(z.string().min(1).max(120)).max(5000).default([]),
   schedules: z.array(horario).max(200).default([]),
@@ -36,11 +41,11 @@ export type PlaylistEntrada = z.infer<typeof playlistEntradaSchema>;
 export interface PlaylistMeta {
   id: string;
   name: string;
-  mode: (typeof MODOS)[number];
+  /** Cuántos audios tiene: en la rotación, la lista completa suena en su turno */
+  pistas: number;
   weight: number;
   shuffle: boolean;
   active: boolean;
-  schedules: { day: number; inicio: number; fin: number }[];
 }
 
 export const playlistsSchema = z.object({ playlists: z.array(playlistEntradaSchema).max(100) });
@@ -95,17 +100,52 @@ async function nombresEn(carpeta: string): Promise<Set<string>> {
   }
 }
 
+// Solo lo que cambia la estructura del motor va en stations.json (reinicia Liquidsoap).
+// Modo, horarios y opciones van en programas.txt, que Liquidsoap lee en caliente.
 function metaDe(p: PlaylistEntrada): PlaylistMeta {
   return {
     id: p.id,
     name: p.name,
-    mode: p.mode,
+    pistas: p.tracks.length,
     weight: p.weight,
     shuffle: p.shuffle,
     // Activa o pausada: va en estado.txt (no aquí), para que activarla no reinicie Liquidsoap
     active: true,
-    schedules: p.schedules,
   };
+}
+
+/** Una línea por lista: "slug/id;modo;interrumpe;una_sola;dia-inicio-fin,..." (o "-" sin horarios). */
+function lineaPrograma(slug: string, p: PlaylistEntrada): string {
+  const modo = p.mode === 'programada' ? 'programada' : 'rotacion';
+  const horarios = p.schedules.map((h) => `${h.day}-${h.inicio}-${h.fin}`).join(',') || '-';
+  return `${slug}/${p.id};${modo};${p.interrumpe ? 1 : 0};${p.unaSola ? 1 : 0};${horarios}`;
+}
+
+/** Reemplaza las líneas de esta estación en programas.txt (las de las demás se conservan). */
+async function escribirProgramas(slug: string, entradas: PlaylistEntrada[]) {
+  const ruta = path.join(config.configDir, 'programas.txt');
+  let actuales = '';
+  try {
+    actuales = await readFile(ruta, 'utf8');
+  } catch {
+    actuales = '';
+  }
+  const otras = actuales.split('\n').filter((l) => l && !l.startsWith(`${slug}/`));
+  const texto = [...otras, ...entradas.map((p) => lineaPrograma(slug, p))].join('\n') + '\n';
+  await mkdir(config.configDir, { recursive: true });
+  const tmp = `${ruta}.tmp`;
+  await writeFile(tmp, texto);
+  await rename(tmp, ruta);
+}
+
+/** Orden al azar de una copia (Fisher-Yates). Se usa al escribir una lista «mezclada». */
+function mezclarCopia<T>(lista: T[]): T[] {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
 }
 
 /** Escribe el .m3u de forma atómica. Liquidsoap lo recarga al cambiar. */
@@ -113,7 +153,8 @@ async function escribirM3u(slug: string, p: PlaylistEntrada) {
   const dir = carpetaPlaylists(slug);
   await mkdir(dir, { recursive: true });
   // Pistas de la biblioteca compartida llevan su carpeta ("institucional/archivo.mp3")
-  const lineas = ['#EXTM3U', ...p.tracks.map((t) => (esDeOtraCarpeta(t) ? `${RUTA_LIQUIDSOAP}/${t}` : `${RUTA_LIQUIDSOAP}/${slug}/${t}`))];
+  const pistas = p.orden === 'mezclado' ? mezclarCopia(p.tracks) : p.tracks;
+  const lineas = ['#EXTM3U', ...pistas.map((t) => (esDeOtraCarpeta(t) ? `${RUTA_LIQUIDSOAP}/${t}` : `${RUTA_LIQUIDSOAP}/${slug}/${t}`))];
   const tmp = path.join(dir, `.${p.id}.tmp`);
   await writeFile(tmp, lineas.join('\n') + '\n');
   await rename(tmp, path.join(dir, `${p.id}.m3u`));
@@ -144,6 +185,7 @@ export function guardarPlaylists(slug: string, entradas: PlaylistEntrada[]) {
 
     for (const p of entradas) await escribirM3u(slug, p);
     await quitarM3uHuerfanos(slug, new Set(entradas.map((p) => p.id)));
+    await escribirProgramas(slug, entradas);
 
     // Activación de cada playlist en esta emisora (estado.txt, clave "slug/playlist")
     const estado = await leerEstado();

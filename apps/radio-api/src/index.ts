@@ -16,7 +16,8 @@ import {
   slugSchema,
 } from './stations.js';
 import { borrarAudio, espacioUsado, EXTENSIONES, guardarAudio, listarAudios, nombreSeguro, rutaAudio } from './tracks.js';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { guardarPlaylists, leerPistasDePlaylist, pistasFaltantes, playlistsSchema } from './playlists.js';
 
 /**
@@ -149,6 +150,32 @@ app.post(
 );
 
 // Lee un audio guardado: la API 1 usa esto para leer sus etiquetas (título, artista, álbum…)
+// Ahora suena: lo escribe Liquidsoap al cambiar de pista (ahora/<slug>.txt: título, artista, lista, inicio en unix)
+app.get('/v1/stations/:slug/ahora', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  try {
+    const [titulo = '', artista = '', lista = '', inicio = ''] = (await readFile(path.join(config.configDir, 'ahora', `${slug}.txt`), 'utf8')).split('\n');
+    if (!titulo && !artista) return c.json({ ahora: null });
+    const segundos = Number(inicio);
+    return c.json({ ahora: { titulo, artista, lista, inicio: Number.isFinite(segundos) && segundos > 0 ? segundos : null } });
+  } catch {
+    return c.json({ ahora: null });
+  }
+});
+
+// Saltar canción: se escribe un pedido nuevo; Liquidsoap salta una vez por cada pedido.
+app.post('/v1/stations/:slug/saltar', async (c) => {
+  const slug = c.req.param('slug');
+  const e = (await leerEstaciones()).find((s) => s.slug === slug);
+  if (!e) return c.json({ error: 'no_existe' }, 404);
+  const carpeta = path.join(config.configDir, 'saltar');
+  await mkdir(carpeta, { recursive: true });
+  await writeFile(path.join(carpeta, `${slug}.txt`), `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  return c.json({ ok: true });
+});
+
 app.get('/v1/stations/:slug/tracks/:file', async (c) => {
   const ruta = rutaAudio(c.req.param('slug'), c.req.param('file'));
   if (!ruta) return c.json({ error: 'no_existe' }, 404);

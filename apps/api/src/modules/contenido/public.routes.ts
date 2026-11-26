@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { and, asc, desc, eq, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { radioApi } from '../radio/radio-sync.js';
+import { radioApi, radioEncendida } from '../radio/radio-sync.js';
 import {
   areaGallery,
   areas,
@@ -203,7 +203,11 @@ async function estadoDeRadio(): Promise<Map<string, EstadoRadio>> {
 const BASE_STREAM = (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, '');
 
 // Estaciones de Luz del Tiempo (la emisora del ministerio), con su emisora. Las de terceros van en /emisoras.
+/** Una estación solo sale en la web si está encendida, tiene transmisión y la radio completa está encendida. */
+const condicionAlAire = () => and(eq(stations.encendida, true), isNotNull(stations.mountPoint), isNotNull(stations.livePasswordEnc));
+
 publicRoutes.get('/stations', async (c) => {
+  if (!(await radioEncendida())) return c.json([]);
   const rows = await db
     .select({
       mountPoint: stations.mountPoint,
@@ -227,7 +231,7 @@ publicRoutes.get('/stations', async (c) => {
     .from(stations)
     .innerJoin(radios, eq(stations.radioId, radios.id))
     .leftJoin(areas, eq(stations.areaId, areas.id))
-    .where(and(eq(stations.status, 'active'), eq(stations.visibleInMinistry, true), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(radios.kind, 'own')))
+    .where(and(eq(stations.status, 'active'), eq(stations.visibleInMinistry, true), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(radios.kind, 'own'), condicionAlAire()))
     .orderBy(desc(radios.isMain), desc(stations.isMain), asc(stations.sortOrder), asc(stations.name));
   const enRadio = await estadoDeRadio();
   return c.json(rows.map((e) => vistaPublicaEstacion(e, enRadio)));
@@ -235,6 +239,7 @@ publicRoutes.get('/stations', async (c) => {
 
 /** Emisoras de terceros publicadas: cada una tiene una sola estación. */
 async function emisorasDeTerceros() {
+  if (!(await radioEncendida())) return [];
   const rows = await db
     .select({
       radioSlug: radios.slug,
@@ -260,7 +265,7 @@ async function emisorasDeTerceros() {
     .from(radios)
     .innerJoin(stations, eq(stations.radioId, radios.id))
     .leftJoin(areas, eq(radios.areaId, areas.id))
-    .where(and(eq(radios.kind, 'external'), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(stations.status, 'active'), eq(stations.visibleInMinistry, true)))
+    .where(and(eq(radios.kind, 'external'), eq(radios.status, 'active'), eq(radios.visibleInMinistry, true), eq(stations.status, 'active'), eq(stations.visibleInMinistry, true), condicionAlAire()))
     .orderBy(asc(radios.sortOrder), asc(radios.name));
   const enRadio = await estadoDeRadio();
   return rows.map((r) => {
