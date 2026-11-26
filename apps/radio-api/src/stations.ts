@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { config } from './config.js';
@@ -235,6 +235,9 @@ export function quitarEstacion(slug: string) {
     delete estado[`${slug}.autodj`];
     await guardarEstado(estado);
     await guardarEstaciones(restantes);
+    // Lo que la emisora dejó en disco y ya no sirve: su «ahora» (lo lee el panel). El estado de proceso lo
+    // limpia sincronizar.sh (la radio-api monta /procesos solo lectura). El historial está en la base y los logs se conservan.
+    await rm(path.join(config.configDir, 'ahora', `${slug}.txt`), { force: true });
     return true;
   });
 }

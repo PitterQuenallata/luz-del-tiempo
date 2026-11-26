@@ -108,6 +108,15 @@ while :; do
     fi
   done
 
+  # 1b. Estados de emisoras que ya no están en la lista (p. ej. una que nunca se encendió y se borró)
+  for f in "$STATUS"/*.txt; do
+    [ -f "$f" ] || continue
+    slug=$(basename "$f" .txt)
+    if ! cut -d' ' -f1 "$RUN/lista.tmp" | grep -qx "$slug"; then
+      rm -f "$f"
+    fi
+  done
+
   # 2. Escribir la conf de cada emisora encendida (si cambia, supervisord la reinicia)
   while read -r slug puerto; do
     mkdir -p "$RUN/icecast-$slug" "$RUN/cache/$slug" "$LOG/icecast-$slug"
