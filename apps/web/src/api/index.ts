@@ -107,9 +107,11 @@ export const useAreas = () => useQuery({ queryKey: ["areas"], queryFn: api.areas
 export const useArea = (slug: string) => useQuery({ queryKey: ["area", slug], queryFn: () => api.area(slug) });
 export const useSlides = () => useQuery({ queryKey: ["slides"], queryFn: api.slides });
 export const usePeople = () => useQuery({ queryKey: ["people"], queryFn: api.people });
-export const useStations = () => useQuery({ queryKey: ["stations"], queryFn: api.stations });
-export const useEmisorasPublicas = () => useQuery({ queryKey: ["emisoras-publicas"], queryFn: api.emisorasPublicas });
-export const useEmisoraPublica = (slug: string) => useQuery({ queryKey: ["emisora-publica", slug], queryFn: () => api.emisoraPublica(slug), refetchInterval: 30_000 });
+// Emisoras y estaciones cambian cuando el panel las oculta o muestra: se piden de nuevo al abrir la página
+const FRESCURA_RADIO = { staleTime: 30_000, refetchOnMount: "always" as const };
+export const useStations = () => useQuery({ queryKey: ["stations"], queryFn: api.stations, ...FRESCURA_RADIO });
+export const useEmisorasPublicas = () => useQuery({ queryKey: ["emisoras-publicas"], queryFn: api.emisorasPublicas, ...FRESCURA_RADIO });
+export const useEmisoraPublica = (slug: string) => useQuery({ queryKey: ["emisora-publica", slug], queryFn: () => api.emisoraPublica(slug), refetchInterval: 30_000, ...FRESCURA_RADIO });
 export const useActivities = (filtros: AgendaQuery = {}) => useQuery({ queryKey: ["activities", filtros], queryFn: () => api.activities(filtros) });
 export const useActivity = (slug: string) => useQuery({ queryKey: ["activity", slug], queryFn: () => api.activity(slug) });
 export const useAgendaFiltros = () => useQuery({ queryKey: ["agenda-filtros"], queryFn: api.agendaFiltros });
