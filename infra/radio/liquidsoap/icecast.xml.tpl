@@ -5,7 +5,7 @@
 
   <limits>
     <clients>${ICECAST_MAX_CLIENTS}</clients>
-    <sources>20</sources>
+    <sources>2</sources>
     <queue-size>524288</queue-size>
     <client-timeout>30</client-timeout>
     <header-timeout>15</header-timeout>
@@ -13,7 +13,7 @@
     <burst-size>65535</burst-size>
   </limits>
 
-  <!-- Solo Liquidsoap publica en Icecast; los locutores entran por Liquidsoap (harbor). -->
+  <!-- Solo Liquidsoap publica en este Icecast (el de su emisora); los locutores entran por el harbor de Liquidsoap. -->
   <authentication>
     <source-password>${ICECAST_SOURCE_PASSWORD}</source-password>
     <admin-user>admin</admin-user>
@@ -21,7 +21,7 @@
   </authentication>
 
   <listen-socket>
-    <port>8000</port>
+    <port>${ICE_PORT}</port>
   </listen-socket>
 
   <http-headers>
@@ -31,10 +31,10 @@
   <fileserve>1</fileserve>
 
   <paths>
-    <basedir>/usr/share/icecast</basedir>
-    <logdir>/var/log/icecast</logdir>
-    <webroot>/usr/share/icecast/web</webroot>
-    <adminroot>/usr/share/icecast/admin</adminroot>
+    <basedir>/usr/share/icecast2</basedir>
+    <logdir>${ICE_LOGDIR}</logdir>
+    <webroot>/usr/share/icecast2/web</webroot>
+    <adminroot>/usr/share/icecast2/admin</adminroot>
     <alias source="/" destination="/status.xsl" />
   </paths>
 

@@ -1,5 +1,10 @@
 # Radio La Luz del Tiempo: AutoDJ con playlists + entrada en vivo por estación.
 #
+# UN PROCESO POR ESTACIÓN (como AzuraCast): supervisa.sh arranca este archivo con STATION_SLUG=<slug>.
+# Este proceso solo crea SU estación: su Icecast (icecast_port), su puerto de locutores (harbor_port) y su control (control_port).
+# Si cambia su propia entrada en stations.json, se cierra y supervisa.sh lo vuelve a levantar:
+# las demás estaciones no se tocan.
+#
 # Orden de prioridad de cada estación (de mayor a menor):
 #   1. Locutor en vivo (harbor). Si conecta, manda.
 #   2. Listas programadas cuando su horario está activo (programas.txt).
@@ -16,16 +21,27 @@ settings.log.stdout := true
 settings.log.file := false
 settings.log.level := 3
 
-icecast_host = environment.get(default="icecast", "ICECAST_HOST")
-icecast_port = int_of_string(environment.get(default="8000", "ICECAST_PORT"))
+# Cada emisora tiene su propio Icecast en el mismo contenedor (como AzuraCast): el puerto es el de la estación.
+icecast_host = "127.0.0.1"
 icecast_password = environment.get("ICECAST_SOURCE_PASSWORD")
-harbor_port = int_of_string(environment.get(default="8005", "HARBOR_PORT"))
 config_path = environment.get(default="/config/stations.json", "STATIONS_CONFIG")
 config_dir = environment.get(default="/config", "CONFIG_DIR")
 
+# Lectura segura de un archivo. La radio-api reemplaza los archivos con un renombrado: si se leen justo en
+# ese instante, el error NO puede tumbar el hilo que los vigila (antes dejaba de actualizarse la rotación).
+def leer_archivo(ruta, por_defecto) =
+  try
+    file.contents(ruta)
+  catch err do
+    por_defecto
+  end
+end
+
+# Qué estación es este proceso (la pone supervisa.sh). Sin ella no hay nada que crear.
+station_slug = environment.get(default="", "STATION_SLUG")
+
 # Sin tipos explícitos: json.parse toma la forma del valor por defecto.
-config = json.parse(
-  default = {stations = [{
+config_vacia = {stations = [{
     slug = "",
     name = "",
     mount = "",
@@ -33,19 +49,35 @@ config = json.parse(
     calidad_baja = 48,
     hls = false,
     live_password = "",
+    harbor_port = 8005,
+    icecast_port = 8000,
+    control_port = 8004,
     autodj = false,
     enabled = false,
     playlists = [{
       id = "",
-      name = "",
-      pistas = 0,
-      weight = 50,
-      shuffle = true,
-      active = false
+      shuffle = true
     }]
-  }]},
-  file.exists(config_path) ? file.contents(config_path) : '{"stations": []}'
-)
+  }]}
+def leer_configuracion() =
+  json.parse(default = config_vacia, leer_archivo(config_path, '{"stations": []}'))
+end
+config = leer_configuracion()
+
+# Solo la estación de este proceso.
+mi_estacion = list.filter(fun (s) -> s.slug == station_slug, config.stations)
+
+# Clave de los comandos de control (la misma que usa la radio-api). Sin la clave, /telnet responde 401.
+# Solo se revisa la ruta /telnet: las conexiones de los locutores (harbor) no pasan por aquí.
+clave_control = environment.get(default="", "CONTROL_KEY")
+def control_clave(req, res, next) =
+  if req.path == "/telnet" and req.headers["x-liquidsoap-api-key"] != clave_control then
+    res.status_code(401)
+  else
+    next(req, res)
+  end
+end
+harbor.http.middleware.register(control_clave)
 
 # Encendida o apagada cada emisora: lo escribe la radio-api en estado.txt.
 # Se lee cada 2 s y NO reinicia Liquidsoap: solo abre o cierra el mount de esa emisora,
@@ -53,7 +85,7 @@ config = json.parse(
 estado_path = "#{config_dir}/estado.txt"
 # Una línea por emisora: "slug 1" (encendida) o "slug 0" (apagada). Texto, no JSON, para no mezclar tipos con la configuración.
 def leer_estado_lista() =
-  texto = file.exists(estado_path) ? file.contents(estado_path) : ""
+  texto = leer_archivo(estado_path, "")
   lineas = list.filter(fun (l) -> l != "", string.split(separator="\n", texto))
   list.map(fun (l) -> (list.nth(string.split(separator=" ", l), 0), list.nth(string.split(separator=" ", l), 1) == "1"), lineas)
 end
@@ -82,7 +114,7 @@ def leer_horarios(texto) =
   end, partes)
 end
 def leer_programas() =
-  texto = file.exists(programas_path) ? file.contents(programas_path) : ""
+  texto = leer_archivo(programas_path, "")
   lineas = list.filter(fun (l) -> l != "", string.split(separator="\n", texto))
   list.map(fun (l) -> begin
     c = string.split(separator=";", l)
@@ -98,6 +130,24 @@ end)
 def info_de(clave) = list.assoc(default=programa_vacio, clave, programas_actuales())
 end
 
+# Listas (nombre y número de audios), leídas cada 2 s. Van FUERA de stations.json: subir audios
+# o cambiar un nombre NO reinicia la emisora. Línea: "slug/id;nombre;pistas".
+listas_path = "#{config_dir}/listas.txt"
+def leer_listas() =
+  texto = leer_archivo(listas_path, "")
+  lineas = list.filter(fun (l) -> l != "", string.split(separator="\n", texto))
+  list.map(fun (l) -> begin
+    c = string.split(separator=";", l)
+    (list.nth(c, 0), {nombre = list.nth(c, 1), pistas = int_of_string(list.nth(c, 2))})
+  end, lineas)
+end
+listas_actuales = ref(leer_listas())
+thread.run.recurrent(delay=2., fun () -> begin
+  listas_actuales := leer_listas()
+  2.
+end)
+def info_lista(clave) = list.assoc(default={nombre = "", pistas = 0}, clave, listas_actuales()) end
+
 # Emisión a Icecast con el bitrate elegido (Liquidsoap exige una constante).
 # fallible: si la fuente no tiene audio (emisora apagada), el mount se cierra en vez de transmitir silencio.
 def emitir(st, src) =
@@ -107,7 +157,7 @@ def emitir(st, src) =
       fallible=true,
       id="#{st.slug}_icecast",
       host=icecast_host,
-      port=icecast_port,
+      port=st.icecast_port,
       password=icecast_password,
       mount=st.mount,
       name="#{st.name}",
@@ -185,30 +235,75 @@ def fuente_playlist(st, p) =
     reload=5,
     "#{config_dir}/playlists/#{st.slug}/#{p.id}.m3u"
   )
-  # Cada pista lleva el nombre de su lista (para «ahora suena» en el panel)
-  pl = metadata.map(update=true, fun (_) -> [("luz_lista", p.name)], pl)
+  # Cada pista lleva el nombre de su lista (para «ahora suena» en el panel). Se lee en vivo de listas.txt.
+  pl = metadata.map(update=true, fun (_) -> [("luz_lista", info_lista("#{st.slug}/#{p.id}").nombre)], pl)
   switch(track_sensitive=false, [((fun () -> estado_on("#{st.slug}/#{p.id}")), pl)])
 end
 
-# Una lista en la rotación: solo cuando NO está programada.
-def fuente_rotacion(st, p) =
-  clave = "#{st.slug}/#{p.id}"
-  switch(track_sensitive=true, [((fun () -> info_de(clave).modo != "programada"), fuente_playlist(st, p))])
-end
-
-# Rotación: las listas van en su turno, de arriba abajo. En su turno suena la lista COMPLETA,
-# en su orden, y después pasa la siguiente. El peso de la rotación es la cantidad de audios de cada lista
-# (la radio-api lo manda en stations.json; si cambia, Liquidsoap se reinicia una vez).
+# Rotación por turnos: cada lista suena COMPLETA (una pasada, en su orden o aleatoria) y después pasa la siguiente.
+# Antes era rotate(weights=…) con el número de audios fijado al arrancar, así que subir audios reiniciaba
+# la emisora. Ahora request.dynamic pide UN audio cada vez: cuando la cola del turno se vacía, carga la siguiente
+# lista (su .m3u se lee en ese momento). Subir audios o cambiar pistas en listas.txt no reinicia nada.
+# Una lista puede sonar si está activa, tiene audios y no está programada en ese momento.
 def rotacion(st) =
-  ps = list.filter(fun (p) -> p.pistas > 0, st.playlists)
-  if list.length(ps) == 0 then
-    []
-  else
-    [rotate(
-      id="#{st.slug}_rotacion",
-      weights=list.map(fun (p) -> p.pistas, ps),
-      list.map(fun (p) -> fuente_rotacion(st, p), ps)
-    )]
+  ps = st.playlists
+  n = list.length(ps)
+  turno = ref(-1)        # posición en st.playlists de la lista en turno
+  cola = ref([])         # audios que faltan en el turno actual
+  nombre_turno = ref("")
+  total_turno = ref(0)   # cuántos audios tiene el turno en curso (para la ventana de repetidas)
+  def clave_de(i) = "#{st.slug}/#{list.nth(ps, i).id}" end
+  def puede_sonar(i) =
+    c = clave_de(i)
+    info_lista(c).pistas > 0 and estado_on(c) and info_de(c).modo != "programada"
+  end
+  # Elige la lista siguiente a la última que sonó (dando la vuelta) y carga sus audios
+  def cargar_turno() =
+    base = turno() + 1
+    orden = list.map(fun (k) -> (if base + k >= n then base + k - n else base + k end), list.init(n, fun (k) -> k))
+    libres = list.filter(puede_sonar, orden)
+    if list.length(libres) > 0 then
+      i = list.nth(libres, 0)
+      p = list.nth(ps, i)
+      origen = "#{config_dir}/playlists/#{st.slug}/#{p.id}.m3u"
+      audios = list.filter(fun (l) -> string.match(pattern="^/", l), string.split(separator="\n", leer_archivo(origen, "")))
+      turno := i
+      cola := (p.shuffle ? list.shuffle(audios) : audios)
+      total_turno := list.length(audios)
+      nombre_turno := info_lista(clave_de(i)).nombre
+    end
+  end
+  # Un audio por vez. Si ninguna lista puede sonar, no devuelve nada y Liquidsoap vuelve a preguntar (retry_delay).
+  # Historial de los últimos audios de ESTA emisora. Antes de elegir, se prefiere un audio que no haya sonado
+  # hace poco (como AzuraCast con DuplicatePrevention): así una lista corta o barajada no repite seguido.
+  historial = ref([])
+  HISTORIAL_MAX = 10
+  # Ventana: cuántas de las últimas canciones evitar. Es el número de audios del turno menos uno,
+  # así una lista de 3 suena 1-2-3, 1-2-3… sin repetir seguido (con topes de HISTORIAL_MAX).
+  def recientes() =
+    v = total_turno() - 1
+    v = if v > HISTORIAL_MAX then HISTORIAL_MAX else v end
+    v = if v < 0 then 0 else v end
+    v = if v > list.length(historial()) then list.length(historial()) else v end
+    list.init(v, fun (i) -> list.nth(historial(), i))
+  end
+  def ya_sono(x) = list.exists(fun (h) -> h == x, recientes()) end
+  def siguiente_audio() =
+    if list.is_empty(cola()) then cargar_turno() end
+    if list.is_empty(cola()) then
+      null()
+    else
+      nuevos = list.filter(fun (x) -> not ya_sono(x), cola())
+      a = if list.is_empty(nuevos) then list.hd(cola()) else list.hd(nuevos) end
+      cola := list.filter(fun (x) -> x != a, cola())
+      h = list.append([a], historial())
+      historial := if list.length(h) > HISTORIAL_MAX then list.init(HISTORIAL_MAX, fun (i) -> list.nth(h, i)) else h end
+      request.create(a)
+    end
+  end
+  if n == 0 then [] else
+    [metadata.map(update=true, fun (_) -> [("luz_lista", nombre_turno())],
+      request.dynamic(retry_delay=2., siguiente_audio))]
   end
 end
 
@@ -237,7 +332,7 @@ def crear_estacion(st) =
   # Locutor en vivo: BUTT/OBS se conecta a harbor con mount = slug y su contraseña.
   vivo = input.harbor(
     id="#{st.slug}_vivo",
-    port=harbor_port,
+    port=st.harbor_port,
     password=st.live_password,
     st.slug
   )
@@ -276,32 +371,28 @@ def crear_estacion(st) =
     lista_actual := lista
     archivo = list.assoc(default="", "filename", m)
     inicio = int_of_float(time())
-    file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n#{archivo}\n", ahora_path)
+    try
+      file.write(append=false, data="#{titulo}\n#{artista}\n#{lista}\n#{inicio}\n#{archivo}\n", ahora_path)
+    catch err do
+      log.important("No se pudo escribir ahora/#{st.slug}.txt: #{err}")
+    end
   end)
 
-  # Saltar canción: la radio-api escribe un pedido (saltar/<slug>.txt) y aquí se salta una vez por pedido nuevo.
-  saltar_path = "#{config_dir}/saltar/#{st.slug}.txt"
-  ultimo_salto = ref(file.exists(saltar_path) ? file.contents(saltar_path) : "")
-  vigilante_saltar = thread.run.recurrent(delay=2., fun () -> begin
-    pedido = file.exists(saltar_path) ? file.contents(saltar_path) : ""
-    if pedido != "" and pedido != ultimo_salto() then
-      ultimo_salto := pedido
-      source.skip(radio)
-    end
-    2.
+  # Comandos en caliente (como AzuraCast): la radio-api manda «saltar» y «siguiente lista» al puerto de
+  # control de esta emisora (POST /telnet con la clave). Antes eran archivos que se leían cada 2 s.
+  server.register(namespace=st.slug, usage="saltar", description="Saltar la pista que suena", "saltar", fun (_) -> begin
+    source.skip(radio)
+    "Listo"
   end)
-  # Siguiente lista: un pedido nuevo salta audios hasta que cambie la lista que suena (con tope de seguridad).
-  saltar_lista_path = "#{config_dir}/saltar-lista/#{st.slug}.txt"
-  ultimo_salto_lista = ref(file.exists(saltar_lista_path) ? file.contents(saltar_lista_path) : "")
+  # Siguiente lista: salta audios hasta que cambie la lista que suena (con tope de seguridad).
   lista_a_saltar = ref("")
   saltos_lista = ref(0)
-  vigilante_saltar_lista = thread.run.recurrent(delay=2., fun () -> begin
-    pedido = file.exists(saltar_lista_path) ? file.contents(saltar_lista_path) : ""
-    if pedido != "" and pedido != ultimo_salto_lista() then
-      ultimo_salto_lista := pedido
-      lista_a_saltar := lista_actual()
-      saltos_lista := 0
-    end
+  server.register(namespace=st.slug, usage="siguiente_lista", description="Pasar a la siguiente lista", "siguiente_lista", fun (_) -> begin
+    lista_a_saltar := lista_actual()
+    saltos_lista := 0
+    "Listo"
+  end)
+  vigilante_saltar_lista = thread.run.recurrent(delay=1., fun () -> begin
     if lista_a_saltar() != "" then
       if lista_actual() == lista_a_saltar() and saltos_lista() < 60 then
         saltos_lista := saltos_lista() + 1
@@ -310,8 +401,10 @@ def crear_estacion(st) =
         lista_a_saltar := ""
       end
     end
-    2.
+    1.
   end)
+  # Puerto de control de esta emisora: interno (no se publica). Liquidsoap atiende solo /telnet, con clave.
+  server.harbor(port=st.control_port)
   # Compuerta: la emisora solo suena si está encendida (estado.txt). Apagada, no hay fuente y el mount se cierra.
   compuerta = switch(track_sensitive=false, [((fun () -> emisora_encendida(st.slug)), radio)])
   # HLS adaptable: dos calidades AAC (la de la estación y la baja para señal lenta).
@@ -324,19 +417,32 @@ def crear_estacion(st) =
   emitir(st, compuerta)
 end
 
-# Todas las emisoras se crean; cuál suena lo decide estado.json (no stations.json).
-list.iter(fun (st) -> crear_estacion(st), config.stations)
+if list.length(mi_estacion) == 0 then
+  log.important("No hay estación «#{station_slug}» en stations.json: este proceso termina")
+  shutdown()
+else
+  list.iter(fun (st) -> crear_estacion(st), mi_estacion)
+end
 
-# Mantiene vivo el proceso aunque no haya estaciones configuradas.
+# Mantiene vivo el proceso (la estación puede estar apagada: no hay fuente y el mount se cierra).
 output.dummy(blank())
 
-# Reinicio al cambiar la configuración (Docker lo vuelve a levantar).
-# Se revisa el contenido cada 2 s en vez de usar file.watch: la radio-api escribe el archivo
-# con un renombrado (archivo nuevo), y el aviso de cambio se perdía con esa escritura.
-configuracion_inicial = file.contents(config_path)
+# Reinicio solo de ESTA estación: se compara su propia entrada de stations.json (no el archivo entero).
+# Si cambia (calidad, mount, contraseña, playlists…), este proceso se cierra y supervisa.sh lo vuelve a
+# levantar. Las demás estaciones siguen sonando sin cortes.
+# Se revisa cada 2 s en vez de usar file.watch: la radio-api escribe el archivo con un renombrado.
+# Una lectura vacía o fallida NO cuenta como cambio (podría ser un reemplazo en curso).
+def entrada_de_esta_estacion() =
+  texto = leer_archivo(config_path, "")
+  if texto == "" then "" else
+    json.stringify(list.filter(fun (s) -> s.slug == station_slug, json.parse(default=config_vacia, texto).stations))
+  end
+end
+entrada_inicial = json.stringify(mi_estacion)
 thread.run.recurrent(delay=2., fun () -> begin
-  if file.contents(config_path) != configuracion_inicial then
-    log.important("stations.json cambió: reiniciando para aplicar la configuración")
+  actual = entrada_de_esta_estacion()
+  if actual != "" and actual != entrada_inicial then
+    log.important("La configuración de «#{station_slug}» cambió: se reinicia solo esta estación")
     shutdown()
   end
   2.

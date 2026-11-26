@@ -5,67 +5,83 @@
 #
 # Puertos:
 #   8000  Icecast   -> oyentes: http://<ip>:8000/<mount>
-#   8005  Harbor    -> locutores en vivo (BUTT/OBS), mount = slug de la estación
+#   8005-8010  Harbor -> locutores en vivo (BUTT/OBS): un puerto por estación (ver stations.json, harbor_port)
 #   4100  radio-api -> solo la API 1 le habla (token interno)
 
 name: luz-radio
 
 services:
-  icecast:
-    build: ./icecast
+  liquidsoap:
+    build: ./liquidsoap
     restart: unless-stopped
+    init: true
+    # Cada proceso de emisora ocupa unos 170–190 MB. 6 emisoras (el máximo de puertos) ≈ 1.1 GB: 1.5 GB da margen.
+    mem_limit: 1536m
+    # Arranque: supervisord (ENTRYPOINT de la imagen). Cada emisora encendida es un grupo con su Icecast y su Liquidsoap.
+    # Sano si el sincronizador de supervisord está corriendo (si se cae, supervisord lo reinicia y el contenedor vuelve a estar sano)
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl -c /radio/supervisord.conf status sincronizador | grep -q RUNNING"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     environment:
       ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
       ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
       ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-localhost}
       ICECAST_MAX_CLIENTS: ${ICECAST_MAX_CLIENTS:-500}
-    ports:
-      - "8000:8000"
-
-  liquidsoap:
-    image: savonet/liquidsoap:v2.4.6
-    restart: unless-stopped
-    depends_on:
-      - icecast
-    command: ["/radio/radio.liq"]
-    environment:
-      ICECAST_HOST: icecast
-      ICECAST_PORT: "8000"
-      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
-      HARBOR_PORT: "8005"
+      # Clave de los comandos de control (saltar, siguiente lista). Puertos de control: locutores + 1000, no se publican.
+      CONTROL_KEY: ${RADIO_CONTROL_KEY}
       STATIONS_CONFIG: /config/stations.json
       MUSIC_DIR: /music
       CONFIG_DIR: /config
       HLS_DIR: /hls
       TZ: America/La_Paz
     volumes:
-      - ./liquidsoap/radio.liq:/radio/radio.liq:ro
+      # Carpeta completa (no archivos sueltos): si el archivo se reemplaza en el host, un montaje suelto se rompe
+      - ./liquidsoap:/radio:ro
+      # Registros de cada proceso (rotan solos): para la radio-api, la pestaña de registros
+      - ./data/logs:/var/log/radio
+      # Estado de cada proceso (sincronizar.sh): la radio-api lo lee para el panel
+      - ./data/procesos:/procesos
       - ./data/config:/config:ro
       # Liquidsoap escribe aquí lo que suena ahora (la radio-api lo lee)
       - ./data/config/ahora:/config/ahora
       # HLS: Liquidsoap escribe las listas y segmentos; la radio-api los sirve
       - ./data/hls:/hls
       - ./data/music:/music:ro
+    # Puertos como AzuraCast: cada emisora reserva un bloque de 10 (oyentes, control y locutores).
+    # Se publica el rango al instalar. Cada puerto publicado cuesta ~2 procesos docker-proxy (~1 MB c/u),
+    # así que por defecto son 20 emisoras (8000–8199, 10 puertos cada una). Para más: RADIO_PUERTO_MAX.
     ports:
-      - "8005:8005"
+      - "${RADIO_PUERTO_MIN:-8000}-${RADIO_PUERTO_MAX:-8199}:${RADIO_PUERTO_MIN:-8000}-${RADIO_PUERTO_MAX:-8199}"
 
   radio-api:
     build: ../../apps/radio-api
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      - icecast
+      - liquidsoap
     environment:
       PORT: "4100"
       RADIO_API_TOKEN: ${RADIO_API_TOKEN}
+      RADIO_CONTROL_KEY: ${RADIO_CONTROL_KEY}
+      LIQUIDSOAP_HOST: liquidsoap
+      RADIO_PUERTO_MIN: ${RADIO_PUERTO_MIN:-8000}
+      RADIO_PUERTO_MAX: ${RADIO_PUERTO_MAX:-8199}
+      ICECAST_HOST: liquidsoap
+      PROCESOS_DIR: /procesos
+      LOGS_DIR: /logs
       CONFIG_DIR: /config
       MUSIC_DIR: /music
-      ICECAST_URL: http://icecast:8000
       ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
-      PUBLIC_STREAM_BASE: ${PUBLIC_STREAM_BASE:-http://localhost:8000}
+      PUBLIC_STREAM_HOST: ${PUBLIC_STREAM_HOST:-http://localhost}
       HLS_DIR: /hls
     volumes:
       - ./data/config:/config
       - ./data/music:/music
       - ./data/hls:/hls:ro
+      - ./data/procesos:/procesos:ro
+      - ./data/logs:/logs:ro
     ports:
       - "4100:4100"
