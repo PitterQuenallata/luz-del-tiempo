@@ -31,6 +31,8 @@ export type PublicEmisora = {
   color: string;
   art: string;
   streamUrl: string;
+  /** HLS adaptable (carpeta de la estación con live.m3u8, alta.m3u8 y baja.m3u8). Vacío si no hay transmisión. */
+  hlsUrl?: string;
   nowPlaying: string | null;
   listeners: number;
   online: boolean;
@@ -50,6 +52,8 @@ export type Station = {
   /** Foto opcional sobre el degradado (si no carga, queda el degradado). */
   imageUrl: string | null;
   streamUrl: string;
+  /** HLS adaptable (carpeta de la estación con live.m3u8, alta.m3u8 y baja.m3u8). Vacío si no hay transmisión. */
+  hlsUrl?: string;
   areaSlug: string | null;
   nowPlaying: string | null;
   listeners: number;

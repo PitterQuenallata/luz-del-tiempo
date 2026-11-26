@@ -201,6 +201,7 @@ async function estadoDeRadio(): Promise<Map<string, EstadoRadio>> {
 
 // Enlace de escucha: el mismo que usan los oyentes, con la IP de la red para que lo abran los celulares
 const BASE_STREAM = (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, '');
+const BASE_HLS = (process.env.PUBLIC_HLS_BASE ?? 'http://localhost:4100/hls').replace(/\/$/, '');
 
 // Estaciones de Luz del Tiempo (la emisora del ministerio), con su emisora. Las de terceros van en /emisoras.
 /** Una estación solo sale en la web si está encendida, tiene transmisión y la radio completa está encendida. */
@@ -279,6 +280,7 @@ async function emisorasDeTerceros() {
       color: estacion.color,
       art: estacion.art,
       streamUrl: estacion.streamUrl,
+      hlsUrl: estacion.hlsUrl,
       nowPlaying: estacion.nowPlaying,
       listeners: estacion.listeners,
       online: estacion.online,
@@ -313,6 +315,8 @@ function vistaPublicaEstacion(
     imageUrl: e.imageUrl,
     // Sin punto de transmisión no hay enlace; con él, el stream en vivo (la radio decide qué suena)
     streamUrl: e.mountPoint ? `${BASE_STREAM}${e.mountPoint}` : '',
+    // HLS adaptable (la web y la app eligen calidad según la señal); vacío si no hay transmisión
+    hlsUrl: e.mountPoint ? `${BASE_HLS}/${e.slug}/live.m3u8` : '',
     online: Boolean(estado?.online),
     nowPlaying: estado?.online ? estado.title : null,
     listeners: estado?.listeners ?? 0,

@@ -106,6 +106,8 @@ export async function sincronizarTransmision(e: Estacion): Promise<EstadoSync> {
         enabled: sonara,
         maxListeners: e.maxListeners,
         storageQuotaMb: e.storageQuotaMb,
+        calidadBaja: e.calidadBajaKbps,
+        hls: true,
       },
     });
     return { estado: 'ok' };

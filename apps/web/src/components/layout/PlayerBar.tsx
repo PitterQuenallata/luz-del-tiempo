@@ -8,7 +8,7 @@ import { LogoMark } from "./Logo";
 
 /** Barra fija abajo. Aparece cuando el usuario elige una emisora y no se corta al navegar. */
 export function PlayerBar() {
-  const { station, status, toggle, play, volume, setVolume, muted, toggleMute } = usePlayer();
+  const { station, status, toggle, play, volume, setVolume, muted, toggleMute, calidad, setCalidad } = usePlayer();
   const { data: stations = [] } = useStations();
   const [picker, setPicker] = useState(false);
   const playing = status === "playing";
@@ -62,6 +62,23 @@ export function PlayerBar() {
                 className="w-24 accent-oro-500"
               />
             </div>
+
+            <label
+              className="flex items-center gap-1.5 text-xs text-niebla-300"
+              title="Automática cambia la calidad según tu señal. Ahorro de datos gasta menos en 3G y 4G."
+            >
+              <span className="hidden sm:inline">Calidad</span>
+              <select
+                value={calidad}
+                onChange={(e) => setCalidad(e.target.value as "auto" | "alta" | "baja")}
+                aria-label="Calidad de audio"
+                className="min-h-10 rounded-md border border-white/15 bg-transparent px-2 text-xs text-white"
+              >
+                <option className="text-black" value="auto">Automática</option>
+                <option className="text-black" value="alta">Alta</option>
+                <option className="text-black" value="baja">Ahorro de datos</option>
+              </select>
+            </label>
 
             <button
               type="button"

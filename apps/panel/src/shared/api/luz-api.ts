@@ -272,7 +272,7 @@ export interface ApiPrograma {
 }
 // ---------- Radio: transmisión, pistas y playlists ----------
 export interface ApiTransmision {
-  mountPoint: string | null; livePasswordConfigurada: boolean; bitrateKbps: number; autodjEnabled: boolean;
+  mountPoint: string | null; livePasswordConfigurada: boolean; bitrateKbps: number; calidadBajaKbps: number; hlsUrl: string | null; autodjEnabled: boolean;
   maxListeners: number; storageQuotaMb: number; streamUrl: string | null; encendida: boolean;
   streamName: string; streamNameEfectivo: string;
   locutor: { servidor: string; puerto: number; mount: string | null };

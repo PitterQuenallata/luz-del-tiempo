@@ -9,6 +9,8 @@ export const config = {
   token: requerida('RADIO_API_TOKEN'),
   configDir: process.env.CONFIG_DIR ?? './data/config',
   musicDir: process.env.MUSIC_DIR ?? './data/music',
+  /** Carpeta donde Liquidsoap escribe el HLS (listas y segmentos) */
+  hlsDir: process.env.HLS_DIR ?? './data/hls',
   icecastUrl: (process.env.ICECAST_URL ?? 'http://localhost:8000').replace(/\/$/, ''),
   icecastAdminPassword: process.env.ICECAST_ADMIN_PASSWORD ?? '',
   publicStreamBase: (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, ''),

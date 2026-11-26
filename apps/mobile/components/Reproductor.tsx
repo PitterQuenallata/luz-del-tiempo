@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Cuerpo, Etiqueta, Titulo } from '@/components/ui/Tipo';
 import { colores, fuentes } from '@/lib/theme';
-import type { ScheduleItem, Station } from '@/lib/types';
+import { enlaceDe, type Calidad, type ScheduleItem, type Station } from '@/lib/types';
 
 type Props = {
   emisora: Station;
@@ -19,8 +19,10 @@ type Props = {
  * queda deshabilitado: la app no reproduce nada de prueba.
  */
 export function Reproductor({ emisora, programaActual, enVivo }: Props) {
-  const conAudio = emisora.streamUrl.length > 0;
-  const reproductor = useAudioPlayer(conAudio ? { uri: emisora.streamUrl } : null);
+  const [calidad, setCalidad] = useState<Calidad>('auto');
+  const enlace = enlaceDe(emisora, calidad);
+  const conAudio = enlace.length > 0;
+  const reproductor = useAudioPlayer(conAudio ? { uri: enlace } : null);
   const estado = useAudioPlayerStatus(reproductor);
 
   useEffect(() => {
@@ -59,6 +61,29 @@ export function Reproductor({ emisora, programaActual, enVivo }: Props) {
         <Cuerpo style={styles.programa}>{programaActual?.programName ?? emisora.nowPlaying ?? emisora.description}</Cuerpo>
         {programaActual?.host ? <Etiqueta>{programaActual.host}</Etiqueta> : null}
       </View>
+      {emisora.hlsUrl ? (
+        <View style={styles.calidades} accessibilityRole="radiogroup">
+          {(
+            [
+              { id: 'auto', texto: 'Automática' },
+              { id: 'alta', texto: 'Alta calidad' },
+              { id: 'baja', texto: 'Red inestable' },
+            ] as const
+          ).map((op) => {
+            const elegida = calidad === op.id;
+            return (
+              <Pressable
+                key={op.id}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: elegida }}
+                onPress={() => setCalidad(op.id)}
+                style={[styles.calidad, elegida && styles.calidadElegida]}>
+                <Text style={[styles.calidadTexto, elegida && styles.calidadTextoElegido]}>{op.texto}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       <Pressable
         onPress={alternar}
@@ -88,6 +113,17 @@ const styles = StyleSheet.create({
   },
   fondo: { ...StyleSheet.absoluteFill, opacity: 0.18 },
   cabecera: { flexDirection: 'row', alignItems: 'center' },
+  calidades: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  calidad: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  calidadElegida: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: '#ffffff' },
+  calidadTexto: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
+  calidadTextoElegido: { color: '#ffffff', fontWeight: '700' },
   pastilla: {
     flexDirection: 'row',
     alignItems: 'center',

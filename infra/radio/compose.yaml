@@ -36,12 +36,15 @@ services:
       STATIONS_CONFIG: /config/stations.json
       MUSIC_DIR: /music
       CONFIG_DIR: /config
+      HLS_DIR: /hls
       TZ: America/La_Paz
     volumes:
       - ./liquidsoap/radio.liq:/radio/radio.liq:ro
       - ./data/config:/config:ro
       # Liquidsoap escribe aquí lo que suena ahora (la radio-api lo lee)
       - ./data/config/ahora:/config/ahora
+      # HLS: Liquidsoap escribe las listas y segmentos; la radio-api los sirve
+      - ./data/hls:/hls
       - ./data/music:/music:ro
     ports:
       - "8005:8005"
@@ -59,8 +62,10 @@ services:
       ICECAST_URL: http://icecast:8000
       ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
       PUBLIC_STREAM_BASE: ${PUBLIC_STREAM_BASE:-http://localhost:8000}
+      HLS_DIR: /hls
     volumes:
       - ./data/config:/config
       - ./data/music:/music
+      - ./data/hls:/hls:ro
     ports:
       - "4100:4100"

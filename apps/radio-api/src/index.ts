@@ -151,6 +151,25 @@ app.post(
 
 // Lee un audio guardado: la API 1 usa esto para leer sus etiquetas (título, artista, álbum…)
 // Ahora suena: lo escribe Liquidsoap al cambiar de pista (ahora/<slug>.txt: título, artista, lista, inicio en unix)
+// HLS público (lo leen la web y la app): listas maestras y variantes. Sin token; solo nombres válidos.
+const TIPOS_HLS: Record<string, string> = { '.m3u8': 'application/vnd.apple.mpegurl', '.ts': 'video/mp2t' };
+app.get('/hls/:slug/:archivo', async (c) => {
+  const slug = c.req.param('slug');
+  const archivo = c.req.param('archivo');
+  const ext = path.extname(archivo);
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(slug) || !/^[A-Za-z0-9_.-]+$/.test(archivo) || !TIPOS_HLS[ext]) return c.json({ error: 'no_existe' }, 404);
+  try {
+    const datos = await readFile(path.join(config.hlsDir, slug, archivo));
+    return c.body(datos, 200, {
+      'Content-Type': TIPOS_HLS[ext],
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': ext === '.m3u8' ? 'no-cache' : 'max-age=60',
+    });
+  } catch {
+    return c.json({ error: 'no_existe' }, 404);
+  }
+});
+
 app.get('/v1/stations/:slug/ahora', async (c) => {
   const slug = c.req.param('slug');
   const e = (await leerEstaciones()).find((s) => s.slug === slug);

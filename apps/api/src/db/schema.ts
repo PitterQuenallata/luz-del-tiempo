@@ -467,6 +467,8 @@ export const stations = pgTable('stations', {
   autodjEnabled: boolean('autodj_enabled').notNull().default(true),
   // Si la estación tiene programas (p. ej. la principal). Una estación solo de música no los necesita.
   tieneProgramacion: boolean('tiene_programacion').notNull().default(true),
+  // Calidad baja del HLS (kbps): la que escucha quien tiene señal lenta o datos móviles
+  calidadBajaKbps: integer('calidad_baja_kbps').notNull().default(48),
   maxListeners: integer('max_listeners').notNull().default(100),
   storageQuotaMb: integer('storage_quota_mb').notNull().default(5120),
   // Qué suena en las franjas sin programa: música, historias, ambas o nada (configurable por emisora)

@@ -11,6 +11,7 @@ import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/com
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 
 const BITRATES = [64, 96, 128, 192, 256, 320];
+const CALIDADES_BAJA = [32, 48, 64, 96, 128];
 
 // Contraseña aleatoria legible (sin caracteres confusos)
 function generarClave(largo = 12) {
@@ -33,6 +34,7 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   const [mount, setMount] = useState(transmision.mountPoint ?? `/${emisora.slug}`);
   const [clave, setClave] = useState('');
   const [bitrate, setBitrate] = useState(transmision.bitrateKbps);
+  const [calidadBaja, setCalidadBaja] = useState(transmision.calidadBajaKbps ?? 48);
   const [autodj, setAutodj] = useState(transmision.autodjEnabled);
   const [maxOyentes, setMaxOyentes] = useState(transmision.maxListeners);
   const [cuota, setCuota] = useState(transmision.storageQuotaMb);
@@ -53,6 +55,7 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
       mountPoint: mount.trim(),
       livePassword: clave || undefined,
       bitrateKbps: Number(bitrate),
+      calidadBaja: Number(calidadBaja),
       autodjEnabled: autodj,
       maxListeners: Number(maxOyentes),
       storageQuotaMb: Number(cuota),
@@ -76,7 +79,7 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   const puedeEnviar = mount.trim().length > 1 && (Boolean(transmision.livePasswordConfigurada) || clave.length >= 8);
 
   return {
-    campos: { mount, setMount, clave, setClave, bitrate, setBitrate, autodj, setAutodj, maxOyentes, setMaxOyentes, cuota, setCuota, nombreSalida, setNombreSalida },
+    campos: { mount, setMount, clave, setClave, bitrate, setBitrate, calidadBaja, setCalidadBaja, autodj, setAutodj, maxOyentes, setMaxOyentes, cuota, setCuota, nombreSalida, setNombreSalida },
     enviar,
     error,
     recien,
@@ -143,6 +146,15 @@ export const CamposTransmision: React.FC<{
           {BITRATES.map((b) => <option key={b} value={b}>{b} kbps{b === 128 ? ' (recomendada)' : ''}</option>)}
         </SelectField>
         <CalidadResumen kbps={f.bitrate} oyentes={f.maxOyentes} />
+      </div>
+      <div>
+        <EtiquetaCampo htmlFor="tr-baja">Calidad para señal lenta</EtiquetaCampo>
+        <SelectField id="tr-baja" value={f.calidadBaja} onChange={(e) => f.setCalidadBaja(Number(e.target.value))}>
+          {CALIDADES_BAJA.map((b) => <option key={b} value={b}>{b} kbps{b === 48 ? ' (recomendada)' : ''}</option>)}
+        </SelectField>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Quien escucha con datos móviles o señal débil recibe esta calidad sola. Con 48 kbps se gasta unos 22 MB por hora. Para voz, 64 se oye mejor.
+        </p>
       </div>
     </div>
 

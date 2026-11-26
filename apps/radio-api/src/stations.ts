@@ -15,6 +15,9 @@ export const estacionEntradaSchema = z.object({
   enabled: z.boolean().default(true),
   maxListeners: z.number().int().min(1).max(2000).default(100),
   storageQuotaMb: z.number().int().min(1).max(10240).default(5120),
+  /** Calidad baja del HLS (señal lenta o datos móviles) */
+  calidadBaja: z.number().int().min(32).max(128).default(48),
+  hls: z.boolean().default(true),
 });
 export type EstacionEntrada = z.infer<typeof estacionEntradaSchema>;
 
@@ -29,6 +32,8 @@ export interface Estacion {
   enabled: boolean;
   max_listeners: number;
   storage_quota_mb: number;
+  calidad_baja: number;
+  hls: boolean;
   /** Modo, peso y horarios de cada playlist (la lista de pistas está en su .m3u) */
   playlists?: import('./playlists.js').PlaylistMeta[];
 }
@@ -114,6 +119,8 @@ export function guardarEstacion(slug: string, e: EstacionEntrada) {
       enabled: e.enabled,
       max_listeners: e.maxListeners,
       storage_quota_mb: e.storageQuotaMb,
+      calidad_baja: e.calidadBaja,
+      hls: e.hls,
       playlists: estaciones.find((s) => s.slug === slug)?.playlists ?? [],
     };
     const i = estaciones.findIndex((s) => s.slug === slug);

@@ -88,9 +88,21 @@ export type Station = {
   imageUrl: string | null;
   /** Vacío mientras no exista el enlace de audio: la app no puede reproducir todavía. */
   streamUrl: string;
+  /** HLS adaptable: la app elige la calidad (live.m3u8, alta.m3u8 o baja.m3u8). Vacío si no hay transmisión. */
+  hlsUrl?: string;
   nowPlaying: string | null;
   listeners: number;
 };
+
+/** Calidad elegida por quien escucha. «baja» = red inestable o datos móviles. */
+export type Calidad = 'auto' | 'alta' | 'baja';
+
+/** Enlace de la calidad elegida. Sin HLS, queda el stream MP3 de siempre. */
+export function enlaceDe(emisora: { streamUrl: string; hlsUrl?: string }, calidad: Calidad): string {
+  if (!emisora.hlsUrl) return emisora.streamUrl;
+  if (calidad === 'auto') return emisora.hlsUrl;
+  return emisora.hlsUrl.replace(/live\.m3u8$/, calidad === 'alta' ? 'alta.m3u8' : 'baja.m3u8');
+}
 
 /** Franja de la programación de hoy. */
 export type ScheduleItem = {

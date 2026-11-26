@@ -176,6 +176,13 @@
       "when": 1796100000000,
       "tag": "0024_tiene_programacion",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1796200000000,
+      "tag": "0025_calidad_baja",
+      "breakpoints": true
     }
   ]
 }

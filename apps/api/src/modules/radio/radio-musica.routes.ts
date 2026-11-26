@@ -51,12 +51,15 @@ function vistaTransmision(e: Estacion) {
     livePasswordConfigurada: Boolean(e.livePasswordEnc),
     encendida: e.encendida,
     bitrateKbps: e.bitrateKbps,
+    calidadBajaKbps: e.calidadBajaKbps,
     autodjEnabled: e.autodjEnabled,
     maxListeners: e.maxListeners,
     storageQuotaMb: e.storageQuotaMb,
     streamName: e.streamName ?? '',
     streamNameEfectivo: nombreSalida(e),
     streamUrl: e.mountPoint ? `${process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000'}${e.mountPoint}` : null,
+    // HLS adaptable: el reproductor elige la calidad según la señal (la web y la app lo usan)
+    hlsUrl: e.mountPoint ? `${process.env.PUBLIC_HLS_BASE ?? 'http://localhost:4100/hls'}/${e.slug}/live.m3u8` : null,
     locutor: {
       servidor: process.env.RADIO_HARBOR_HOST ?? 'localhost',
       puerto: Number(process.env.RADIO_HARBOR_PORT ?? 8005),
@@ -119,6 +122,7 @@ radioMusicaRoutes.put('/estaciones/:id/transmision', ACCESO, async (c) => {
   const cambios = {
     mountPoint: parsed.data.mountPoint,
     bitrateKbps: parsed.data.bitrateKbps,
+    ...(parsed.data.calidadBaja !== undefined ? { calidadBajaKbps: parsed.data.calidadBaja } : {}),
     autodjEnabled: parsed.data.autodjEnabled,
     maxListeners: parsed.data.maxListeners,
     storageQuotaMb: parsed.data.storageQuotaMb,

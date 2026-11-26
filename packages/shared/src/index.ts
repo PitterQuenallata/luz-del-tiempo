@@ -525,6 +525,8 @@ export const emisionSchema = z.object({
   // Solo se envía cuando se cambia. Vacío = conservar la actual.
   livePassword: z.string().min(8, 'La contraseña tiene al menos 8 caracteres.').max(128).optional(),
   bitrateKbps: z.number().int().min(32, 'Mínimo 32 kbps.').max(320, 'Máximo 320 kbps.'),
+  // Calidad baja del HLS (señal lenta o datos móviles): 32 a 128 kbps
+  calidadBaja: z.number().int().min(32, 'Mínimo 32 kbps.').max(128, 'Máximo 128 kbps.').optional(),
   autodjEnabled: z.boolean(),
   maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.'),
   storageQuotaMb: z.number().int().min(100, 'Mínimo 100 MB.').max(10240, 'Máximo 10 GB.'),

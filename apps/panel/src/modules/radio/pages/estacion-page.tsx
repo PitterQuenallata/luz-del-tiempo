@@ -578,7 +578,8 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
               <DatoTransmision etiqueta="Punto de montaje" valor={form.mountFinal} onCopiar={copiarTexto} />
               <DatoTransmision etiqueta="Contraseña" valor={t.livePasswordConfigurada ? 'Guardada' : 'Sin contraseña'} />
               <DatoTransmision etiqueta="Calidad" valor={`${t.bitrateKbps} kbps`} />
-              {t.streamUrl && <DatoTransmision etiqueta="Enlace para oyentes" valor={t.streamUrl} onCopiar={copiarTexto} />}
+              {t.hlsUrl && <DatoTransmision etiqueta="Enlace para oyentes (adaptable)" valor={t.hlsUrl} onCopiar={copiarTexto} />}
+              {t.streamUrl && <DatoTransmision etiqueta="Enlace MP3 clásico" valor={t.streamUrl} onCopiar={copiarTexto} />}
             </dl>
           </Seccion>
 
