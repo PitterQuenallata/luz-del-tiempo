@@ -46,6 +46,14 @@ export const usePlaylists = (emisoraId: string | null) =>
   });
 
 // Lo que suena ahora: se refresca cada 5 segundos
+export const useProceso = (estacionId: string | null) =>
+  useQuery({
+    queryKey: ['gestion', 'radio', 'proceso', estacionId ?? ''],
+    queryFn: () => luzApi.getProceso(estacionId as string),
+    enabled: Boolean(estacionId),
+    refetchInterval: 10000,
+  });
+
 export const useAhoraSuena = (estacionId: string | null) =>
   useQuery({
     queryKey: ['gestion', 'radio', 'ahora', estacionId ?? ''],

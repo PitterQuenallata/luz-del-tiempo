@@ -8,6 +8,8 @@ import { meRoutes } from './modules/auth/me.js';
 import { usuariosRoutes } from './modules/usuarios/usuarios.routes.js';
 import { rolesRoutes } from './modules/roles/roles.routes.js';
 import { logsRoutes } from './modules/logs/logs.routes.js';
+import { sistemaRoutes } from './modules/sistema/sistema.routes.js';
+import { iniciarTareas } from './tareas/programador.js';
 import { contenidoRoutes } from './modules/contenido/contenido.routes.js';
 import { publicRoutes } from './modules/contenido/public.routes.js';
 import { gestionRoutes } from './modules/contenido/gestion.routes.js';
@@ -54,6 +56,7 @@ app.route('/api/v1/me', meRoutes);
 app.route('/api/v1/usuarios', usuariosRoutes);
 app.route('/api/v1/roles', rolesRoutes);
 app.route('/api/v1/logs', logsRoutes);
+app.route('/api/v1/sistema', sistemaRoutes);
 app.route('/api/v1/contenido', contenidoRoutes);
 app.route('/api/v1/contenido', gestionRoutes);
 app.route('/api/v1/contenido', agendaGestionRoutes);
@@ -101,5 +104,6 @@ const port = Number(process.env.API_PORT ?? 4000);
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`API La Luz del Tiempo en http://localhost:${info.port}`);
 });
+iniciarTareas();
 
 export default app;

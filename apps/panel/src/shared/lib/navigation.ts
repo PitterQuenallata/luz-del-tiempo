@@ -1,4 +1,4 @@
-import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, FolderOpen, LayoutGrid, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Newspaper, FileText, CalendarDays, Video, Radio, RadioTower, HeartHandshake, Users, ScrollText, Settings2, FolderOpen, LayoutGrid, LucideIcon, DatabaseBackup } from 'lucide-react';
 
 export type NavigationCategoryKey = 'principal' | 'sitio' | 'radio' | 'administracion' | 'configuracion';
 
@@ -41,6 +41,7 @@ export const navItems: NavItem[] = [
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
   { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },
   { id: 'logs', title: 'Auditoría', path: '/logs', icon: ScrollText, category: 'administracion', permiso: 'logs:ver' },
+  { id: 'sistema', title: 'Sistema', path: '/sistema', icon: DatabaseBackup, category: 'administracion', permiso: 'sistema:respaldos' },
 ];
 
 // Permisos del usuario actual. Lo actualiza el shell al tener la sesión.

@@ -4,7 +4,7 @@ import { db } from '../../db/index.js';
 import { playlistSchedules, playlistTracks, radioAjustes, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
 import { archivoRadio } from './archivo.js';
 import { nombreSalidaPorDefecto } from '@luz/shared';
-import { descifrar } from '../../lib/cifrado.js';
+import { cifrar, descifrar } from '../../lib/cifrado.js';
 
 // Cliente de la radio-api (API 2) y sincronización de la configuración.
 // La API 1 es la fuente de verdad: cada cambio de transmisión o playlists se empuja a la radio-api.
@@ -95,7 +95,7 @@ export async function sincronizarTransmision(e: Estacion): Promise<EstadoSync> {
   const emisora = await emisoraDe(e);
   const sonara = e.status === 'active' && emisora.status === 'active' && e.encendida && (await radioEncendida());
   try {
-    await radioApi(`/v1/stations/${e.slug}`, {
+    const r = await radioApi<{ harbor_port?: number; icecast_port?: number }>(`/v1/stations/${e.slug}`, {
       method: 'PUT',
       json: {
         name: nombreSalida(e),
@@ -110,6 +110,12 @@ export async function sincronizarTransmision(e: Estacion): Promise<EstadoSync> {
         hls: true,
       },
     });
+    // El puerto de locutor de la estación lo decide la radio-api: se guarda aquí para el panel y el emisor
+    // Bloque de puertos de la emisora (oyentes = su Icecast; locutores = su harbor): la radio-api los decide
+    const cambios: { harborPort?: number; icecastPort?: number } = {};
+    if (Number.isInteger(r.harbor_port) && r.harbor_port !== e.harborPort) cambios.harborPort = r.harbor_port;
+    if (Number.isInteger(r.icecast_port) && r.icecast_port !== e.icecastPort) cambios.icecastPort = r.icecast_port;
+    if (Object.keys(cambios).length) await db.update(stations).set(cambios).where(eq(stations.id, e.id));
     return { estado: 'ok' };
   } catch (err) {
     return estadoDeError(err);
@@ -319,3 +325,16 @@ function estadoDeError(err: unknown): EstadoSync {
   return { estado: 'radio_no_disponible', message };
 }
 
+
+/**
+ * Cambia la contraseña del locutor de una estación y la manda a la radio.
+ * Se usa al quitar a alguien del acceso: quien ya la tenía guardada deja de poder transmitir.
+ * Los que siguen autorizados la reciben de nuevo desde /emisoras (el emisor la pide con su sesión).
+ */
+export async function rotarContrasenaLocutor(estacionId: string): Promise<EstadoSync | null> {
+  const [e] = await db.select().from(stations).where(eq(stations.id, estacionId));
+  if (!e || !e.livePasswordEnc) return null;
+  await db.update(stations).set({ livePasswordEnc: cifrar(randomBytes(18).toString('hex')) }).where(eq(stations.id, estacionId));
+  const [nueva] = await db.select().from(stations).where(eq(stations.id, estacionId));
+  return sincronizarTransmision(nueva!);
+}

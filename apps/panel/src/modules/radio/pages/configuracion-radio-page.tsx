@@ -154,7 +154,7 @@ const AjustesServidor: React.FC = () => (
       </CardDescription>
     </CardHeader>
     <CardContent className="text-xs text-muted-foreground space-y-1.5">
-      <p>Puerto de los locutores: <span className="font-mono text-foreground">8005</span> (harbor de Liquidsoap).</p>
+      <p>Puertos de los locutores: <span className="font-mono text-foreground">8005–8010</span>, uno por emisora (cada emisora muestra el suyo en Transmisión).</p>
       <p>Puerto de los oyentes: <span className="font-mono text-foreground">8000</span> (Icecast).</p>
       <p>Si el servicio está apagado, revisa Docker: <span className="font-mono">docker compose -f infra/radio/compose.yaml up -d</span>.</p>
     </CardContent>

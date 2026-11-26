@@ -1,3 +1,4 @@
+import { archivoRadio } from './archivo.js';
 import { Context, Hono } from 'hono';
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { estacionSchema, franjaSchema, programaSchema, radioSchema } from '@luz/shared';
@@ -179,8 +180,10 @@ radioRoutes.delete('/emisoras/:id', requirePermission(PERMISO), async (c) => {
   if (!borrada) return c.json({ error: 'no_encontrado' }, 404);
   if (borrada.isMain) return c.json({ error: 'validacion', message: 'No se puede eliminar la emisora principal.' }, 422);
   // Quita sus estaciones de la radio (los audios quedan en disco) y luego la emisora (las estaciones se borran en cascada)
-  for (const e of await db.select().from(stations).where(eq(stations.radioId, id))) if (e.mountPoint) await quitarTransmision(e.slug);
+  for (const e of await db.select().from(stations).where(eq(stations.radioId, id))) if (e.mountPoint || e.icecastPort) await quitarTransmision(e.slug);
   await db.delete(radios).where(eq(radios.id, id));
+  // Su archivo interno también sale de la radio (libera su lugar); los audios quedan en disco
+  await quitarTransmision(archivoRadio(borrada)).catch(() => undefined);
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'emisora.eliminar', entidad: 'emisora', entidadId: id, detalle: borrada.name });
   return c.json({ ok: true });
 });
@@ -268,9 +271,26 @@ radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
       mountPoint,
     })
     .returning();
+  // Como AzuraCast: al crear la estación se reserva su bloque de puertos en la radio (queda apagada).
+  // Si la radio no responde, la estación se crea igual; el bloque se reserva al guardar la transmisión.
+  let reservada = fila;
+  try {
+    const r = await radioApi<{ icecast_port: number; control_port: number; harbor_port: number }>(`/v1/stations/${fila.slug}/reservar`, {
+      method: 'POST',
+      json: { name: fila.name, mount: mountPoint ?? `/${fila.slug}` },
+    });
+    const [actualizada] = await db
+      .update(stations)
+      .set({ icecastPort: r.icecast_port, harborPort: r.harbor_port })
+      .where(eq(stations.id, fila.id))
+      .returning();
+    reservada = actualizada ?? fila;
+  } catch (err) {
+    console.error('[radio] no se pudieron reservar los puertos de', fila.slug, err);
+  }
   // Las listas son de la emisora: la estación nueva no trae ninguna; se vinculan desde su pestaña AutoDJ.
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'estacion.crear', entidad: 'estacion', entidadId: fila.id, detalle: `${emisora.name} · ${fila.name}` });
-  return c.json({ estacion: fila }, 201);
+  return c.json({ estacion: reservada }, 201);
 });
 
 radioRoutes.patch('/estaciones/:id', requireEstacionesAcceso(), async (c) => {
@@ -329,7 +349,8 @@ radioRoutes.delete('/estaciones/:id', requirePermission(PERMISO), async (c) => {
   if (!borrada) return c.json({ error: 'no_encontrado' }, 404);
   await db.delete(stations).where(eq(stations.id, id));
   // Quita la estación de la radio-api (los audios quedan en disco)
-  if (borrada.mountPoint) await quitarTransmision(borrada.slug);
+  // Libera también el bloque de puertos reservado al crear la estación (aunque nunca tuviera transmisión)
+  if (borrada.mountPoint || borrada.icecastPort) await quitarTransmision(borrada.slug);
   await registrarAuditoria({ userId: caller?.id ?? null, accion: 'estacion.eliminar', entidad: 'estacion', entidadId: id, detalle: borrada.name });
   return c.json({ ok: true });
 });

@@ -1,3 +1,4 @@
+import { urlEscucha } from '../../lib/escucha.js';
 import { Context, Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { and, asc, eq, inArray, or } from 'drizzle-orm';
@@ -57,12 +58,13 @@ function vistaTransmision(e: Estacion) {
     limiteServidorOyentes: Number(process.env.ICECAST_MAX_CLIENTS ?? 500),
     streamName: e.streamName ?? '',
     streamNameEfectivo: nombreSalida(e),
-    streamUrl: e.mountPoint ? `${process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000'}${e.mountPoint}` : null,
+    streamUrl: urlEscucha(e),
     // HLS adaptable: el reproductor elige la calidad según la señal (la web y la app lo usan)
     hlsUrl: e.mountPoint ? `${process.env.PUBLIC_HLS_BASE ?? 'http://localhost:4100/hls'}/${e.slug}/live.m3u8` : null,
     locutor: {
       servidor: process.env.RADIO_HARBOR_HOST ?? 'localhost',
-      puerto: Number(process.env.RADIO_HARBOR_PORT ?? 8005),
+      // Puerto de locutores de ESTA estación (cada una tiene el suyo; sin sincronizar aún, 8005)
+      puerto: e.harborPort ?? 8005,
       mount: e.mountPoint,
     },
   };
@@ -495,6 +497,18 @@ radioMusicaRoutes.put('/estaciones/:id/playlists/orden', ACCESO, async (c) => {
   await registrarAuditoria({ userId: acceso.user.id, accion: 'playlist.orden', entidad: 'estacion', entidadId: e.id, detalle: `${e.name}: ${ids.length} listas` });
   const sincronizado = e.mountPoint ? await sincronizarPlaylists(e) : ({ estado: 'sin_transmision' } as EstadoSync);
   return c.json({ ok: true, sincronizado });
+});
+
+// Estado del proceso de Liquidsoap de la emisora (en marcha o reiniciando, reinicios, último código de salida)
+radioMusicaRoutes.get('/estaciones/:id/proceso', ACCESO, async (c) => {
+  const acceso = await estacionParaRuta(c, c.req.param('id') as string);
+  if (acceso instanceof Response) return acceso;
+  try {
+    const r = await radioApi<{ proceso: { estado: string; reinicios: number; desde: number | null; ultimoCodigo: number | null } }>(`/v1/stations/${acceso.estacion.slug}`);
+    return c.json({ proceso: r.proceso });
+  } catch {
+    return c.json({ proceso: null });
+  }
 });
 
 // Ahora suena en la estación (pista, artista, lista de origen). Si la radio no responde, no hay dato.

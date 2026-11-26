@@ -14,6 +14,7 @@ export interface PermisoDef {
 }
 
 export const PERMISOS: PermisoDef[] = [
+  { key: 'sistema:respaldos', descripcion: 'Copias de seguridad y tareas de fondo (descargar, crear, ver estado)', roles: ['superadmin'], aplicado: true },
   { key: 'logs:ver', descripcion: 'Ver la bitácora de actividad', roles: ['superadmin', 'admin'], aplicado: true },
   { key: 'roles:gestionar', descripcion: 'Crear, editar y eliminar roles y sus permisos', roles: ['superadmin'], aplicado: true },
   { key: 'panel:acceso', descripcion: 'Entrar al panel', roles: ['superadmin', 'admin', 'editor', 'station_operator'], aplicado: true },

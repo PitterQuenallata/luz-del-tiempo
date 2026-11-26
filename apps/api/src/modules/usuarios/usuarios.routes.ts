@@ -1,3 +1,4 @@
+import { rotarContrasenaLocutor } from '../radio/radio-sync.js';
 import { Hono } from 'hono';
 import { desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ import { separarNombreLegado } from '../../lib/validaciones.js';
 import { separarTelefonoLegado } from '../../lib/telefono.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
-import { auditLog, roles, users } from '../../db/schema.js';
+import { auditLog, roles, stationBroadcasters, users } from '../../db/schema.js';
 
 // Gestión de usuarios del panel (permiso usuarios:gestionar).
 // Reglas: solo el superadmin asigna o modifica al superadmin; nadie se desactiva ni elimina a sí mismo.
@@ -238,6 +239,8 @@ usuariosRoutes.delete('/:id', requirePermission('usuarios:gestionar'), async (c)
     .from(auditLog)
     .where(eq(auditLog.userId, id));
   const tuvoActividad = Boolean(target.lastLoginAt) || acciones > 0;
+  // Estaciones donde era locutor: al quitarlo, su contraseña de locutor cambia
+  const estacionesDeLocutor = (await db.select({ stationId: stationBroadcasters.stationId }).from(stationBroadcasters).where(eq(stationBroadcasters.userId, id))).map((r) => r.stationId);
 
   if (tuvoActividad) {
     await db.update(users).set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() }).where(eq(users.id, id));
@@ -245,6 +248,7 @@ usuariosRoutes.delete('/:id', requirePermission('usuarios:gestionar'), async (c)
       userId: caller?.id ?? null, accion: 'usuario.eliminar_logico', entidad: 'usuario', entidadId: id,
       detalle: `${target.name} <${target.email}>`,
     });
+    for (const est of estacionesDeLocutor) await rotarContrasenaLocutor(est);
     return c.json({ ok: true, tipo: 'logica' });
   }
 
@@ -254,5 +258,6 @@ usuariosRoutes.delete('/:id', requirePermission('usuarios:gestionar'), async (c)
     userId: caller?.id ?? null, accion: 'usuario.eliminar', entidad: 'usuario', entidadId: id,
     detalle: `${target.name} <${target.email}> (sin actividad: borrado limpio)`,
   });
+  for (const est of estacionesDeLocutor) await rotarContrasenaLocutor(est);
   return c.json({ ok: true, tipo: 'limpia' });
 });

@@ -1,3 +1,4 @@
+import { rotarContrasenaLocutor } from './radio-sync.js';
 import { Hono } from 'hono';
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
@@ -45,17 +46,21 @@ radioEmisorRoutes.put('/estaciones/:id/locutores', requirePermission(PERMISO), a
   }
   const ids = [...new Set(cuerpo.usuarios as string[])];
   const existentes = ids.length ? await db.select({ id: users.id }).from(users).where(inArray(users.id, ids)) : [];
+  const antes = (await db.select({ userId: stationBroadcasters.userId }).from(stationBroadcasters).where(eq(stationBroadcasters.stationId, id))).map((r) => r.userId);
   await db.transaction(async (tx) => {
     await tx.delete(stationBroadcasters).where(eq(stationBroadcasters.stationId, id));
     if (existentes.length) await tx.insert(stationBroadcasters).values(existentes.map((u) => ({ stationId: id, userId: u.id })));
   });
+  // Si alguien salió de la lista, la contraseña de la estación cambia: lo que tenía guardado deja de servir
+  const quitados = antes.filter((u) => !existentes.some((x) => x.id === u));
+  if (quitados.length) await rotarContrasenaLocutor(id);
   const actor = await loadCurrentUser(c.req.raw.headers);
   await registrarAuditoria({
     userId: actor?.id ?? null,
     accion: 'radio.locutores',
     entidad: 'emisora',
     entidadId: id,
-    detalle: `${e.name}: ${existentes.length} locutor(es) autorizados`,
+    detalle: `${e.name}: ${existentes.length} locutor(es) autorizados${quitados.length ? ' · contraseña del locutor cambiada' : ''}`,
   });
   return c.json({ ok: true, total: existentes.length });
 });

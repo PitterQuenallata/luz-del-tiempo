@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
-import { broadcastSessions, stations, users } from '../../db/schema.js';
+import { broadcastSessions, stationListenerSamples, stations, users } from '../../db/schema.js';
 
 // Reportes de las transmisiones hechas con el emisor: horas al aire por emisora y por locutor en un mes.
 export const radioReportesRoutes = new Hono();
@@ -55,4 +55,28 @@ radioReportesRoutes.get('/reportes/transmisiones', requirePermission('estaciones
     .orderBy(sql`${segundos} desc`);
 
   return c.json({ mes, general, porEmisora, porLocutor, porPrograma });
+});
+
+// Oyentes por emisora y por día (pico y promedio) en los últimos N días. Sale de las muestras de cada 5 min.
+radioReportesRoutes.get('/reportes/oyentes', requirePermission('estaciones:todas'), async (c) => {
+  const dias = Math.min(Math.max(Number(c.req.query('dias') ?? 7), 1), 365);
+  const desde = new Date(Date.now() - dias * 86_400_000);
+  // La zona va literal (validada): con parámetros, Postgres no ve que el SELECT y el GROUP BY son lo mismo
+  const zona = ZONA.replace(/[^A-Za-z_/]/g, '');
+  const dia = sql<string>`to_char(${stationListenerSamples.sampledAt} at time zone '${sql.raw(zona)}', 'YYYY-MM-DD')`;
+  const filas = await db
+    .select({
+      slug: stations.slug,
+      nombre: stations.name,
+      dia,
+      pico: sql<number>`max(${stationListenerSamples.listeners})::int`,
+      promedio: sql<number>`round(avg(${stationListenerSamples.listeners}), 1)::float`,
+      muestras: sql<number>`count(*)::int`,
+    })
+    .from(stationListenerSamples)
+    .innerJoin(stations, eq(stationListenerSamples.stationId, stations.id))
+    .where(gte(stationListenerSamples.sampledAt, desde))
+    .groupBy(stations.slug, stations.name, dia)
+    .orderBy(stations.slug, dia);
+  return c.json({ desde: desde.toISOString(), dias, filas });
 });

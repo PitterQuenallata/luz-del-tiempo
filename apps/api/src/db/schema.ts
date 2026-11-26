@@ -464,6 +464,10 @@ export const stations = pgTable('stations', {
   imageUrl: text('image_url'), // foto de la emisora (16:9)
   // Transmisión (Icecast/Liquidsoap en la radio-api). Sin mount no hay transmisión.
   mountPoint: text('mount_point').unique(),
+  // Puerto de locutores (harbor) de esta estación: lo asigna la radio-api (8005, 8006…). Se guarda al sincronizar.
+  harborPort: integer('harbor_port'),
+  // Puerto de oyentes de la emisora (su propio Icecast). Lo asigna la radio-api junto con el de locutores.
+  icecastPort: integer('icecast_port'),
   livePasswordEnc: text('live_password_enc'), // AES-256-GCM; nunca sale de la API
   bitrateKbps: smallint('bitrate_kbps').notNull().default(128),
   autodjEnabled: boolean('autodj_enabled').notNull().default(true),

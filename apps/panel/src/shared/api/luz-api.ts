@@ -611,6 +611,23 @@ export const luzApi = {
   async getAhoraSuena(estacionId: string): Promise<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null; siguienteLista?: string | null } | null }> {
     return request(`/api/v1/radio/estaciones/${estacionId}/ahora`);
   },
+  /** Sistema (superadmin): tareas de fondo y copias de seguridad */
+  tareasSistema() { return request<{ tareas: { clave: string; nombre: string; ultimaEjecucion: string | null; ultimoResultado: 'ok' | 'error' | null; detalle: string }[] }>('/api/v1/sistema/tareas'); },
+  ejecutarTareaSistema(clave: string) { return request<{ tarea: unknown }>(`/api/v1/sistema/tareas/${clave}/ejecutar`, { method: 'POST' }); },
+  respaldosSistema() { return request<{ respaldos: { nombre: string; bytes: number; creado: string }[] }>('/api/v1/sistema/respaldos'); },
+  crearRespaldoSistema() { return request<{ nombre: string }>('/api/v1/sistema/respaldos', { method: 'POST' }); },
+  borrarRespaldoSistema(nombre: string) { return request(`/api/v1/sistema/respaldos/${nombre}`, { method: 'DELETE' }); },
+  oyentesRadio(dias = 7) { return request<{ filas: { slug: string; nombre: string; dia: string; pico: number; promedio: number; muestras: number }[] }>(`/api/v1/radio/reportes/oyentes?dias=${dias}`); },
+  registrosRadio(proceso: string, lineas = 200) { return request<{ registros: { archivo: string; lineas: string[] }[] }>(`/api/v1/sistema/registros/${encodeURIComponent(proceso)}?lineas=${lineas}`); },
+  async descargarRespaldoSistema(nombre: string): Promise<Blob> {
+    const res = await fetch(`${API_URL}/api/v1/sistema/respaldos/${nombre}`, { credentials: 'include' });
+    if (!res.ok) throw new ApiRequestError('No se pudo descargar la copia.', res.status);
+    return res.blob();
+  },
+  /** Estado del proceso de Liquidsoap de la emisora (o null si la radio no responde). */
+  async getProceso(estacionId: string): Promise<{ proceso: { estado: 'en_marcha' | 'reiniciando' | 'sin_proceso'; reinicios: number; desde: number | null; ultimoCodigo: number | null } | null }> {
+    return request(`/api/v1/radio/estaciones/${estacionId}/proceso`);
+  },
   saltarLista(estacionId: string) {
     return request(`/api/v1/radio/estaciones/${estacionId}/saltar-lista`, { method: 'POST' });
   },

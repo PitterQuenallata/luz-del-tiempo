@@ -190,6 +190,7 @@ export const radioOpenApi = {
             type: 'object',
             properties: {
               servidor: { type: 'string', example: 'localhost' },
+              // Puerto de locutores de esta emisora (uno por emisora, entre 8005 y 8010)
               puerto: { type: 'integer', example: 8005 },
               mount: { type: ['string', 'null'] },
             },

@@ -1,3 +1,4 @@
+import { urlEscucha } from '../../lib/escucha.js';
 import { Hono } from 'hono';
 import { and, asc, desc, eq, isNotNull, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
@@ -200,7 +201,6 @@ async function estadoDeRadio(): Promise<Map<string, EstadoRadio>> {
 }
 
 // Enlace de escucha: el mismo que usan los oyentes, con la IP de la red para que lo abran los celulares
-const BASE_STREAM = (process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000').replace(/\/$/, '');
 const BASE_HLS = (process.env.PUBLIC_HLS_BASE ?? 'http://localhost:4100/hls').replace(/\/$/, '');
 
 // Estaciones de Luz del Tiempo (la emisora del ministerio), con su emisora. Las de terceros van en /emisoras.
@@ -212,6 +212,7 @@ publicRoutes.get('/stations', async (c) => {
   const rows = await db
     .select({
       mountPoint: stations.mountPoint,
+      icecastPort: stations.icecastPort,
       slug: stations.slug,
       isMain: stations.isMain,
       name: stations.name,
@@ -250,6 +251,7 @@ async function emisorasDeTerceros() {
       radioImageUrl: radios.imageUrl,
       radioSortOrder: radios.sortOrder,
       mountPoint: stations.mountPoint,
+      icecastPort: stations.icecastPort,
       slug: stations.slug,
       name: stations.name,
       description: stations.description,
@@ -299,7 +301,7 @@ publicRoutes.get('/emisoras/:slug', async (c) => {
 
 /** Lo que la web muestra de una estación (sin datos internos). */
 function vistaPublicaEstacion(
-  e: { mountPoint: string | null; slug: string; name: string; description: string | null; genre: string | null; imageUrl: string | null; sortOrder: number; autodj: boolean; areaColor: string | null; isMain: boolean; visibleInMinistry: boolean; status: string },
+  e: { mountPoint: string | null; icecastPort: number | null; slug: string; name: string; description: string | null; genre: string | null; imageUrl: string | null; sortOrder: number; autodj: boolean; areaColor: string | null; isMain: boolean; visibleInMinistry: boolean; status: string },
   enRadio: Map<string, { online: boolean; listeners: number; title: string | null }>,
 ) {
   const color = e.areaColor ?? '#e2a927';
@@ -314,7 +316,7 @@ function vistaPublicaEstacion(
     art: `linear-gradient(120deg, #0b1324 0%, ${color}66 60%, #0b1324 100%)`,
     imageUrl: e.imageUrl,
     // Sin punto de transmisión no hay enlace; con él, el stream en vivo (la radio decide qué suena)
-    streamUrl: e.mountPoint ? `${BASE_STREAM}${e.mountPoint}` : '',
+    streamUrl: urlEscucha(e) ?? '',
     // HLS adaptable (la web y la app eligen calidad según la señal); vacío si no hay transmisión
     hlsUrl: e.mountPoint ? `${BASE_HLS}/${e.slug}/live.m3u8` : '',
     online: Boolean(estado?.online),

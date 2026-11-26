@@ -102,7 +102,7 @@ const CalidadResumen: React.FC<{ kbps: number; oyentes: number }> = ({ kbps, oye
     <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
       <p>{CALIDAD_AYUDA[kbps]}</p>
       <p>Cada oyente gasta unos {mbPorHora} MB por hora. Con {oyentes || 0} oyentes a la vez, el servidor sube unos {subidaMbps} Mbps.</p>
-      <p className="text-amber-600 dark:text-amber-400">Cambiar la calidad reinicia la radio unos segundos, y esa pausa la sienten todas las emisoras.</p>
+      <p className="text-amber-600 dark:text-amber-400">Cambiar la calidad reinicia solo esta estación unos segundos. Sus oyentes se reconectan solos; las demás no se cortan.</p>
     </div>
   );
 };

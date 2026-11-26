@@ -1,0 +1,1 @@
+INSERT INTO "permissions" ("key", "descripcion", "grupo") VALUES ('sistema:respaldos', 'Copias de seguridad y tareas de fondo (descargar, crear, ver estado)', 'sistema') ON CONFLICT ("key") DO NOTHING;--> statement-breakpoint

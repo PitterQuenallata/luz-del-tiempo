@@ -1,3 +1,4 @@
+import { puertoOyentesDe } from '../../lib/escucha.js';
 import { Hono, type Context } from 'hono';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
@@ -62,15 +63,6 @@ export async function programaActual(stationId: string): Promise<{ nombre: strin
   return f ? { nombre: f.nombre, conductor: f.conductor } : null;
 }
 
-/** Puerto de oyentes (Icecast) a partir de PUBLIC_STREAM_BASE */
-function puertoOyentes() {
-  try {
-    const u = new URL(process.env.PUBLIC_STREAM_BASE ?? 'http://localhost:8000');
-    return Number(u.port || (u.protocol === 'https:' ? 443 : 80));
-  } catch {
-    return 8000;
-  }
-}
 
 /** Emisoras en las que el usuario puede transmitir: todas si administra estaciones; si no, las asignadas */
 async function emisorasDe(usuario: CurrentUser) {
@@ -105,7 +97,6 @@ emisorRoutes.get('/emisoras', async (c) => {
   const lista = await emisorasDe(usuario);
   // Por defecto, el servidor de la radio es el mismo host con el que el emisor llegó a la API
   const servidor = process.env.RADIO_HARBOR_HOST || new URL(c.req.url).hostname;
-  const puerto = Number(process.env.RADIO_HARBOR_PORT ?? 8005);
   const salida = [];
   for (const e of lista) {
     let contrasena: string;
@@ -121,9 +112,10 @@ emisorRoutes.get('/emisoras', async (c) => {
       principal: e.isMain,
       // Liquidsoap publica la entrada en vivo de cada emisora en /<slug> del puerto de locutores
       servidor,
-      puerto,
+      // Puerto de locutores de ESTA emisora (cada una tiene el suyo)
+      puerto: e.harborPort ?? 8005,
       mount: `/${e.slug}`,
-      puertoOyentes: puertoOyentes(),
+      puertoOyentes: puertoOyentesDe(e),
       mountOyentes: e.mountPoint,
       contrasena,
       programa: await programaActual(e.id),

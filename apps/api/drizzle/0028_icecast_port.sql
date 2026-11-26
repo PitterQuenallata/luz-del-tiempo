@@ -1,0 +1,1 @@
+ALTER TABLE "stations" ADD COLUMN "icecast_port" integer;

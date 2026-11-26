@@ -77,6 +77,7 @@ const PlaylistEditorPage = withSuspense(lazy(() => import('../../modules/radio/p
 const DonacionesPage = withSuspense(lazy(() => import('../../modules/donaciones/pages/donaciones-page').then((m) => ({ default: m.DonacionesPage }))));
 const ContenidoPage = withSuspense(lazy(() => import('../../modules/contenido/pages/contenido-page').then((m) => ({ default: m.ContenidoPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
+const SistemaPage = withSuspense(lazy(() => import('../../modules/sistema/pages/sistema-page').then((m) => ({ default: m.SistemaPage }))));
 const LogsPage = withSuspense(lazy(() => import('../../modules/logs/pages/logs-page').then((m) => ({ default: m.LogsPage }))));
 const AuthErrorFullscreenPage = withSuspense(lazy(() => import('../../modules/auth/pages/auth-error-fullscreen-page').then((m) => ({ default: m.AuthErrorFullscreenPage }))));
 
@@ -227,6 +228,13 @@ const perfilRoute = createRoute({
   beforeLoad: exigirPermiso(),
 });
 
+const sistemaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sistema',
+  component: SistemaPage,
+  beforeLoad: exigirPermiso('sistema:respaldos'),
+});
+
 const logsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/logs',
@@ -268,6 +276,7 @@ const routeTree = rootRoute.addChildren([
   newPasswordRoute,
   perfilRoute,
   logsRoute,
+  sistemaRoute,
   authCardRoute,
   forbiddenRoute,
   direct404Route,

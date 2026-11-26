@@ -20,7 +20,7 @@ import { useSession } from '../../auth/hooks/use-session';
 import { irA } from '../../gestion/lib/navegar';
 import { SelectField } from '../../usuarios/components/select-field';
 import { ErrorCampo, ModoEdicion } from '../../contenido/components/dialogo-contenido';
-import { useAhoraSuena, useLocutores, usePistas, usePlaylists, useServicioRadio, useTransmision } from '../hooks/use-radio';
+import { useAhoraSuena, useLocutores, usePistas, usePlaylists, useProceso, useServicioRadio, useTransmision } from '../hooks/use-radio';
 import { CamposTransmision, DatoTransmision, copiarTexto, useFormularioTransmision } from '../components/transmision-dialog';
 import { LocutoresDialog } from '../components/locutores-dialog';
 import { EstadoRadio, ProgramacionTab } from './emisoras-page';
@@ -141,6 +141,7 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
   const pistas = usePistas(estacion.id);
   const transmision = useTransmision(estacion.id, 5000);
   const ahora = useAhoraSuena(estacion.id);
+  const proceso = useProceso(estacion.id).data?.proceso ?? null;
   const saltar = useMutacionGestion((id: string) => luzApi.saltarCancion(id), 'Siguiente canción', 'No se pudo cambiar la canción');
   const saltarLista = useMutacionGestion((id: string) => luzApi.saltarLista(id), 'Siguiente lista de reproducción', 'No se pudo cambiar la lista');
   const activas = (playlists.data ?? []).filter((p) => p.activa);
@@ -171,6 +172,15 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
             <Badge variant={enAire ? 'success' : 'outline'} className="text-[10px]">{enAire ? `Al aire · ${vivo?.listeners ?? 0} oyente${vivo?.listeners === 1 ? '' : 's'}` : 'Fuera del aire'}</Badge>
           </CardHeader>
           <CardContent className="space-y-4">
+            {proceso && (
+              <p className="text-xs text-muted-foreground">
+                Proceso: {proceso.estado === 'en_marcha'
+                  ? `en marcha${proceso.reinicios > 0 ? ` · ${proceso.reinicios} reinicio${proceso.reinicios === 1 ? '' : 's'} desde que arrancó` : ''}`
+                  : proceso.estado === 'reiniciando'
+                    ? `reiniciando (último código de salida: ${proceso.ultimoCodigo ?? 'desconocido'})`
+                    : 'sin proceso: la emisora está apagada o la radio no responde'}
+              </p>
+            )}
             {!enAire && <p className="text-sm text-muted-foreground">La estación no está al aire.</p>}
             {enAire && !sonando && <p className="text-sm text-muted-foreground">Al aire, sin información de la pista todavía.</p>}
             {enAire && sonando && (
@@ -545,7 +555,7 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; admin: boolean; edi
     <div className="space-y-6">
       <Seccion titulo="Control" descripcion="Encender o apagar la estación, escucharla y copiar el enlace para los oyentes.">
         <EstacionControles emisora={estacion} transmision={t} />
-        <p className="text-xs text-muted-foreground">Límite del servidor: <span className="font-medium text-foreground">{t.limiteServidorOyentes}</span> oyentes a la vez, entre todas las estaciones.</p>
+        <p className="text-xs text-muted-foreground">Límite de esta estación: <span className="font-medium text-foreground">{t.limiteServidorOyentes}</span> oyentes a la vez. Cada estación tiene su propio servidor de audio.</p>
         {servicio.data && !servicio.data.encendida && (
           <p className="text-xs text-amber-500">La radio completa está apagada: ninguna estación suena hasta volver a encenderla.</p>
         )}
