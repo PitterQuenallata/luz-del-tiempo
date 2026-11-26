@@ -206,12 +206,14 @@ export const ProgramacionTab: React.FC<{ emisoras: ApiEmisora[] }> = ({ emisoras
     <Card className="border-border">
       <CardContent className="space-y-5 p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">Emisora</span>
-          <SelectField aria-label="Emisora" value={emisoraId} onChange={(e) => setEmisoraId(e.target.value)} wrapperClassName="w-72">
-            {emisoras.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-          </SelectField>
-        </div>
+        {emisoras.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted-foreground">Emisora</span>
+            <SelectField aria-label="Emisora" value={emisoraId} onChange={(e) => setEmisoraId(e.target.value)} wrapperClassName="w-72">
+              {emisoras.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </SelectField>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" className="text-xs" onClick={() => setProgramaNuevo(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />

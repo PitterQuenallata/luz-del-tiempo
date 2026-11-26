@@ -488,6 +488,8 @@ export const estacionSchema = z.object({
   status: z.enum(['draft', 'active', 'suspended', 'disabled']),
   // Crear AutoDJ (su propia lista de música). Desmarcado = solo transmisión, sin música automática.
   autodjEnabled: z.boolean(),
+  // Tiene programas (aparecen en la web). Desmarcado = solo música, sin pestaña de Programación.
+  tieneProgramacion: z.boolean().optional(),
   visibleInMinistry: z.boolean(),
   sortOrder: z.number().int().min(0),
   // Foto de la estación (16:9), la que muestra la web en la lista de estaciones.

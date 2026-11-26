@@ -262,7 +262,7 @@ export interface ApiRadio {
 // Estación: lo que transmite dentro de una emisora (con su AutoDJ y su archivo)
 export interface ApiEmisora {
   id: string; radioId: string; slug: string; name: string; kind: 'own' | 'external'; isMain: boolean; visibleInMinistry: boolean;
-  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean; imageUrl: string | null;
+  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean; tieneProgramacion: boolean; imageUrl: string | null;
   transmision: { mountPoint: string | null; livePasswordConfigurada: boolean; encendida: boolean; radioEncendida: boolean; enAire: boolean; oyentes: number; autodjEnabled: boolean };
 }
 export interface ApiFranja { id: string; programId: string; dayOfWeek: number; startTime: string; endTime: string; isLive: boolean; }

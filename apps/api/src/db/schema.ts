@@ -465,6 +465,8 @@ export const stations = pgTable('stations', {
   livePasswordEnc: text('live_password_enc'), // AES-256-GCM; nunca sale de la API
   bitrateKbps: smallint('bitrate_kbps').notNull().default(128),
   autodjEnabled: boolean('autodj_enabled').notNull().default(true),
+  // Si la estación tiene programas (p. ej. la principal). Una estación solo de música no los necesita.
+  tieneProgramacion: boolean('tiene_programacion').notNull().default(true),
   maxListeners: integer('max_listeners').notNull().default(100),
   storageQuotaMb: integer('storage_quota_mb').notNull().default(5120),
   // Qué suena en las franjas sin programa: música, historias, ambas o nada (configurable por emisora)

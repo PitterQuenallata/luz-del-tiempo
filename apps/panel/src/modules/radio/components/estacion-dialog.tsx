@@ -22,6 +22,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
   const [enlace, setEnlace] = useState(estacion?.slug ?? '');
   const [estado, setEstado] = useState<EstacionInput['status']>(estacion?.status ?? 'draft');
   const [autodj, setAutodj] = useState(estacion?.autodjEnabled ?? true);
+  const [programacion, setProgramacion] = useState(estacion?.tieneProgramacion ?? true);
   const [visible, setVisible] = useState(estacion?.visibleInMinistry ?? true);
   const [imagen, setImagen] = useState<string | null>(estacion?.imageUrl ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +35,14 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const datos = { radioId, name: nombre.trim(), slug: enlace.trim(), status: estado, autodjEnabled: autodj, visibleInMinistry: visible, sortOrder: estacion?.sortOrder ?? 0, imageUrl: imagen };
+    const datos = { radioId, name: nombre.trim(), slug: enlace.trim(), status: estado, autodjEnabled: autodj, tieneProgramacion: programacion, visibleInMinistry: visible, sortOrder: estacion?.sortOrder ?? 0, imageUrl: imagen };
     const parsed = estacionSchema.safeParse(datos);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
       return;
     }
     setError(null);
-    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, visibleInMinistry: visible, imageUrl: imagen } : parsed.data);
+    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, tieneProgramacion: programacion, visibleInMinistry: visible, imageUrl: imagen } : parsed.data);
     onClose();
   };
 
@@ -81,11 +82,23 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       />
 
       <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
-        <input type="checkbox" checked={autodj} onChange={(e) => setAutodj(e.target.checked)} className="mt-0.5 accent-primary" />
+        <input type="checkbox" checked={autodj} onChange={(e) => setAutodj(e.target.checked)} disabled={Boolean(estacion?.autodjEnabled)} className="mt-0.5 accent-primary" />
         <span>
           <span className="block font-medium">AutoDJ</span>
           <span className="block text-[11px] text-muted-foreground">
-            Cuando no hay programa ni locutor en vivo, suena con las listas de la emisora que vincules en la pestaña AutoDJ. Desmárcalo si solo va a transmitir en vivo.
+            {estacion?.autodjEnabled
+              ? 'Ya está encendido: no se puede apagar.'
+              : 'Cuando no hay programa ni locutor en vivo, suena con las listas de la estación. Solo se puede encender si se crea sin AutoDJ.'}
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
+        <input type="checkbox" checked={programacion} onChange={(e) => setProgramacion(e.target.checked)} className="mt-0.5 accent-primary" />
+        <span>
+          <span className="block font-medium">Tiene programas</span>
+          <span className="block text-[11px] text-muted-foreground">
+            Marcado: tiene programación (pestaña Programación y se ve en la web). Desmarcado: solo música o transmisión, sin programas.
           </span>
         </span>
       </label>

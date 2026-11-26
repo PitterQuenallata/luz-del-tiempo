@@ -90,7 +90,7 @@ export const EstacionPage: React.FC = () => {
       </header>
 
       <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label="Secciones de la estación">
-        {PESTANAS.map((p) => (
+        {PESTANAS.filter((p) => p.id !== 'programacion' || estacion.tieneProgramacion).map((p) => (
           <button
             key={p.id}
             type="button"
@@ -108,7 +108,7 @@ export const EstacionPage: React.FC = () => {
 
       {pestana === 'resumen' && <Resumen estacion={estacion} cambiarPestana={setPestana} />}
       {pestana === 'autodj' && <AutoDj estacion={estacion} />}
-      {pestana === 'programacion' && (
+      {pestana === 'programacion' && estacion.tieneProgramacion && (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">Esta programación se muestra en la página web de la emisora.</p>
           <ProgramacionTab emisoras={[estacion]} />

@@ -159,6 +159,7 @@ radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
       name: d.name,
       status: d.status,
       autodjEnabled: d.autodjEnabled,
+      tieneProgramacion: d.tieneProgramacion ?? true,
       visibleInMinistry: d.visibleInMinistry,
       sortOrder: d.sortOrder,
       mountPoint,
@@ -187,6 +188,8 @@ radioRoutes.patch('/estaciones/:id', requireEstacionesAcceso(), async (c) => {
     (d.sortOrder !== undefined && d.sortOrder !== actual.sortOrder);
   if (!todas && cambiaReservado) return c.json({ error: 'sin_permiso', message: 'Solo la administración cambia el estado, el enlace o la visibilidad de una estación.' }, 403);
   // El responsable de un tercero también puede cambiar la foto de su estación.
+  // El AutoDJ se elige al crear la estación: si está encendido, no se apaga
+  if (actual.autodjEnabled && d.autodjEnabled === false) return c.json({ error: 'validacion', campo: 'autodjEnabled', message: 'El AutoDJ se eligió al crear la estación y no se puede apagar.' }, 422);
   const permitidos = todas ? d : { name: d.name, autodjEnabled: d.autodjEnabled, imageUrl: d.imageUrl };
   if (d.slug && d.slug !== actual.slug && !(await slugLibre(d.slug, id))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una estación o emisora con ese enlace.' }, 409);
   const [fila] = await db

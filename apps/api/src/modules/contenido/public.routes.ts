@@ -335,7 +335,7 @@ async function programacionDelDia(dia: number) {
     .from(programSlots)
     .innerJoin(programs, eq(programSlots.programId, programs.id))
     .innerJoin(stations, eq(programs.stationId, stations.id))
-    .where(and(eq(programSlots.dayOfWeek, dia), eq(programs.isActive, true), eq(stations.status, 'active')))
+    .where(and(eq(programSlots.dayOfWeek, dia), eq(programs.isActive, true), eq(stations.status, 'active'), eq(stations.tieneProgramacion, true)))
     .orderBy(asc(programSlots.startTime));
 
   const programados = filas.map((f) => ({
