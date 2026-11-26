@@ -174,7 +174,7 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
             {enAire && !sonando && <p className="text-sm text-muted-foreground">Al aire, sin información de la pista todavía.</p>}
             {enAire && sonando && (
               <div className="space-y-1">
-                <p className="text-lg font-semibold">{sonando.titulo}</p>
+                <p className="text-lg font-semibold">{sonando.titulo || 'Audio sin título'}</p>
                 {sonando.artista && <p className="text-sm text-muted-foreground">{sonando.artista}</p>}
                 <p className="text-xs text-muted-foreground">
                   {sonando.lista ? `Lista: ${sonando.lista}` : 'Locutor en vivo o programa'}

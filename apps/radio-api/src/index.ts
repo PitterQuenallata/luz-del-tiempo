@@ -182,7 +182,8 @@ app.get('/v1/stations/:slug/ahora', async (c) => {
   if (!e) return c.json({ error: 'no_existe' }, 404);
   try {
     const [titulo = '', artista = '', lista = '', inicio = ''] = (await readFile(path.join(config.configDir, 'ahora', `${slug}.txt`), 'utf8')).split('\n');
-    if (!titulo && !artista) return c.json({ ahora: null });
+    // Sin título ni artista (audios sin etiquetas) todavía se sabe qué lista suena
+    if (!titulo && !artista && !lista) return c.json({ ahora: null });
     const segundos = Number(inicio);
     return c.json({ ahora: { titulo, artista, lista, inicio: Number.isFinite(segundos) && segundos > 0 ? segundos : null } });
   } catch {
