@@ -68,4 +68,4 @@ La copia ya trae las migraciones aplicadas. Si vas a usar una base vacía, `pnpm
 ## 8. Copias
 - Automáticas: la API crea una copia diaria a las 03:00 y guarda 14 días en `RESPALDOS_DIR`.
 - Descargar: Panel → Sistema → Descargar. Guárdala en tu PC.
-- Pendiente: copia automática fuera del VPS.
+- Copia fuera del VPS: pendiente, ver `docs/PENDIENTES-PRODUCCION.md`.
