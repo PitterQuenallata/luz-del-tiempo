@@ -20,10 +20,15 @@ interface FuenteIcecast {
   stream_start_iso8601?: string;
 }
 
-/** Lee /status-json.xsl de Icecast. Devuelve un mapa por mount ("/salud"). */
-export async function estadoIcecast(): Promise<Map<string, EstadoMount>> {
-  const res = await fetch(`${config.icecastUrl}/status-json.xsl`, { signal: AbortSignal.timeout(4000) });
-  if (!res.ok) throw new Error(`Icecast respondió ${res.status}`);
+/** Lee el estado de UN Icecast (el de una emisora, en su puerto de oyentes). */
+async function estadoDeUno(puerto: number): Promise<Map<string, EstadoMount> | null> {
+  let res: Response;
+  try {
+    res = await fetch(`http://${config.icecastHost}:${puerto}/status-json.xsl`, { signal: AbortSignal.timeout(3000) });
+  } catch {
+    return null; // emisora apagada o Icecast caído
+  }
+  if (!res.ok) return null;
   // Icecast a veces manda "title": - sin comillas cuando falta; se corrige antes de parsear.
   const texto = (await res.text()).replace(/:\s*-\s*([,}])/g, ':null$1');
   const datos = JSON.parse(texto) as { icestats?: { source?: FuenteIcecast | FuenteIcecast[] } };
@@ -46,6 +51,17 @@ export async function estadoIcecast(): Promise<Map<string, EstadoMount>> {
     });
   }
   return mapa;
+}
+
+/**
+ * Estado de los mounts de todas las emisoras. Cada estación tiene su propio Icecast (como AzuraCast),
+ * así que se pregunta a cada uno en su puerto. `respondio` dice si alguno contestó.
+ */
+export async function estadoIcecastDe(estaciones: { icecast_port?: number }[]): Promise<{ mapa: Map<string, EstadoMount>; respondio: boolean }> {
+  const resultados = await Promise.all(estaciones.filter((e) => (e.icecast_port ?? 0) > 0).map((e) => estadoDeUno(e.icecast_port as number)));
+  const mapa = new Map<string, EstadoMount>();
+  for (const r of resultados) if (r) for (const [mount, estado] of r) mapa.set(mount, estado);
+  return { mapa, respondio: resultados.some((r) => r !== null) };
 }
 
 export function estadoApagado(mount: string): EstadoMount {

@@ -2,12 +2,14 @@ import { mkdir, readdir, readFile, rm, writeFile, rename } from 'node:fs/promise
 import path from 'node:path';
 import { z } from 'zod';
 import { config } from './config.js';
-import { enCola, guardarEstado, guardarEstaciones, leerEstaciones, leerEstado } from './stations.js';
+import { enCola, guardarEstado, guardarEstaciones, leerEstaciones, leerEstado, type Estacion } from './stations.js';
 
 /**
  * Playlists del AutoDJ.
  * - La lista de pistas (qué audios y en qué orden) va en un .m3u por playlist: Liquidsoap la recarga sola.
- * - El modo, peso y horarios van en stations.json: si cambian, Liquidsoap se reinicia (~2 s).
+ * - stations.json solo lleva lo ESTRUCTURAL de cada lista (id y modo aleatorio): si cambia, la emisora se reinicia.
+ * - Nombre y número de audios van en listas.txt, y los horarios y el modo en programas.txt: Liquidsoap los lee
+ *   cada 2 s SIN reiniciar. Así subir audios no corta la emisora.
  */
 
 export const MODOS = ['rotacion', 'secuencial', 'programada'] as const;
@@ -37,15 +39,10 @@ export const playlistEntradaSchema = z.object({
 });
 export type PlaylistEntrada = z.infer<typeof playlistEntradaSchema>;
 
-/** Forma guardada en stations.json (sin la lista de pistas). */
+/** Forma guardada en stations.json: solo lo que reinicia la emisora si cambia. */
 export interface PlaylistMeta {
   id: string;
-  name: string;
-  /** Cuántos audios tiene: en la rotación, la lista completa suena en su turno */
-  pistas: number;
-  weight: number;
   shuffle: boolean;
-  active: boolean;
 }
 
 export const playlistsSchema = z.object({ playlists: z.array(playlistEntradaSchema).max(100) });
@@ -100,18 +97,57 @@ async function nombresEn(carpeta: string): Promise<Set<string>> {
   }
 }
 
-// Solo lo que cambia la estructura del motor va en stations.json (reinicia Liquidsoap).
-// Modo, horarios y opciones van en programas.txt, que Liquidsoap lee en caliente.
+// Solo lo estructural va en stations.json (reinicia la emisora). Nombre y pistas van en listas.txt,
+// modo y horarios en programas.txt, activa o pausada en estado.txt: todo se lee en caliente.
 function metaDe(p: PlaylistEntrada): PlaylistMeta {
-  return {
-    id: p.id,
-    name: p.name,
-    pistas: p.tracks.length,
-    weight: p.weight,
-    shuffle: p.shuffle,
-    // Activa o pausada: va en estado.txt (no aquí), para que activarla no reinicie Liquidsoap
-    active: true,
-  };
+  return { id: p.id, shuffle: p.shuffle };
+}
+
+/** Lee listas.txt: clave "slug/id" → nombre y número de audios (lo que Liquidsoap lee en vivo). */
+export async function leerListas(): Promise<Map<string, { nombre: string; pistas: number }>> {
+  const mapa = new Map<string, { nombre: string; pistas: number }>();
+  try {
+    for (const linea of (await readFile(path.join(config.configDir, 'listas.txt'), 'utf8')).split('\n')) {
+      const [clave, nombre, pistas] = linea.split(';');
+      if (clave) mapa.set(clave, { nombre: nombre ?? '', pistas: Number(pistas) || 0 });
+    }
+  } catch { /* sin listas.txt todavía: ninguna lista tiene audios */ }
+  return mapa;
+}
+
+/** Reemplaza las líneas de esta estación en listas.txt (las de las demás se conservan). */
+export async function escribirListasDe(slug: string, filas: { id: string; name: string; pistas: number }[]) {
+  const ruta = path.join(config.configDir, 'listas.txt');
+  let actuales = '';
+  try {
+    actuales = await readFile(ruta, 'utf8');
+  } catch {
+    actuales = '';
+  }
+  // El punto y coma separa campos: se cambia por coma en el nombre (y no puede haber saltos de línea)
+  const limpio = (s: string) => s.replace(/[;\r\n]/g, ' ');
+  const otras = actuales.split('\n').filter((l) => l && !l.startsWith(`${slug}/`));
+  const nuevas = filas.map((f) => `${slug}/${f.id};${limpio(f.name)};${f.pistas}`);
+  const texto = [...otras, ...nuevas].join('\n') + '\n';
+  await mkdir(config.configDir, { recursive: true });
+  const tmp = `${ruta}.tmp`;
+  await writeFile(tmp, texto);
+  await rename(tmp, ruta);
+}
+
+/**
+ * Pasa a listas.txt los nombres y pistas que aún están en stations.json (formato anterior a esta versión).
+ * Se llama una vez al arrancar, antes de dejar stations.json solo con lo estructural.
+ */
+export async function migrarListas(estaciones: Estacion[]) {
+  for (const e of estaciones) {
+    const antiguas = (e.playlists ?? []) as unknown as { id: string; name?: string; pistas?: number }[];
+    if (!antiguas.some((p) => typeof p.pistas === 'number')) continue;
+    await escribirListasDe(
+      e.slug,
+      antiguas.map((p) => ({ id: p.id, name: p.name ?? p.id, pistas: p.pistas ?? 0 })),
+    );
+  }
 }
 
 /** Una línea por lista: "slug/id;modo;interrumpe;una_sola;dia-inicio-fin,..." (o "-" sin horarios). */
@@ -193,8 +229,12 @@ export function guardarPlaylists(slug: string, entradas: PlaylistEntrada[]) {
     for (const p of entradas) estado[`${slug}/${p.id}`] = p.active;
     await guardarEstado(estado);
 
+    // Nombre y número de audios: en listas.txt, sin reiniciar nada
+    await escribirListasDe(slug, entradas.map((p) => ({ id: p.id, name: p.name, pistas: p.tracks.length })));
+
+    // Solo lo estructural (id y modo aleatorio) reinicia la emisora
     const metaNueva = entradas.map(metaDe);
-    const metaAnterior = estaciones[i].playlists ?? [];
+    const metaAnterior = (estaciones[i].playlists ?? []).map(({ id, shuffle }) => ({ id, shuffle }));
     const cambioConfig = JSON.stringify(metaNueva) !== JSON.stringify(metaAnterior);
     if (cambioConfig) {
       estaciones[i] = { ...estaciones[i], playlists: metaNueva };
