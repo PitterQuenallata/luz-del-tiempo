@@ -11,7 +11,7 @@ import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/com
 import { pillToast } from '../../../shared/components/ui/pill-toast';
 
 const BITRATES = [64, 96, 128, 192, 256, 320];
-const CALIDADES_BAJA = [32, 48, 64, 96, 128];
+const CALIDADES_BAJA = [24, 32, 48, 64, 96, 128];
 
 // Contraseña aleatoria legible (sin caracteres confusos)
 function generarClave(largo = 12) {
@@ -34,7 +34,7 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   const [mount, setMount] = useState(transmision.mountPoint ?? `/${emisora.slug}`);
   const [clave, setClave] = useState('');
   const [bitrate, setBitrate] = useState(transmision.bitrateKbps);
-  const [calidadBaja, setCalidadBaja] = useState(transmision.calidadBajaKbps ?? 48);
+  const [calidadBaja, setCalidadBaja] = useState(transmision.calidadBajaKbps ?? 24);
   const [autodj, setAutodj] = useState(transmision.autodjEnabled);
   const [nombreSalida, setNombreSalida] = useState(transmision.streamName ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -147,10 +147,10 @@ export const CamposTransmision: React.FC<{
       <div>
         <EtiquetaCampo htmlFor="tr-baja">Calidad para señal lenta</EtiquetaCampo>
         <SelectField id="tr-baja" value={f.calidadBaja} onChange={(e) => f.setCalidadBaja(Number(e.target.value))}>
-          {CALIDADES_BAJA.map((b) => <option key={b} value={b}>{b} kbps{b === 48 ? ' (recomendada)' : ''}</option>)}
+          {CALIDADES_BAJA.map((b) => <option key={b} value={b}>{b} kbps{b === 24 ? ' (recomendada)' : ''}</option>)}
         </SelectField>
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Quien escucha con datos móviles o señal débil recibe esta calidad sola. Con 48 kbps se gasta unos 22 MB por hora. Para voz, 64 se oye mejor.
+          Quien escucha con datos móviles o señal débil recibe esta calidad sola. Con 24 kbps se gasta unos 11 MB por hora de audio. Para voz, 32 o 48 se oyen mejor.
         </p>
       </div>
     </div>

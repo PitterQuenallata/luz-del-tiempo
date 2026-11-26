@@ -29,13 +29,30 @@ export function Reproductor({ emisora, programaActual, enVivo }: Props) {
     setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {});
   }, []);
 
-  const alternar = () => {
-    if (!conAudio) return;
-    if (estado.playing) reproductor.pause();
-    else reproductor.play();
+  // En radio en vivo no hay pausa: al pausar, el audio quedaba atrás y al seguir sonaba viejo.
+  // «Parar» corta y, al volver a escuchar, se recarga el directo para entrar al tiempo real.
+  const [recargar, setRecargar] = useState(true);
+
+  const parar = () => {
+    reproductor.pause();
+    setRecargar(true);
   };
 
-  const etiquetaBoton = !conAudio ? 'Transmisión por confirmar' : estado.playing ? 'Pausar' : 'Escuchar en vivo';
+  const escuchar = () => {
+    if (recargar) {
+      reproductor.replace({ uri: enlace });
+      setRecargar(false);
+    }
+    reproductor.play();
+  };
+
+  const alternar = () => {
+    if (!conAudio) return;
+    if (estado.playing) parar();
+    else escuchar();
+  };
+
+  const etiquetaBoton = !conAudio ? 'Transmisión por confirmar' : estado.playing ? 'Parar' : 'Escuchar en vivo';
 
   return (
     <LinearGradient
@@ -92,7 +109,7 @@ export function Reproductor({ emisora, programaActual, enVivo }: Props) {
         accessibilityLabel={etiquetaBoton}
         style={({ pressed }) => [styles.boton, !conAudio && styles.botonDeshabilitado, pressed && styles.botonPresionado]}>
         <Ionicons
-          name={!conAudio ? 'time-outline' : estado.playing ? 'pause' : 'play'}
+          name={!conAudio ? 'time-outline' : estado.playing ? 'stop' : 'play'}
           size={20}
           color={conAudio ? colores.noche900 : colores.niebla100}
         />

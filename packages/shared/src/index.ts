@@ -530,7 +530,7 @@ export const emisionSchema = z.object({
   livePassword: z.string().min(8, 'La contraseña tiene al menos 8 caracteres.').max(128).optional(),
   bitrateKbps: z.number().int().min(32, 'Mínimo 32 kbps.').max(320, 'Máximo 320 kbps.'),
   // Calidad baja del HLS (señal lenta o datos móviles): 32 a 128 kbps
-  calidadBaja: z.number().int().min(32, 'Mínimo 32 kbps.').max(128, 'Máximo 128 kbps.').optional(),
+  calidadBaja: z.number().int().min(16, 'Mínimo 16 kbps.').max(128, 'Máximo 128 kbps.').optional(),
   autodjEnabled: z.boolean(),
   // Ya no se editan desde la estación: el límite de oyentes es el del servidor y el espacio de audios es de la emisora.
   maxListeners: z.number().int().min(1, 'Mínimo 1 oyente.').max(2000, 'Máximo 2000 oyentes.').optional(),

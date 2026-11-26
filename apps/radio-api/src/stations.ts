@@ -16,7 +16,7 @@ export const estacionEntradaSchema = z.object({
   maxListeners: z.number().int().min(1).max(2000).default(100),
   storageQuotaMb: z.number().int().min(1).max(10240).default(5120),
   /** Calidad baja del HLS (señal lenta o datos móviles) */
-  calidadBaja: z.number().int().min(32).max(128).default(48),
+  calidadBaja: z.number().int().min(16).max(128).default(24),
   hls: z.boolean().default(true),
 });
 export type EstacionEntrada = z.infer<typeof estacionEntradaSchema>;

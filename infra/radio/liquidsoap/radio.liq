@@ -178,7 +178,8 @@ end
 
 # Codificador AAC de una calidad (kbps). Liquidsoap exige constantes, por eso una rama por calidad.
 def aac_de(kbps) =
-  if kbps <= 32 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="32k", profile="aac_low"))
+  if kbps <= 24 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="24k", profile="aac_low"))
+  elsif kbps <= 32 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="32k", profile="aac_low"))
   elsif kbps <= 48 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="48k", profile="aac_low"))
   elsif kbps <= 64 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="64k", profile="aac_low"))
   elsif kbps <= 96 then %ffmpeg(format="mpegts", %audio(codec="aac", channels=2, samplerate=44100, b="96k", profile="aac_low"))
@@ -190,7 +191,8 @@ end
 
 # Codificador AAC para HLS en fMP4 (más liviano que MPEG-TS: ~23 % menos bytes por segmento medido).
 def aac_mp4(kbps) =
-  if kbps <= 32 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="32k", profile="aac_low"))
+  if kbps <= 24 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="24k", profile="aac_low"))
+  elsif kbps <= 32 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="32k", profile="aac_low"))
   elsif kbps <= 48 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="48k", profile="aac_low"))
   elsif kbps <= 64 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="64k", profile="aac_low"))
   elsif kbps <= 96 then %ffmpeg(format="mp4", movflags="frag_keyframe+empty_moov+default_base_moof", %audio(codec="aac", channels=2, samplerate=44100, b="96k", profile="aac_low"))
