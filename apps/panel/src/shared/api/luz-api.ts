@@ -263,6 +263,8 @@ export interface ApiRadio {
 export interface ApiEmisora {
   id: string; radioId: string; slug: string; name: string; kind: 'own' | 'external'; isMain: boolean; visibleInMinistry: boolean;
   status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean; tieneProgramacion: boolean; imageUrl: string | null;
+  /** Si la estación ya puede verse en la web, y lo que le falta */
+  paraWeb: { lista: boolean; faltan: string[] };
   transmision: { mountPoint: string | null; livePasswordConfigurada: boolean; encendida: boolean; radioEncendida: boolean; enAire: boolean; oyentes: number; autodjEnabled: boolean };
 }
 export interface ApiFranja { id: string; programId: string; dayOfWeek: number; startTime: string; endTime: string; isLive: boolean; }

@@ -6,7 +6,7 @@ import { registrarAuditoria } from '../../lib/audit.js';
 import { actualizarCuotaArchivo, enAirePorSlugRadio as enAirePorSlug, quitarTransmision, radioApi, radioEncendida, sincronizarTransmision } from './radio-sync.js';
 import { errorValidacion } from '../../lib/validar.js';
 import { db } from '../../db/index.js';
-import { areas, programSlots, programs, radios, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
+import { areas, programSlots, programs, radios, stationPlaylistLinks, stationPlaylists, stationTracks, stations } from '../../db/schema.js';
 import { esAdmin, estacionParaRuta, puedeGestionarEmisora, requireEstacionesAcceso } from './acceso.js';
 
 // Emisoras (contenedores) y sus estaciones. Solo admin y superadmin crean emisoras y estaciones.
@@ -187,10 +187,26 @@ radioRoutes.delete('/emisoras/:id', requirePermission(PERMISO), async (c) => {
 
 // ---------- Estaciones ----------
 
-function vistaEstacion(e: typeof stations.$inferSelect, enAire: Map<string, { online: boolean; listeners: number; title: string | null }>, radioEnc: boolean) {
+/** Lo que le falta a una estación para verse en la web. Lista vacía = lista para la web. */
+function faltasParaWeb(e: { mountPoint: string | null; livePasswordEnc: string | null; autodjEnabled: boolean }, listas: number): string[] {
+  const faltan: string[] = [];
+  if (!e.mountPoint) faltan.push('punto de transmisión (en Transmisión)');
+  if (!e.livePasswordEnc) faltan.push('contraseña del locutor (en Transmisión)');
+  if (e.autodjEnabled && listas === 0) faltan.push('al menos una lista de reproducción (en AutoDJ)');
+  return faltan;
+}
+
+async function listasDeEstacion(estacionId: string): Promise<number> {
+  const filas = await db.select({ id: stationPlaylistLinks.playlistId }).from(stationPlaylistLinks).where(eq(stationPlaylistLinks.stationId, estacionId));
+  return filas.length;
+}
+
+function vistaEstacion(e: typeof stations.$inferSelect, enAire: Map<string, { online: boolean; listeners: number; title: string | null }>, radioEnc: boolean, listas = 0) {
   const { livePasswordEnc: _secreto, ...resto } = e;
+  const faltan = faltasParaWeb(e, listas);
   return {
     ...resto,
+    paraWeb: { lista: faltan.length === 0, faltan },
     transmision: {
       mountPoint: e.mountPoint,
       livePasswordConfigurada: Boolean(_secreto),
@@ -210,7 +226,9 @@ radioRoutes.get('/estaciones', requireEstacionesAcceso(), async (c) => {
   const propias = todas ? filas : (await Promise.all(filas.map(async (s) => ((await puedeGestionarEmisora(user, s.radioId)) ? s : null)))).filter((s): s is typeof filas[number] => s !== null);
   const enAire = await enAirePorSlug();
   const radioEnc = await radioEncendida();
-  return c.json({ estaciones: propias.map((s) => vistaEstacion(s, enAire, radioEnc)), emisoras: [] });
+  const enlaces = await db.select({ estacion: stationPlaylistLinks.stationId, n: sql<number>`count(*)::int` }).from(stationPlaylistLinks).groupBy(stationPlaylistLinks.stationId);
+  const listasPorEstacion = new Map(enlaces.map((x) => [x.estacion, x.n]));
+  return c.json({ estaciones: propias.map((s) => vistaEstacion(s, enAire, radioEnc, listasPorEstacion.get(s.id) ?? 0)), emisoras: [] });
 });
 
 radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
@@ -220,6 +238,11 @@ radioRoutes.post('/estaciones', requirePermission(PERMISO), async (c) => {
   const d = parsed.data;
   const [emisora] = await db.select().from(radios).where(eq(radios.id, d.radioId));
   if (!emisora) return c.json({ error: 'validacion', campo: 'radioId', message: 'La emisora elegida ya no existe.' }, 422);
+  // Una estación nueva no tiene transmisión ni lista: no puede verse en la web todavía
+  if (d.visibleInMinistry === true) {
+    const faltan = faltasParaWeb({ mountPoint: null, livePasswordEnc: null, autodjEnabled: d.autodjEnabled }, 0);
+    if (faltan.length) return c.json({ error: 'no_lista_para_web', message: `Para verla en la web faltan: ${faltan.join(', ')}.` }, 422);
+  }
   if (emisora.kind === 'external') {
     const yaTiene = await db.select({ id: stations.id }).from(stations).where(eq(stations.radioId, emisora.id));
     if (yaTiene.length) return c.json({ error: 'validacion', campo: 'radioId', message: 'Una emisora de un tercero tiene una sola estación.' }, 422);
@@ -270,6 +293,11 @@ radioRoutes.patch('/estaciones/:id', requireEstacionesAcceso(), async (c) => {
   // El responsable de un tercero también puede cambiar la foto de su estación.
   // El AutoDJ se elige al crear la estación: si está encendido, no se apaga
   if (actual.autodjEnabled && d.autodjEnabled === false) return c.json({ error: 'validacion', campo: 'autodjEnabled', message: 'El AutoDJ se eligió al crear la estación y no se puede apagar.' }, 422);
+  // Visible en la web solo si la estación ya está lista (transmisión, contraseña y, con AutoDJ, una lista)
+  if (d.visibleInMinistry === true) {
+    const faltan = faltasParaWeb({ ...actual, ...(d.autodjEnabled !== undefined ? { autodjEnabled: d.autodjEnabled } : {}) }, await listasDeEstacion(id));
+    if (faltan.length) return c.json({ error: 'no_lista_para_web', message: `Para verla en la web faltan: ${faltan.join(', ')}.` }, 422);
+  }
   const permitidos = todas ? d : { name: d.name, autodjEnabled: d.autodjEnabled, imageUrl: d.imageUrl };
   if (d.slug && d.slug !== actual.slug && !(await slugLibre(d.slug, id))) return c.json({ error: 'slug_existente', campo: 'slug', message: 'Ya existe una estación o emisora con ese enlace.' }, 409);
   const [fila] = await db

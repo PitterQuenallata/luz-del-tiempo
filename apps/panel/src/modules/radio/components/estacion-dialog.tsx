@@ -8,6 +8,14 @@ import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/com
 import { slugDe } from '../../contenido/components/area-dialog';
 import { ImagenCampo } from '../../contenido/components/imagen-campo';
 
+// Qué significa cada estado, en palabras simples
+const DESCRIPCION_ESTADO: Record<string, string> = {
+  draft: 'Borrador: todavía se prepara. No suena ni aparece en la web.',
+  active: 'Activa: suena y aparece en la web (si la marcas como visible).',
+  suspended: 'Pausada: no suena ni aparece en la web. Para volver, cámbiala a Activa.',
+  disabled: 'Apagada: no suena ni aparece en la web. Úsala cuando la estación ya no se usa.',
+};
+
 interface EstacionDialogProps {
   estacion: ApiEmisora | null; // null = nueva
   emisoras: ApiRadio[]; // para elegir la emisora de una estación nueva
@@ -23,7 +31,9 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
   const [estado, setEstado] = useState<EstacionInput['status']>(estacion?.status ?? 'active');
   const [autodj, setAutodj] = useState(estacion?.autodjEnabled ?? true);
   const [programacion, setProgramacion] = useState(estacion?.tieneProgramacion ?? true);
-  const [visible, setVisible] = useState(estacion?.visibleInMinistry ?? true);
+  // Solo se puede ver en la web cuando la estación ya está lista. Una nueva nunca lo está al crearse.
+  const listaParaWeb = estacion?.paraWeb.lista ?? false;
+  const [visible, setVisible] = useState((estacion?.visibleInMinistry ?? false) && listaParaWeb);
   const [imagen, setImagen] = useState<string | null>(estacion?.imageUrl ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,15 +121,30 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
         <div>
           <EtiquetaCampo htmlFor="est-estado">Estado</EtiquetaCampo>
           <SelectField id="est-estado" value={estado} onChange={(e) => setEstado(e.target.value as EstacionInput['status'])}>
-            {estacion?.status === 'draft' && <option value="draft">Borrador (no suena ni se ve)</option>}
+            {estacion?.status === 'draft' && <option value="draft">Borrador</option>}
             <option value="active">Activa</option>
-            <option value="suspended">Suspendida</option>
-            <option value="disabled">Deshabilitada</option>
+            <option value="suspended">Pausada (suspendida)</option>
+            <option value="disabled">Apagada (deshabilitada)</option>
           </SelectField>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">{DESCRIPCION_ESTADO[estado]}</p>
         </div>
-        <label className="flex items-end gap-2 pb-2 text-xs cursor-pointer">
-          <input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} className="accent-primary" /> Visible en el ministerio
-        </label>
+        <div className="space-y-1.5">
+          <label className={`flex items-center gap-2 text-xs ${listaParaWeb ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+            <input
+              type="checkbox"
+              checked={visible}
+              disabled={!listaParaWeb}
+              onChange={(e) => setVisible(e.target.checked)}
+              className="accent-primary"
+            />
+            Visible en la web
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            {listaParaWeb
+              ? 'Marcada: aparece en la web cuando esté activa y al aire.'
+              : `Se activa cuando la estación esté lista. Falta: ${(estacion?.paraWeb.faltan ?? ['punto de transmisión, contraseña del locutor y una lista de reproducción']).join(', ')}.`}
+          </p>
+        </div>
       </div>
       <ErrorCampo texto={error} />
     </DialogoContenido>
