@@ -56,31 +56,36 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       enviando={guardar.isPending}
       textoBoton={estacion ? 'Guardar' : 'Crear estación'}
     >
-      <div>
-        <EtiquetaCampo htmlFor="est-emisora">Emisora</EtiquetaCampo>
-        <SelectField id="est-emisora" value={radioId} disabled={Boolean(estacion)} onChange={(e) => setRadioId(e.target.value)}>
-          {emisoras.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </SelectField>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1 space-y-4">
         <div>
-          <EtiquetaCampo htmlFor="est-nombre">Nombre</EtiquetaCampo>
-          <Input id="est-nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); if (!estacion) setEnlace(slugDe(e.target.value)); }} placeholder="Luz Música" className="text-xs" />
+          <EtiquetaCampo htmlFor="est-emisora">Emisora</EtiquetaCampo>
+          <SelectField id="est-emisora" value={radioId} disabled={Boolean(estacion)} onChange={(e) => setRadioId(e.target.value)}>
+            {emisoras.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </SelectField>
         </div>
-        <div>
-          <EtiquetaCampo htmlFor="est-enlace">Enlace (slug)</EtiquetaCampo>
-          <Input id="est-enlace" value={enlace} onChange={(e) => setEnlace(e.target.value)} className="text-xs font-mono" />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <EtiquetaCampo htmlFor="est-nombre">Nombre</EtiquetaCampo>
+            <Input id="est-nombre" value={nombre} onChange={(e) => { setNombre(e.target.value); if (!estacion) setEnlace(slugDe(e.target.value)); }} placeholder="Luz Música" className="text-xs" />
+          </div>
+          <div>
+            <EtiquetaCampo htmlFor="est-enlace">Enlace (slug)</EtiquetaCampo>
+            <Input id="est-enlace" value={enlace} onChange={(e) => setEnlace(e.target.value)} className="text-xs font-mono" />
+          </div>
+        </div>
+        </div>
+        <div className="w-40 shrink-0">
+        <ImagenCampo
+          etiqueta="Foto de la estación"
+          valor={imagen}
+          onChange={(url) => setImagen(url)}
+          ratio={16 / 9}
+          etiquetaRatio="16:9"
+          recomendacion="Horizontal (16:9). Es la foto que ve el oyente en la lista de estaciones de la web."
+        />
         </div>
       </div>
-
-      <ImagenCampo
-        etiqueta="Foto de la estación"
-        valor={imagen}
-        onChange={(url) => setImagen(url)}
-        ratio={16 / 9}
-        etiquetaRatio="16:9"
-        recomendacion="Horizontal (16:9). Es la foto que ve el oyente en la lista de estaciones de la web."
-      />
 
       <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
         <input type="checkbox" checked={autodj} onChange={(e) => setAutodj(e.target.checked)} disabled={Boolean(estacion?.autodjEnabled)} className="mt-0.5 accent-primary" />
