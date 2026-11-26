@@ -112,7 +112,8 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 - **Causa**: el empaquetado MPEG-TS de Liquidsoap/ffmpeg mete ~25 % de bytes de más por segmento. Un remux sin recodificar del mismo segmento lo baja de 108 KB a 82 KB, pero no encontramos opción en Liquidsoap que lo quite.
 - **Efecto en redes lentas**: la variante «baja» necesita ~100 kbps de red, así que no protege a quien tiene menos de eso.
 - **Cambio de calidad**: reinicia solo esa estación. Medido: los oyentes de `musica` tuvieron huecos de hasta ~0,7 s y reconectaron solos. `principal` no tuvo ningún corte.
-- **Decisión pendiente**: bajar `calidad_baja` (por ejemplo a 24 kbps) o cambiar el empaquetado del HLS. Ninguna de las dos está hecha.
+- **Codificador descartado como causa**: la imagen de Liquidsoap trae `libfdk_aac` (como AzuraCast). Con los dos codificadores a 48 kbps, en el mismo intervalo, `libfdk_aac` escribió 167 KB y el nativo 170 KB. El peso extra está en el empaquetado MPEG-TS, no en el codificador.
+- **Decisión pendiente**: bajar `calidad_baja` (por ejemplo a 24 kbps) o revisar las opciones del muxer MPEG-TS / el formato del HLS. Ninguna está hecha.
 
 ## 6. Emisoras, estaciones y archivos
 
