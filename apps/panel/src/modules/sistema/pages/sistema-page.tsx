@@ -26,7 +26,7 @@ export const SistemaPage: React.FC = () => {
   const estaciones = useEstaciones();
   const registros = useQuery({ queryKey: ['sistema', 'registros', proceso], queryFn: () => luzApi.registrosRadio(proceso), refetchInterval: 10000 });
   const ajustes = useQuery({ queryKey: ['sistema', 'ajustes'], queryFn: () => luzApi.ajustesSistema() });
-  const [form, setForm] = useState({ respaldoActivo: true, respaldoHora: '03:00', respaldoDiasRetencion: 14, muestrasDiasRetencion: 180 });
+  const [form, setForm] = useState({ respaldoActivo: true, respaldoHora: '03:00', respaldoDiasRetencion: 14, muestrasDiasRetencion: 180, copiaExternaDestino: '' });
   useEffect(() => { if (ajustes.data) setForm(ajustes.data.ajustes); }, [ajustes.data]);
   const guardarAjustes = useMutation({
     mutationFn: () => luzApi.guardarAjustesSistema(form),
@@ -110,6 +110,11 @@ export const SistemaPage: React.FC = () => {
               <input type="number" min={7} max={3650} value={form.muestrasDiasRetencion} onChange={(e) => setForm({ ...form, muestrasDiasRetencion: Number(e.target.value) })} className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm" />
             </label>
           </div>
+          <label className="block space-y-1 text-xs">
+            <span className="text-muted-foreground">Copia externa (opcional): destino donde se envía cada copia</span>
+            <input type="text" value={form.copiaExternaDestino} placeholder="usuario@servidor:/ruta/ o vacío para apagarla" onChange={(e) => setForm({ ...form, copiaExternaDestino: e.target.value })} className="h-9 w-full rounded-xl border border-border bg-background px-3 font-mono text-sm" />
+            <span className="block text-[11px] text-muted-foreground">Se envía con rsync por SSH (clave sin contraseña). Las copias viejas del destino no se borran solas.</span>
+          </label>
           <div className="flex justify-end">
             <Button size="sm" className="text-xs" onClick={() => guardarAjustes.mutate()} disabled={guardarAjustes.isPending}>Guardar ajustes</Button>
           </div>

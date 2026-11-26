@@ -1,0 +1,1 @@
+ALTER TABLE "sistema_ajustes" ADD COLUMN "copia_externa_destino" text DEFAULT '' NOT NULL;

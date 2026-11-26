@@ -612,8 +612,8 @@ export const luzApi = {
     return request(`/api/v1/radio/estaciones/${estacionId}/ahora`);
   },
   /** Sistema (superadmin): tareas de fondo y copias de seguridad */
-  ajustesSistema() { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number } }>('/api/v1/sistema/ajustes'); },
-  guardarAjustesSistema(input: Partial<{ respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number }>) { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number } }>('/api/v1/sistema/ajustes', { method: 'PUT', body: JSON.stringify(input) }); },
+  ajustesSistema() { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number; copiaExternaDestino: string } }>('/api/v1/sistema/ajustes'); },
+  guardarAjustesSistema(input: Partial<{ respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number; copiaExternaDestino: string }>) { return request<{ ajustes: { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number; copiaExternaDestino: string } }>('/api/v1/sistema/ajustes', { method: 'PUT', body: JSON.stringify(input) }); },
   tareasSistema() { return request<{ tareas: { clave: string; nombre: string; ultimaEjecucion: string | null; ultimoResultado: 'ok' | 'error' | null; detalle: string }[] }>('/api/v1/sistema/tareas'); },
   ejecutarTareaSistema(clave: string) { return request<{ tarea: unknown }>(`/api/v1/sistema/tareas/${clave}/ejecutar`, { method: 'POST' }); },
   respaldosSistema() { return request<{ respaldos: { nombre: string; bytes: number; creado: string }[] }>('/api/v1/sistema/respaldos'); },

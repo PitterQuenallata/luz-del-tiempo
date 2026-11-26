@@ -211,7 +211,7 @@ Problemas encontrados y corregidos:
 
 Pendiente:
 - **Seguridad de locutores**: hoy cada emisora tiene su contraseña fija de locutor y la contraseña de la fuente de Icecast es común a todas. AzuraCast valida al DJ contra la API en cada conexión. Falta: validar el harbor contra la API y contraseña de fuente por emisora.
-- **Copias fuera del servidor**: hoy quedan en el VPS y se descargan a mano. Falta una copia automática a otro lugar.
+- **Copias fuera del servidor**: hecho con rsync hacia un destino configurable en Sistema (probado con carpeta local). Falta probarlo por SSH y definir el destino real.
 - **Contraseñas en la copia**: `stations.json` guarda las contraseñas de locutor sin cifrar; la copia las incluye. Por eso solo el superadmin la descarga.
 - **Docker en el VPS**: el stack está pensado para Debian + Docker. Hace falta instalarlo en el Contabo y restaurar el `.env` y una copia; no se ha probado allí.
 

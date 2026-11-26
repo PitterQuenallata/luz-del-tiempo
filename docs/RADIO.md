@@ -95,7 +95,10 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 - **Emitiendo** (estación): pista que suena, siguiente lista y últimas canciones.
 
 **Pendiente:**
-- Copia de seguridad fuera del servidor (hoy queda en el VPS y se descarga a mano).
+- Copia externa: hecha con un destino local (probada). Falta probarla por SSH contra el destino real y decidir dónde guardarla.
+  - Se configura en Sistema → «Copia externa». Vacío = apagada.
+  - Requisitos en el servidor: `rsync` y `openssh-client`, y una clave SSH sin contraseña para el usuario que corre la API.
+  - La retención en el destino no se aplica sola: las copias viejas hay que borrarlas allá.
 - Despliegue en el Contabo VPS (Docker + restaurar `.env` y una copia; no se ha probado allí).
 - Prueba del emisor .exe con el inicio de sesión de locutor.
 

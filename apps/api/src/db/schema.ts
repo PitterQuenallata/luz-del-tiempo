@@ -697,6 +697,8 @@ export const sistemaAjustes = pgTable('sistema_ajustes', {
   respaldoHora: text('respaldo_hora').notNull().default('03:00'), // HH:MM, hora de La Paz
   respaldoDiasRetencion: integer('respaldo_dias_retencion').notNull().default(14),
   muestrasDiasRetencion: integer('muestras_dias_retencion').notNull().default(180),
+  // Destino de la copia externa (rsync): vacío = apagada. Ej.: usuario@servidor:/ruta/ o /ruta/absoluta
+  copiaExternaDestino: text('copia_externa_destino').notNull().default(''),
 });
 
 // Historial de reproducción: cada pista que empezó en una estación (lo importa la API desde la radio-api)

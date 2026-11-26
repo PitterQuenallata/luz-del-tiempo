@@ -2,7 +2,7 @@
 // Se guardan en RESPALDOS_DIR. Se descargan desde el panel (superadmin), así llegan al PC.
 // La base se exporta con pg_dump (PG_DUMP_BIN si no está en el PATH). Los audios NO van: son muy grandes.
 import { spawn } from 'node:child_process';
-import { cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { sistemaAjustes } from '../db/schema.js';
@@ -40,13 +40,28 @@ export async function crearRespaldo(): Promise<string> {
     await writeFile(path.join(tmp, 'LEEME.txt'), `Copia de La Luz del Tiempo\nFecha: ${new Date().toISOString()}\nContenido: base de datos (SQL) y configuración de la radio. Sin audios.\n`);
     // 4. Comprimir
     await ejecutar('tar', ['-czf', path.join(CARPETA_RESPALDOS, nombre), '-C', tmp, '.']);
+    // Solo el dueño la lee: la copia lleva las contraseñas de los locutores
+    await chmod(path.join(CARPETA_RESPALDOS, nombre), 0o600);
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
   // La retención la fija el panel (Sistema, ajustes): se lee de la base en cada copia
   await limpiarViejos(await diasDeRetencion());
+  // Copia externa (si el panel tiene destino). Si falla, la copia local ya quedó hecha.
+  const destino = (await leerAjustesSistema()).copiaExternaDestino;
+  if (destino) {
+    try {
+      // -a conserva el modo 600 del archivo (las copias llevan contraseñas de locutor)
+      await ejecutar('rsync', ['-a', '--timeout=120', path.join(CARPETA_RESPALDOS, nombre), destino]);
+    } catch (err) {
+      throw new Error(`La copia se hizo aquí (${nombre}), pero no se pudo enviar a ${destino}: ${(err as Error).message}`);
+    }
+  }
   return nombre;
 }
+
+// Destino válido: ruta absoluta local o usuario@servidor:/ruta absoluta. Sin guion inicial (no se confunde con una opción).
+export const PATRON_DESTINO = /^(?:[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:)?\/[A-Za-z0-9._\/-]*$/;
 
 export interface RespaldoInfo { nombre: string; bytes: number; creado: string }
 
@@ -82,7 +97,7 @@ export async function limpiarViejos(dias: number): Promise<number> {
   return borradas;
 }
 
-export interface AjustesSistema { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number }
+export interface AjustesSistema { respaldoActivo: boolean; respaldoHora: string; respaldoDiasRetencion: number; muestrasDiasRetencion: number; copiaExternaDestino: string }
 
 /** Lee los ajustes del sistema; si no hay fila, la crea con los valores por defecto. */
 export async function leerAjustesSistema(): Promise<AjustesSistema> {
