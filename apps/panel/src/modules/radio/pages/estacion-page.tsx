@@ -509,16 +509,16 @@ const FilaVinculada: React.FC<{
 
 // Una sección de la pestaña: título, explicación y contenido, separada por una línea (sin cards anidadas)
 const Seccion: React.FC<{ titulo: string; descripcion?: string; accion?: React.ReactNode; children: React.ReactNode }> = ({ titulo, descripcion, accion, children }) => (
-  <section className="space-y-5">
-    <div className="flex flex-wrap items-end justify-between gap-3">
+  <Card className="border-border">
+    <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
       <div>
-        <h2 className="text-sm font-semibold">{titulo}</h2>
-        {descripcion && <p className="mt-1 text-xs text-muted-foreground">{descripcion}</p>}
+        <CardTitle className="text-sm font-semibold">{titulo}</CardTitle>
+        {descripcion && <CardDescription className="mt-1 text-xs">{descripcion}</CardDescription>}
       </div>
       {accion}
-    </div>
-    {children}
-  </section>
+    </CardHeader>
+    <CardContent className="space-y-5">{children}</CardContent>
+  </Card>
 );
 
 const Transmision: React.FC<{ estacion: ApiEmisora; avanzado: boolean; admin: boolean; editaTransmision: boolean }> = (props) => {
@@ -535,7 +535,7 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
   const form = useFormularioTransmision(estacion, t);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6">
       <Seccion titulo="Control" descripcion="Encender o apagar la estación, escucharla y copiar el enlace para los oyentes.">
         <EstacionControles emisora={estacion} transmision={t} />
         {servicio.data && !servicio.data.encendida && (
@@ -543,8 +543,8 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
         )}
       </Seccion>
 
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-12">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-6">
           {editaTransmision ? (
             <Seccion titulo="Configuración de transmisión" descripcion="Lo que guardas aquí lo usan el locutor y la radio.">
               <form onSubmit={form.enviar} className="space-y-6" noValidate>
@@ -564,7 +564,7 @@ const TransmisionContenido: React.FC<{ estacion: ApiEmisora; avanzado: boolean; 
           )}
         </div>
 
-        <aside className="space-y-12">
+        <aside className="space-y-6">
           <Seccion titulo="Datos para el locutor" descripcion="Con esto se conecta BUTT, OBS o el emisor de Windows.">
             {form.recien && (
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs">
