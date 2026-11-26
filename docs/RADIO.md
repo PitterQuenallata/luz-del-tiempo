@@ -105,6 +105,15 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 **Próximo plan (no empezado):**
 - Emisora apagada u oculta (`visibleInMinistry = false`) debe desaparecer de la **web** y de la **app móvil**: hoy el interruptor solo apaga el stream, y el reproductor público todavía no lo consulta.
 
+## 5b. Calidades y redes inestables (medido el 26/11/2026)
+
+- **Audio real** (con `ffprobe`): la variante `alta` (configurada 128) sale a ~134 kbps de audio y la `baja` (configurada 48) a ~51 kbps. La codificación es correcta.
+- **Lo que viaja por la red** (segmentos HLS de 4 s): `alta` ~211 kbps y `baja` ~97 kbps. Casi el doble de la baja configurada.
+- **Causa**: el empaquetado MPEG-TS de Liquidsoap/ffmpeg mete ~25 % de bytes de más por segmento. Un remux sin recodificar del mismo segmento lo baja de 108 KB a 82 KB, pero no encontramos opción en Liquidsoap que lo quite.
+- **Efecto en redes lentas**: la variante «baja» necesita ~100 kbps de red, así que no protege a quien tiene menos de eso.
+- **Cambio de calidad**: reinicia solo esa estación. Medido: los oyentes de `musica` tuvieron huecos de hasta ~0,7 s y reconectaron solos. `principal` no tuvo ningún corte.
+- **Decisión pendiente**: bajar `calidad_baja` (por ejemplo a 24 kbps) o cambiar el empaquetado del HLS. Ninguna de las dos está hecha.
+
 ## 6. Emisoras, estaciones y archivos
 
 Tres niveles:
