@@ -88,6 +88,17 @@ curl -H "Authorization: Bearer $RADIO_API_TOKEN" -F file=@cancion.mp3 \
 
 ## 5. Pendientes
 
+**Hecho en el panel (menú por secciones):**
+- **Informes**: oyentes por hora del día y por día de la semana, pico y promedio por emisora, y el historial de reproducción de cada estación.
+- **Sistema** (superadmin): copias de seguridad con hora y días de retención configurables, tareas de fondo y registros de la radio.
+- **Medios → Revisión**: posibles duplicados y audios sin asignar a ninguna lista.
+- **Emitiendo** (estación): pista que suena, siguiente lista y últimas canciones.
+
+**Pendiente:**
+- Copia de seguridad fuera del servidor (hoy queda en el VPS y se descarga a mano).
+- Despliegue en el Contabo VPS (Docker + restaurar `.env` y una copia; no se ha probado allí).
+- Prueba del emisor .exe con el inicio de sesión de locutor.
+
 **Próximo plan (no empezado):**
 - Emisora apagada u oculta (`visibleInMinistry = false`) debe desaparecer de la **web** y de la **app móvil**: hoy el interruptor solo apaga el stream, y el reproductor público todavía no lo consulta.
 

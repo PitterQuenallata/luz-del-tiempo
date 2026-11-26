@@ -23,13 +23,13 @@ Cambios:
   se cae en menos de 30 s (hasta 30 s). Detiene la que sale de la lista. Caché propia por estación.
 - `infra/radio/liquidsoap/radio.liq`: lee `STATION_SLUG`; crea solo esa estación; usa `st.harbor_port`;
   se cierra solo si cambia su entrada en `stations.json` (ya no compara el archivo entero).
-- `infra/radio/compose.yaml`: `entrypoint` = `supervisa.sh`; `init: true`; puertos `8005-8010`.
+- `infra/radio/compose.yaml`: `entrypoint` = `supervisa.sh`; `init: true`; puertos `8005-8010`. (Ya superado: hoy es un bloque de 10 puertos por emisora dentro de 8000–8199; ver `RADIO.md`.)
 - `apps/radio-api/src/stations.ts`: `harbor_port` por estación; migración (las existentes reciben 8005, 8006…);
   puerto libre al crear; `emisoras.txt` con las emisoras **encendidas**. `index.ts` responde 409 `sin_puerto_libre`.
 - `apps/api`: columna `stations.harbor_port` (migración `0027_harbor_port.sql`, aplicada en la base de desarrollo);
   la sincronización guarda el puerto que devuelve la radio-api; el panel (`vistaTransmision`) y el emisor
   (`/emisoras`) usan el puerto de **su** emisora. Se quitó la lectura de `RADIO_HARBOR_PORT`.
-- Panel: el texto fijo «8005» de Configuración ahora dice «8005–8010, uno por emisora».
+- Panel: el texto fijo de Configuración describe hoy los bloques de 10 puertos dentro de 8000–8199 (máximo 20 emisoras).
 
 Verificado en Docker (Colima), 2026-11-25:
 - Tres emisoras en el supervisor, cada una con su puerto (principal 8005, musica 8006, salud 8007).
@@ -197,7 +197,10 @@ Comparación con AzuraCast (código en la carpeta de referencia): ver la convers
 - **Reinicios con supervisord** (como AzuraCast): cada emisora es un grupo `<slug>` con `icecast-<slug>` y `liquidsoap-<slug>`. `sincronizar.sh` escribe las confs desde `emisoras.txt`. Probado: matar el Liquidsoap lo levanta solo y cuenta un reinicio; cambiar la calidad reinicia solo el Liquidsoap; el Icecast conserva su PID; crear y borrar una estación aplica y limpia el grupo.
 - **Tareas de fondo** (API, `apps/api/src/tareas/programador.ts`): muestreo de oyentes cada 5 min, copia diaria a las 03:00 (La Paz) y limpieza de muestras de más de 180 días. Cada tarea guarda su último resultado y se puede ejecutar a mano desde el panel.
 - **Copias de seguridad** (`apps/api/src/tareas/respaldo.ts`): un `.tar.gz` con la base (`pg_dump`, SQL) y la configuración de la radio. Sin audios. Retención de 14 días. Se descargan desde el panel (**Sistema**, solo superadmin), así llegan al PC. La carpeta `apps/api/respaldos/` está en `.gitignore`.
-- **Informes**: `GET /api/v1/radio/reportes/oyentes` (pico y promedio por emisora y día), mostrado en Sistema.
+- **Informes** (menú Radio → Informes): oyentes por emisora y día (pico y promedio), promedio por hora del día y por día de la semana (`GET /api/v1/radio/reportes/oyentes`), y el historial de reproducción de cada estación.
+- **Historial de reproducción**: Liquidsoap anota cada pista que empieza en `infra/radio/data/config/historial/<slug>.log`. La API lo importa cada 5 min a `historial_reproduccion` (sin duplicar) y lo limpia con el mismo plazo de muestras. Se muestra en Informes y en «Últimas canciones» de Emitiendo.
+- **Medios → Revisión**: posibles duplicados (mismo título y artista) y audios sin asignar a ninguna lista (`GET /api/v1/radio/emisoras/:id/revision-pistas`).
+- **Sistema** con pestañas «Copias y tareas» y «Registros de la radio». Ajustes de copia (hora, días) y de muestras se cambian desde el panel.
 - **Registros**: supervisord escribe en `infra/radio/data/logs` con rotación (5 MB, 3 copias). La radio-api los lee y el panel los muestra por emisora.
 - **Imagen Debian**: Liquidsoap + Icecast + supervisord en `infra/radio/liquidsoap/Dockerfile`.
 

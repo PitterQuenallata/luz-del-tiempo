@@ -547,7 +547,7 @@ radioMusicaRoutes.get('/estaciones/:id/historial', ACCESO, async (c) => {
     .orderBy(desc(historialReproduccion.startedAt))
     .limit(limite);
   // Sin etiquetas en el audio, el título es el nombre del archivo
-  return c.json({ pistas: filas.map((f) => ({ inicio: f.startedAt.toISOString(), titulo: f.titulo || f.archivo.split('/').pop()?.replace(/\.[^.]+$/, '') || '', artista: f.artista, lista: f.lista, archivo: f.archivo })) });
+  return c.json({ pistas: filas.map((f) => ({ inicio: f.startedAt.toISOString(), titulo: f.titulo || f.archivo.split('/').pop()?.replace(/\.[^.]+$/, '') || '', artista: f.artista === '<unknown>' ? '' : f.artista, lista: f.lista, archivo: f.archivo })) });
 });
 
 // Reinicia el Icecast (oyentes) o el AutoDJ (Liquidsoap) de la estación. Solo esa estación se reinicia.

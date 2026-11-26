@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ArrowDown, ArrowUp, Blend, CalendarClock, Copy, GripVertical, Headphones, ListMusic, ListOrdered, Plus, Radio, Shuffle, SkipForward, X } from 'lucide-react';
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
@@ -143,6 +144,7 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
   const transmision = useTransmision(estacion.id, 5000);
   const ahora = useAhoraSuena(estacion.id);
   const proceso = useProceso(estacion.id).data?.proceso ?? null;
+  const recientes = useQuery({ queryKey: ['estacion', estacion.id, 'historial-reciente'], queryFn: () => luzApi.historialEstacion(estacion.id, 5), refetchInterval: 30000 }).data?.pistas ?? [];
   const reiniciarServicio = useMutation({
     mutationFn: (servicio: 'icecast' | 'autodj') => luzApi.reiniciarServicio(estacion.id, servicio),
     onSuccess: () => pillToast.success('Servicio reiniciado', 'Solo esta estación; las demás siguen al aire.'),
@@ -186,6 +188,17 @@ const Resumen: React.FC<{ estacion: ApiEmisora; cambiarPestana: (p: Pestana) => 
                     ? `reiniciando (último código de salida: ${proceso.ultimoCodigo ?? 'desconocido'})`
                     : 'sin proceso: la emisora está apagada o la radio no responde'}
               </p>
+            )}
+            {recientes.length > 0 && (
+              <div className="space-y-1 border-t border-border pt-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Últimas canciones</p>
+                {recientes.map((r, i) => (
+                  <p key={`${r.inicio}-${i}`} className="truncate text-xs">
+                    <span className="font-mono text-muted-foreground">{new Date(r.inicio).toLocaleTimeString('es-BO', { timeZone: 'America/La_Paz', hour: '2-digit', minute: '2-digit' })}</span>{' '}
+                    {r.titulo || r.archivo || '—'}{r.artista ? <span className="text-muted-foreground"> · {r.artista}</span> : null}
+                  </p>
+                ))}
+              </div>
             )}
             {!enAire && <p className="text-sm text-muted-foreground">La estación no está al aire.</p>}
             {enAire && !sonando && <p className="text-sm text-muted-foreground">Al aire, sin información de la pista todavía.</p>}
