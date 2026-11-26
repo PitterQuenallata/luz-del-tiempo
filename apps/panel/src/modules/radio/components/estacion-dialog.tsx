@@ -124,7 +124,20 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
       <div className="grid grid-cols-2 gap-3">
         <div>
           <EtiquetaCampo htmlFor="est-estado">Estado</EtiquetaCampo>
-          <SelectField id="est-estado" value={estado} onChange={(e) => setEstado(e.target.value as EstacionInput['status'])}>
+          <SelectField id="est-estado" value={estado} onChange={async (e) => {
+            const nuevo = e.target.value as EstacionInput['status'];
+            // Si es la principal y deja de estar activa, la web mostrará la siguiente estación como primera: se avisa
+            if (estacion?.isMain && nuevo !== 'active') {
+              const ok = await confirmar({
+                title: '¿Apagar la estación principal?',
+                text: 'La web mostrará la siguiente estación como primera mientras esta no esté activa. Puedes volver a activarla cuando quieras.',
+                type: 'warning',
+                confirmText: 'Sí, cambiar estado',
+              });
+              if (!ok) return;
+            }
+            setEstado(nuevo);
+          }}>
             {estacion?.status === 'draft' && <option value="draft">Borrador</option>}
             <option value="active">Activa</option>
             <option value="suspended">Pausada (suspendida)</option>
