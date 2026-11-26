@@ -14,7 +14,7 @@ import { EtiquetaCampo, claseTextarea } from '../../contenido/components/dialogo
 import { ImagenCampo } from '../../contenido/components/imagen-campo';
 import { slugDe } from '../../contenido/components/area-dialog';
 
-// Emisora (contenedor). Pensada para entrar en una pantalla: foto y datos arriba, tipo y publicación en medio, contacto abajo.
+// Emisora (contenedor). Pensada para entrar en una pantalla: foto y datos arriba, tipo y publicación abajo.
 // Una emisora de un tercero tiene un responsable y una sola estación. La del ministerio ya existe: no se crea otra.
 
 type Estado = 'draft' | 'active' | 'suspended' | 'disabled';
@@ -67,10 +67,6 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
       visibleInMinistry: emisora?.visibleInMinistry ?? true,
       status: (emisora?.status ?? 'active') as Estado,
       sortOrder: emisora?.sortOrder ?? 0,
-      contactName: emisora?.contactName ?? '',
-      contactPhone: emisora?.contactPhone ?? '',
-      contactEmail: emisora?.contactEmail ?? '',
-      notes: emisora?.notes ?? '',
     },
     onSubmit: async ({ value }) => {
       const parsed = radioSchema.safeParse({
@@ -87,10 +83,10 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
         visibleInMinistry: value.visibleInMinistry,
         status: value.status,
         sortOrder: Number(value.sortOrder) || 0,
-        contactName: value.contactName.trim() || null,
-        contactPhone: value.contactPhone.trim() || null,
-        contactEmail: value.contactEmail.trim() || '',
-        notes: value.notes.trim() || null,
+        contactName: null,
+        contactPhone: null,
+        contactEmail: null,
+        notes: null,
       });
       if (!parsed.success) {
         setErrorForm(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
@@ -287,41 +283,6 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
 
       </div>
 
-      {/* Fila 3: contacto interno */}
-      <Caja titulo="Contacto interno" columnas="cuatro">
-        <form.Field name="contactName">
-          {(f) => (
-            <div>
-              <EtiquetaCampo htmlFor="emisora-contacto">Persona de contacto</EtiquetaCampo>
-              <Input id="emisora-contacto" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)} className="text-xs" />
-            </div>
-          )}
-        </form.Field>
-        <form.Field name="contactPhone">
-          {(f) => (
-            <div>
-              <EtiquetaCampo htmlFor="emisora-telefono">Teléfono</EtiquetaCampo>
-              <Input id="emisora-telefono" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)} className="text-xs" />
-            </div>
-          )}
-        </form.Field>
-        <form.Field name="contactEmail">
-          {(f) => (
-            <div>
-              <EtiquetaCampo htmlFor="emisora-correo">Correo</EtiquetaCampo>
-              <Input id="emisora-correo" type="email" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)} className="text-xs" />
-            </div>
-          )}
-        </form.Field>
-        <form.Field name="notes">
-          {(f) => (
-            <div>
-              <EtiquetaCampo htmlFor="emisora-notas">Notas</EtiquetaCampo>
-              <Input id="emisora-notas" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)} className="text-xs" />
-            </div>
-          )}
-        </form.Field>
-      </Caja>
 
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2 rounded-b-2xl border-t border-border/60 bg-card p-4">

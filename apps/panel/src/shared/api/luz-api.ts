@@ -527,8 +527,8 @@ export const luzApi = {
 
   async listRadios(): Promise<ApiRadio[]> { return (await request<{ emisoras: ApiRadio[] }>('/api/v1/radio/emisoras')).emisoras; },
   createRadio(input: RadioInput) { return request('/api/v1/radio/emisoras', { method: 'POST', body: json(input) }); },
-  updateRadio(id: string, input: RadioInput) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'PATCH', body: json(input) }); },
-  deleteRadio(id: string) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'DELETE' }); },
+  updateRadio(id: string, input: RadioInput) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'PATCH', body: json(input) }); },
+  deleteRadio(id: string) { return request(`/api/v1/radio/emisoras/${id}`, { method: 'DELETE' }); },
   async listEstaciones(): Promise<ApiEmisora[]> { return (await request<{ estaciones: ApiEmisora[] }>('/api/v1/radio/estaciones')).estaciones; },
   createEstacion(input: EstacionInput) { return request<{ estacion: ApiEmisora }>('/api/v1/radio/estaciones', { method: 'POST', body: json(input) }); },
   updateEstacion(id: string, input: Partial<EstacionInput>) { return request(`/api/v1/radio/estaciones/${id}`, { method: 'PATCH', body: json(input) }); },
