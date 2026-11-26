@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { loadCurrentUser, requirePermission } from '../../lib/authz.js';
+import { requirePermission } from '../../lib/authz.js';
 import { db } from '../../db/index.js';
 import { permissions, rolePermissions, roles, users } from '../../db/schema.js';
 import { rolSchema } from '@luz/shared';
@@ -122,11 +122,4 @@ rolesRoutes.delete('/:id', requirePermission('roles:gestionar'), async (c) => {
   }
   await db.delete(roles).where(eq(roles.id, id));
   return c.json({ ok: true });
-});
-
-// Para la sesión actual (usado por la pantalla de permisos)
-rolesRoutes.get('/yo', async (c) => {
-  const user = await loadCurrentUser(c.req.raw.headers);
-  if (!user) return c.json({ error: 'no_autenticado' }, 401);
-  return c.json({ roleKey: user.roleKey });
 });
