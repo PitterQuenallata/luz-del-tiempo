@@ -12,7 +12,7 @@ import { NoticiaDialog } from '../../noticias/components/noticia-dialog';
 import { ActividadEditorPage } from '../../actividades/pages/actividad-editor-page';
 import { VideoDialog } from '../../videos/components/video-dialog';
 import { SerieDialog } from '../../videos/components/serie-dialog';
-import { RadioDialog } from '../../radio/components/radio-dialog';
+import { EmisoraFormPage } from '../../radio/pages/emisora-form-page';
 import { EstacionDialog } from '../../radio/components/estacion-dialog';
 import { ProgramaDialog } from '../../radio/components/programa-dialog';
 
@@ -159,12 +159,11 @@ export const RadioEdicionPage = () => {
   if (id !== 'nueva' && isLoading) return <Cargando />;
   const emisora = id === 'nueva' ? null : (data ?? []).find((e) => e.id === id) ?? null;
   if (id !== 'nueva' && !emisora) return <NoEncontrado volver="/emisoras" />;
+  // Sin el contenedor Pagina: la emisora ocupa el mismo ancho que la lista de Emisoras.
   return (
-    <Pagina>
-      <Entre clave={id}>
-        <RadioDialog emisora={emisora} onClose={() => irA('/emisoras')} />
-      </Entre>
-    </Pagina>
+    <Entre clave={id}>
+      <EmisoraFormPage emisora={emisora} />
+    </Entre>
   );
 };
 

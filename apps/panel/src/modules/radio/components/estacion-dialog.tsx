@@ -6,6 +6,7 @@ import { ApiEmisora, ApiRadio, luzApi } from '../../../shared/api/luz-api';
 import { useMutacionGestion } from '../../gestion/hooks/use-gestion';
 import { DialogoContenido, EtiquetaCampo, ErrorCampo } from '../../contenido/components/dialogo-contenido';
 import { slugDe } from '../../contenido/components/area-dialog';
+import { ImagenCampo } from '../../contenido/components/imagen-campo';
 
 interface EstacionDialogProps {
   estacion: ApiEmisora | null; // null = nueva
@@ -14,7 +15,7 @@ interface EstacionDialogProps {
   onClose: () => void;
 }
 
-// Estación dentro de una emisora. Al crearla se elige si lleva AutoDJ (su propia música) o solo transmite.
+// Estación dentro de una emisora. Al crearla se elige si lleva AutoDJ (con las listas de la emisora) o solo transmite.
 export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisoras, radioIdInicial, onClose }) => {
   const [radioId, setRadioId] = useState(estacion?.radioId ?? radioIdInicial ?? emisoras[0]?.id ?? '');
   const [nombre, setNombre] = useState(estacion?.name ?? '');
@@ -22,6 +23,7 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
   const [estado, setEstado] = useState<EstacionInput['status']>(estacion?.status ?? 'draft');
   const [autodj, setAutodj] = useState(estacion?.autodjEnabled ?? true);
   const [visible, setVisible] = useState(estacion?.visibleInMinistry ?? true);
+  const [imagen, setImagen] = useState<string | null>(estacion?.imageUrl ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const guardar = useMutacionGestion(
@@ -32,14 +34,14 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const datos = { radioId, name: nombre.trim(), slug: enlace.trim(), status: estado, autodjEnabled: autodj, visibleInMinistry: visible, sortOrder: estacion?.sortOrder ?? 0 };
+    const datos = { radioId, name: nombre.trim(), slug: enlace.trim(), status: estado, autodjEnabled: autodj, visibleInMinistry: visible, sortOrder: estacion?.sortOrder ?? 0, imageUrl: imagen };
     const parsed = estacionSchema.safeParse(datos);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
       return;
     }
     setError(null);
-    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, visibleInMinistry: visible } : parsed.data);
+    await guardar.mutateAsync(estacion ? { name: datos.name, slug: datos.slug, status: estado, autodjEnabled: autodj, visibleInMinistry: visible, imageUrl: imagen } : parsed.data);
     onClose();
   };
 
@@ -69,12 +71,21 @@ export const EstacionDialog: React.FC<EstacionDialogProps> = ({ estacion, emisor
         </div>
       </div>
 
+      <ImagenCampo
+        etiqueta="Foto de la estación"
+        valor={imagen}
+        onChange={(url) => setImagen(url)}
+        ratio={16 / 9}
+        etiquetaRatio="16:9"
+        recomendacion="Horizontal (16:9). Es la foto que ve el oyente en la lista de estaciones de la web."
+      />
+
       <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-border p-3">
         <input type="checkbox" checked={autodj} onChange={(e) => setAutodj(e.target.checked)} className="mt-0.5 accent-primary" />
         <span>
-          <span className="block font-medium">Crear AutoDJ (música automática)</span>
+          <span className="block font-medium">AutoDJ</span>
           <span className="block text-[11px] text-muted-foreground">
-            La estación tendrá su propia lista de música, que nunca se mezcla con la de otra estación. Desmárcalo si solo va a transmitir en vivo.
+            Cuando no hay programa ni locutor en vivo, suena con las listas de la emisora que vincules en la pestaña AutoDJ. Desmárcalo si solo va a transmitir en vivo.
           </span>
         </span>
       </label>

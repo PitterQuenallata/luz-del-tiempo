@@ -262,7 +262,7 @@ export interface ApiRadio {
 // Estación: lo que transmite dentro de una emisora (con su AutoDJ y su archivo)
 export interface ApiEmisora {
   id: string; radioId: string; slug: string; name: string; kind: 'own' | 'external'; isMain: boolean; visibleInMinistry: boolean;
-  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean;
+  status: 'draft' | 'active' | 'suspended' | 'disabled'; sortOrder: number; autodjEnabled: boolean; imageUrl: string | null;
   transmision: { mountPoint: string | null; livePasswordConfigurada: boolean; encendida: boolean; radioEncendida: boolean; enAire: boolean; oyentes: number; autodjEnabled: boolean };
 }
 export interface ApiFranja { id: string; programId: string; dayOfWeek: number; startTime: string; endTime: string; isLive: boolean; }
@@ -305,7 +305,7 @@ export interface ApiPista {
 }
 export interface ApiHorarioPlaylist { dayOfWeek: number; startTime: string; endTime: string }
 export interface ApiPlaylist {
-  id: string; stationId: string | null; radioId: string | null; ambito: 'estacion' | 'emisora'; activa: boolean; name: string; description: string | null; mode: 'rotacion' | 'secuencial' | 'programada';
+  id: string; stationId: string | null; radioId: string | null; ambito: 'estacion' | 'emisora'; activa: boolean; /** Posición en la estación (de arriba abajo); -1 si es de la estación */ orden: number; /** Cómo suenan los audios: uno solo por lista */ ordenPistas: 'mezclado' | 'aleatorio' | 'secuencial'; /** Solo programadas: interrumpe lo que suena a la hora */ interrumpe: boolean; /** Solo programadas: una sola pista por horario */ unaSola: boolean; name: string; description: string | null; mode: 'rotacion' | 'secuencial' | 'programada';
   weight: number; shuffle: boolean; isActive: boolean; trackIds: string[]; schedules: ApiHorarioPlaylist[];
   /** Solo en la biblioteca institucional: emisoras propias que la usan */
   estacionesIds?: string[];
@@ -595,6 +595,29 @@ export const luzApi = {
   },
   moverPistas(emisoraId: string, input: PistasCarpetaInput) { return request<{ movidas: number }>(`/api/v1/radio/estaciones/${emisoraId}/pistas/carpeta`, { method: 'POST', body: json(input) }); },
   borrarPista(id: string) { return request(`/api/v1/radio/pistas/${id}`, { method: 'DELETE' }); },
+  /** Lo que suena ahora en la estación (o null si no hay dato). */
+  async getAhoraSuena(estacionId: string): Promise<{ ahora: { titulo: string; artista: string; lista: string; inicio: number | null } | null }> {
+    return request(`/api/v1/radio/estaciones/${estacionId}/ahora`);
+  },
+  saltarCancion(estacionId: string) {
+    return request(`/api/v1/radio/estaciones/${estacionId}/saltar`, { method: 'POST' });
+  },
+  guardarHorarios(playlistId: string, input: { programada: boolean; horarios: { dayOfWeek: number; startTime: string; endTime: string }[]; interrumpe: boolean; unaSola: boolean }) {
+    return request(`/api/v1/radio/playlists/${playlistId}/horarios`, { method: 'PUT', body: json(input) });
+  },
+  setModoPistas(playlistId: string, orden: 'mezclado' | 'aleatorio' | 'secuencial') {
+    return request(`/api/v1/radio/playlists/${playlistId}/modo-pistas`, { method: 'PUT', body: json({ orden }) });
+  },
+  ordenarPistas(playlistId: string, trackIds: string[]) {
+    return request(`/api/v1/radio/playlists/${playlistId}/pistas-orden`, { method: 'PUT', body: json({ trackIds }) });
+  },
+  ordenarPlaylists(estacionId: string, ids: string[]) {
+    return request(`/api/v1/radio/estaciones/${estacionId}/playlists/orden`, { method: 'PUT', body: json({ ids }) });
+  },
+  /** URL del audio de una pista (para el reproductor del panel). */
+  urlAudioPista(pistaId: string) {
+    return `${API_URL}/api/v1/radio/pistas/${pistaId}/audio`;
+  },
   setUsoPlaylist(estacionId: string, playlistId: string, usar: boolean) {
     return request(`/api/v1/radio/estaciones/${estacionId}/playlists/${playlistId}/uso`, { method: 'PUT', body: json({ usar }) });
   },

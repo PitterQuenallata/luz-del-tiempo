@@ -37,7 +37,6 @@ export const navItems: NavItem[] = [
   { id: 'datos', title: 'Datos del ministerio', path: '/datos-ministerio', icon: Users, category: 'sitio', permiso: 'contenido:editar' },
   { id: 'emisoras', title: 'Emisoras', path: '/emisoras', icon: Radio, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
   { id: 'archivos', title: 'Archivos', path: '/archivos', icon: FolderOpen, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
-  { id: 'tablero', title: 'Playlists', path: '/tablero', icon: LayoutGrid, category: 'radio', permiso: ['estaciones:todas', 'estacion:propia'] },
   { id: 'configuracion-radio', title: 'Radio', path: '/configuracion-radio', icon: Settings2, category: 'configuracion', permiso: ['estaciones:todas', 'estacion:propia'] },
   { id: 'usuarios', title: 'Usuarios y roles', path: '/usuarios', icon: Users, category: 'administracion', permiso: 'usuarios:gestionar' },
   { id: 'donaciones', title: 'Donaciones', path: '/donaciones', icon: HeartHandshake, category: 'administracion', permiso: 'donaciones:ver' },

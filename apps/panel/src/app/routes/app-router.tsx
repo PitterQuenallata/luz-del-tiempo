@@ -72,7 +72,8 @@ const EnVivoPage = withSuspense(lazy(() => import('../../modules/en-vivo/pages/e
 const EmisorasPage = withSuspense(lazy(() => import('../../modules/radio/pages/emisoras-page').then((m) => ({ default: m.EmisorasPage }))));
 const ConfiguracionRadioPage = withSuspense(lazy(() => import('../../modules/radio/pages/configuracion-radio-page').then((m) => ({ default: m.ConfiguracionRadioPage }))));
 const ArchivosPage = withSuspense(lazy(() => import('../../modules/radio/pages/archivos-page').then((m) => ({ default: m.ArchivosPage }))));
-const TableroPage = withSuspense(lazy(() => import('../../modules/radio/pages/tablero-page').then((m) => ({ default: m.TableroPage }))));
+const EstacionPage = withSuspense(lazy(() => import('../../modules/radio/pages/estacion-page').then((m) => ({ default: m.EstacionPage }))));
+const PlaylistEditorPage = withSuspense(lazy(() => import('../../modules/radio/pages/playlist-editor-page').then((m) => ({ default: m.PlaylistEditorPage }))));
 const DonacionesPage = withSuspense(lazy(() => import('../../modules/donaciones/pages/donaciones-page').then((m) => ({ default: m.DonacionesPage }))));
 const ContenidoPage = withSuspense(lazy(() => import('../../modules/contenido/pages/contenido-page').then((m) => ({ default: m.ContenidoPage }))));
 const PerfilPage = withSuspense(lazy(() => import('../../modules/perfil/pages/perfil-page').then((m) => ({ default: m.PerfilPage }))));
@@ -185,7 +186,9 @@ const rutasGestion = [
   { path: '/en-vivo', component: EnVivoPage, permiso: 'contenido:editar' },
   { path: '/emisoras', component: EmisorasPage, permiso: RADIO_ACCESO },
   { path: '/archivos', component: ArchivosPage, permiso: RADIO_ACCESO },
-  { path: '/tablero', component: TableroPage, permiso: RADIO_ACCESO },
+  { path: '/estacion/$id', component: EstacionPage, permiso: RADIO_ACCESO },
+  { path: '/playlists/nueva', component: PlaylistEditorPage, permiso: RADIO_ACCESO },
+  { path: '/playlists/$id', component: PlaylistEditorPage, permiso: RADIO_ACCESO },
   { path: '/configuracion-radio', component: ConfiguracionRadioPage, permiso: RADIO_ACCESO },
   { path: '/emisoras/nueva', component: paginaEdicion('RadioEdicionPage'), permiso: 'estaciones:todas' },
   { path: '/emisoras/$id', component: paginaEdicion('RadioEdicionPage'), permiso: 'estaciones:todas' },

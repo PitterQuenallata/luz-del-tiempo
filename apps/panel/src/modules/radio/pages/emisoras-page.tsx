@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, Pencil, Plus, Radio, Trash2, ListMusic } from 'lucide-react';
+import { Archive, Pencil, Plus, Radio, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '../../../shared/components/ui/card';
 import { Button } from '../../../shared/components/ui/button';
 import { SelectField } from '../../usuarios/components/select-field';
 import { confirmar } from '../../../shared/lib/confirm';
-import { ApiEmisora, ApiFranja, ApiPrograma, ApiRadio, luzApi } from '../../../shared/api/luz-api';
+import { ApiEmisora, luzApi } from '../../../shared/api/luz-api';
 import { useEstaciones, useMutacionGestion, useProgramas, useRadios } from '../../gestion/hooks/use-gestion';
 import { useSession } from '../../auth/hooks/use-session';
 import { DIAS } from '../../gestion/lib/fechas';
@@ -14,17 +14,13 @@ import { FranjaDialog } from '../components/franja-dialog';
 import { ProgramaDialog } from '../components/programa-dialog';
 import { ProgramacionCalendario } from '../components/programacion-calendario';
 import { EstacionDialog } from '../components/estacion-dialog';
-import { RELLENO_ETIQUETA } from '@luz/shared';
 import { Badge } from '../../../shared/components/ui/badge';
 import { Switch } from '../../../shared/components/ui/switch';
-import { pillToast } from '../../../shared/components/ui/pill-toast';
-
-type Pestana = 'emisoras' | 'programacion';
 
 const ETIQUETA_ESTADO: Record<string, string> = { draft: 'Borrador', active: 'Activa', suspended: 'Suspendida', disabled: 'Deshabilitada' };
 
 // Estado de la transmisión de una estación y su interruptor (encender / apagar)
-const EstadoRadio: React.FC<{ emisora: ApiEmisora }> = ({ emisora }) => {
+export const EstadoRadio: React.FC<{ emisora: ApiEmisora }> = ({ emisora }) => {
   const t = emisora.transmision;
   const cambiar = useMutacionGestion((encendida: boolean) => luzApi.setEmisoraEncendida(emisora.id, encendida), 'Estación actualizada', 'No se pudo cambiar la estación');
   const alternar = async (encendida: boolean) => {
@@ -51,7 +47,6 @@ const EstadoRadio: React.FC<{ emisora: ApiEmisora }> = ({ emisora }) => {
 
 // Emisores y estaciones: cada emisora contiene sus estaciones. Solo admin crea emisoras y estaciones.
 export const EmisorasPage: React.FC = () => {
-  const [pestana, setPestana] = useState<Pestana>('emisoras');
   const radios = useRadios();
   const estaciones = useEstaciones();
   const eliminarEstacion = useMutacionGestion((id: string) => luzApi.deleteEstacion(id), 'Estación eliminada', 'No se pudo eliminar la estación');
@@ -59,11 +54,6 @@ export const EmisorasPage: React.FC = () => {
   const admin = (sesion.data?.permisos ?? []).includes('estaciones:todas');
   const [nuevaEn, setNuevaEn] = useState<string | null>(null);
   const [editando, setEditando] = useState<ApiEmisora | null>(null);
-
-  const pestanas: { id: Pestana; label: string }[] = [
-    { id: 'emisoras', label: 'Emisoras y estaciones' },
-    { id: 'programacion', label: 'Programación' },
-  ];
 
   const borrar = async (e: ApiEmisora) => {
     const ok = await confirmar({ title: `¿Eliminar la estación "${e.name}"?`, text: 'Se borran también sus programas y horarios. Los audios quedan en el archivo.', type: 'danger', confirmText: 'Eliminar' });
@@ -81,23 +71,14 @@ export const EmisorasPage: React.FC = () => {
           <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">Emisoras y estaciones</h1>
           <p className="text-sm text-muted-foreground mt-1">Una emisora contiene sus estaciones. Cada estación transmite, tiene su AutoDJ y su archivo.</p>
         </div>
-        {admin && pestana === 'emisoras' && (
+        {admin && (
           <Button type="button" size="sm" className="text-xs" onClick={() => irA('/emisoras/nueva')}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> Nueva emisora
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Nueva emisora de un tercero
           </Button>
         )}
       </div>
 
-      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-secondary/50 border border-border">
-        {pestanas.map((p) => (
-          <button key={p.id} type="button" onClick={() => setPestana(p.id)} className={cn('px-4 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors', pestana === p.id ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground')}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      {pestana === 'emisoras' && (
-        <div className="space-y-6">
+      <div className="space-y-6">
           {radios.isLoading && <p className="text-xs text-muted-foreground">Cargando…</p>}
           {!radios.isLoading && listaRadios.length === 0 && <p className="text-xs text-muted-foreground">Todavía no hay emisoras.</p>}
           {listaRadios.map((r) => {
@@ -150,7 +131,14 @@ export const EmisorasPage: React.FC = () => {
                         {suyas.map((e) => (
                           <tr key={e.id} className="border-b border-border/40">
                             <td className="px-4 py-2.5">
-                              <p className="font-semibold">{e.name}</p>
+                              <div className="flex items-center gap-3">
+                                {e.imageUrl ? (
+                                  <img src={e.imageUrl} alt="" className="h-9 w-14 shrink-0 rounded-md border border-border object-cover" />
+                                ) : (
+                                  <div className="flex h-9 w-14 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground"><Radio className="h-3.5 w-3.5" /></div>
+                                )}
+                                <button type="button" onClick={() => irA(`/estacion/${e.id}`)} className="font-semibold text-left hover:text-primary hover:underline cursor-pointer">{e.name}</button>
+                              </div>
                               <p className="font-mono text-muted-foreground">{e.slug}{e.transmision.mountPoint ? ` · ${e.transmision.mountPoint}` : ''}</p>
                             </td>
                             <td className="px-4 py-2.5">
@@ -159,8 +147,8 @@ export const EmisorasPage: React.FC = () => {
                             <td className="px-4 py-2.5"><EstadoRadio emisora={e} /></td>
                             <td className="px-4 py-2.5">
                               <div className="flex justify-end gap-1">
-                                <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => irA(`/archivos?estacion=${e.id}`)}><Archive className="h-3.5 w-3.5 mr-1" /> Archivo</Button>
-                                <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => irA(`/tablero?estacion=${e.id}`)}><ListMusic className="h-3.5 w-3.5 mr-1" /> Playlists</Button>
+                                <Button type="button" size="sm" className="text-xs" onClick={() => irA(`/estacion/${e.id}`)}>Abrir</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => irA(`/archivos?emisora=${e.radioId}`)}><Archive className="h-3.5 w-3.5 mr-1" /> Audios y listas</Button>
                                 {admin && (
                                   <>
                                     <Button type="button" variant="ghost" size="sm" aria-label="Editar estación" onClick={() => setEditando(e)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -179,9 +167,6 @@ export const EmisorasPage: React.FC = () => {
             );
           })}
         </div>
-      )}
-
-      {pestana === 'programacion' && <ProgramacionTab emisoras={listaEstaciones} />}
 
       {nuevaEn && <EstacionDialog estacion={null} emisoras={listaRadios} radioIdInicial={nuevaEn} onClose={() => setNuevaEn(null)} />}
       {editando && <EstacionDialog estacion={editando} emisoras={listaRadios} onClose={() => setEditando(null)} />}
@@ -191,7 +176,7 @@ export const EmisorasPage: React.FC = () => {
 
 // Programación de UNA emisora: un solo selector, dos botones (Nuevo programa / Agregar horario),
 // y el horario como calendario o como tabla.
-const ProgramacionTab: React.FC<{ emisoras: ApiEmisora[] }> = ({ emisoras }) => {
+export const ProgramacionTab: React.FC<{ emisoras: ApiEmisora[] }> = ({ emisoras }) => {
   const [emisoraId, setEmisoraId] = useState<string>('');
   const [vista, setVista] = useState<'calendario' | 'tabla'>('calendario');
   const [horarioNuevo, setHorarioNuevo] = useState<{ dayOfWeek: number; startTime: string; endTime: string } | null>(null);
@@ -245,13 +230,6 @@ const ProgramacionTab: React.FC<{ emisoras: ApiEmisora[] }> = ({ emisoras }) => 
         </div>
       </div>
 
-      {emisora && (
-        <p className="text-xs text-muted-foreground">
-          Cuando no hay programa suena: <strong className="text-foreground">{RELLENO_ETIQUETA[emisora.transmision.autodjEnabled ? 'musica' : 'ninguno']}</strong>
-          {' · '}
-          <button type="button" className="text-primary underline cursor-pointer" onClick={() => irA(`/estaciones/${emisora.id}`)}>cambiar</button>
-        </p>
-      )}
 
       {programas.isSuccess && listaProgramas.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-4 text-xs">

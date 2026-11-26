@@ -5,11 +5,13 @@ import { luzApi } from '../../../shared/api/luz-api';
 export const useServicioRadio = () =>
   useQuery({ queryKey: ['gestion', 'radio', 'servicio'], queryFn: () => luzApi.getServicioRadio(), refetchInterval: 30_000 });
 
-export const useTransmision = (emisoraId: string | null) =>
+// `refrescarMs`: si la pantalla muestra lo que suena ahora, se actualiza sola (p. ej. cada 5 s)
+export const useTransmision = (emisoraId: string | null, refrescarMs?: number) =>
   useQuery({
     queryKey: ['gestion', 'radio', 'transmision', emisoraId ?? ''],
     queryFn: () => luzApi.getTransmision(emisoraId as string),
     enabled: Boolean(emisoraId),
+    refetchInterval: refrescarMs,
   });
 
 // Quién transmite con el emisor de Windows (se refresca solo)
@@ -41,4 +43,13 @@ export const usePlaylists = (emisoraId: string | null) =>
     queryKey: ['gestion', 'radio', 'playlists', emisoraId ?? ''],
     queryFn: () => luzApi.listPlaylists(emisoraId as string),
     enabled: Boolean(emisoraId),
+  });
+
+// Lo que suena ahora: se refresca cada 5 segundos
+export const useAhoraSuena = (estacionId: string | null) =>
+  useQuery({
+    queryKey: ['gestion', 'radio', 'ahora', estacionId ?? ''],
+    queryFn: () => luzApi.getAhoraSuena(estacionId as string),
+    enabled: Boolean(estacionId),
+    refetchInterval: 5000,
   });

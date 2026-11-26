@@ -121,10 +121,12 @@ export const TransmisionDialog: React.FC<TransmisionDialogProps> = ({ emisora, t
         </div>
         <div className="flex items-end">
           <label className="flex items-center gap-3 cursor-pointer">
-            <Switch checked={autodj} onCheckedChange={setAutodj} id="tr-autodj" />
+            <Switch checked={autodj} onCheckedChange={setAutodj} id="tr-autodj" disabled={transmision.autodjEnabled} />
             <span>
               <span className="block font-medium">Música automática (AutoDJ)</span>
-              <span className="block text-[11px] text-muted-foreground">Cuando no hay locutor, suenan las playlists.</span>
+              <span className="block text-[11px] text-muted-foreground">
+                {transmision.autodjEnabled ? 'Se eligió al crear la estación: no se puede apagar.' : 'Cuando no hay locutor, suenan las listas. Solo se puede encender si se creó sin AutoDJ.'}
+              </span>
             </span>
           </label>
         </div>
