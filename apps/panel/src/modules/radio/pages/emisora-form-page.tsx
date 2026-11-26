@@ -9,7 +9,7 @@ import { ApiRadio, luzApi } from '../../../shared/api/luz-api';
 import { useUsuarios } from '../../usuarios/hooks/use-usuarios';
 import { useMutacionGestion, useRadios } from '../../gestion/hooks/use-gestion';
 import { irA } from '../../gestion/lib/navegar';
-import { useAreas } from '../../contenido/hooks/use-contenido';
+import { confirmar } from '../../../shared/lib/confirm';
 import { EtiquetaCampo, claseTextarea } from '../../contenido/components/dialogo-contenido';
 import { ImagenCampo } from '../../contenido/components/imagen-campo';
 import { slugDe } from '../../contenido/components/area-dialog';
@@ -37,7 +37,6 @@ const Interruptor: React.FC<{ id: string; titulo: string; checked: boolean; disa
 );
 
 export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisora }) => {
-  const areas = useAreas();
   const usuarios = useUsuarios();
   const radios = useRadios();
   const otraPrincipal = (radios.data ?? []).some((r) => r.isMain && r.id !== emisora?.id);
@@ -51,7 +50,8 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
   );
 
   // Estados que se ofrecen: «Borrador» solo aparece si la emisora ya estaba en borrador.
-  const estadosOfrecidos = (Object.keys(ETIQUETA_ESTADO) as Estado[]).filter((e) => e !== 'draft' || emisora?.status === 'draft');
+  // La principal es la que se ve en la web: siempre activa (no se suspende ni se deshabilita)
+  const estadosOfrecidos = emisora?.isMain ? (['active'] as Estado[]) : (Object.keys(ETIQUETA_ESTADO) as Estado[]).filter((e) => e !== 'draft' || emisora?.status === 'draft');
 
   const form = useForm({
     defaultValues: {
@@ -63,7 +63,6 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
       imageUrl: emisora?.imageUrl ?? null,
       ownerUserId: emisora?.ownerUserId ?? '',
       isMain: emisora?.isMain ?? false,
-      areaId: emisora?.areaId ?? '',
       operatedByName: emisora?.operatedByName ?? '',
       visibleInMinistry: emisora?.visibleInMinistry ?? true,
       status: (emisora?.status ?? 'active') as Estado,
@@ -83,7 +82,7 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
         imageUrl: value.imageUrl,
         ownerUserId: value.kind === 'external' ? value.ownerUserId || null : null,
         isMain: value.isMain,
-        areaId: value.areaId || null,
+        areaId: null,
         operatedByName: value.kind === 'external' ? value.operatedByName.trim() || null : null,
         visibleInMinistry: value.visibleInMinistry,
         status: value.status,
@@ -200,17 +199,6 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
               </div>
             )}
           </form.Field>
-          <form.Field name="areaId">
-            {(f) => (
-              <div>
-                <EtiquetaCampo htmlFor="emisora-area">Área</EtiquetaCampo>
-                <SelectField id="emisora-area" value={f.state.value} onChange={(e) => f.handleChange(e.target.value)}>
-                  <option value="">Sin área</option>
-                  {(areas.data ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </SelectField>
-              </div>
-            )}
-          </form.Field>
           <form.Subscribe selector={(st) => st.values.kind}>
             {(tipo) =>
               tipo === 'external' ? (
@@ -246,7 +234,7 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
             {(f) => (
               <div className="sm:col-span-2">
                 <EtiquetaCampo htmlFor="emisora-estado">Estado</EtiquetaCampo>
-                <SelectField id="emisora-estado" value={f.state.value} onChange={(e) => f.handleChange(e.target.value as Estado)}>
+                <SelectField id="emisora-estado" value={f.state.value} disabled={emisora?.isMain} onChange={(e) => f.handleChange(e.target.value as Estado)}>
                   {estadosOfrecidos.map((valor) => <option key={valor} value={valor}>{ETIQUETA_ESTADO[valor]}</option>)}
                 </SelectField>
               </div>
@@ -254,7 +242,24 @@ export const EmisoraFormPage: React.FC<{ emisora: ApiRadio | null }> = ({ emisor
           </form.Field>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:col-span-2">
             <form.Field name="visibleInMinistry">
-              {(f) => <Interruptor id="emisora-visible" titulo="Visible en la web" checked={f.state.value} onChange={(v) => f.handleChange(v)} />}
+              {(f) => (
+                <Interruptor
+                  id="emisora-visible"
+                  titulo="Visible en la web"
+                  checked={f.state.value}
+                  onChange={async (v) => {
+                    if (v) return f.handleChange(true);
+                    // Ocultarla quita la emisora de la web: se pide confirmación
+                    const ok = await confirmar({
+                      title: emisora?.isMain ? '¿Ocultar la emisora principal en la web?' : '¿Ocultar esta emisora en la web?',
+                      text: 'Dejará de aparecer en la web y en la app. Puedes volver a mostrarla cuando quieras.',
+                      type: 'warning',
+                      confirmText: 'Sí, ocultar',
+                    });
+                    if (ok) f.handleChange(false);
+                  }}
+                />
+              )}
             </form.Field>
             {/* La principal es solo de la emisora del ministerio; una emisora de tercero nunca lo es. */}
             <form.Subscribe selector={(st) => st.values.kind}>

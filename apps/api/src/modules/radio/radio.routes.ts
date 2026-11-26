@@ -147,6 +147,7 @@ radioRoutes.patch('/emisoras/:id', requirePermission(PERMISO), async (c) => {
   }
   // La principal es la del ministerio: no se quita y no cambia de tipo (sin ella la radio queda sin principal)
   if (actual.isMain && d.isMain === false) return c.json({ error: 'validacion', campo: 'isMain', message: 'La emisora principal no se puede quitar.' }, 422);
+  if (actual.isMain && d.status !== 'active') return c.json({ error: 'validacion', campo: 'status', message: 'La emisora principal siempre está activa: no se suspende ni se deshabilita.' }, 422);
   if (actual.isMain && d.kind !== 'own') return c.json({ error: 'validacion', campo: 'kind', message: 'La emisora principal es del ministerio: no puede pasar a ser de un tercero.' }, 422);
   // Solo puede haber una emisora del ministerio
   if (d.kind === 'own' && actual.kind !== 'own') {
