@@ -86,6 +86,28 @@ export function useFormularioTransmision(emisora: ApiEmisora, transmision: ApiTr
   };
 }
 
+// Qué significa cada calidad y cuánto consume, para decidir sin adivinar.
+const CALIDAD_AYUDA: Record<number, string> = {
+  64: 'Voz clara, para oyentes con internet lento. La música se nota comprimida.',
+  96: 'Voz y música aceptables con poco consumo.',
+  128: 'Equilibrio recomendado para voz y música.',
+  192: 'Música con buena calidad. Consume más.',
+  256: 'Música de alta calidad. Consume bastante más.',
+  320: 'Máxima calidad MP3. Solo si el servidor y los oyentes lo soportan.',
+};
+
+const CalidadResumen: React.FC<{ kbps: number; oyentes: number }> = ({ kbps, oyentes }) => {
+  const mbPorHora = Math.round((kbps * 3600) / 8 / 1000);
+  const subidaMbps = ((kbps * (oyentes || 0)) / 1000).toFixed(1);
+  return (
+    <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+      <p>{CALIDAD_AYUDA[kbps]}</p>
+      <p>Cada oyente gasta unos {mbPorHora} MB por hora. Con {oyentes || 0} oyentes a la vez, el servidor sube unos {subidaMbps} Mbps.</p>
+      <p className="text-amber-600 dark:text-amber-400">Cambiar la calidad reinicia la radio unos segundos, y esa pausa la sienten todas las emisoras.</p>
+    </div>
+  );
+};
+
 // Los campos del formulario, sin marco: se ponen dentro de una sección de la pestaña o de un diálogo.
 export const CamposTransmision: React.FC<{
   emisora: ApiEmisora;
@@ -120,6 +142,7 @@ export const CamposTransmision: React.FC<{
         <SelectField id="tr-bitrate" value={f.bitrate} onChange={(e) => f.setBitrate(Number(e.target.value))}>
           {BITRATES.map((b) => <option key={b} value={b}>{b} kbps{b === 128 ? ' (recomendada)' : ''}</option>)}
         </SelectField>
+        <CalidadResumen kbps={f.bitrate} oyentes={f.maxOyentes} />
       </div>
     </div>
 
